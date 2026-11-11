@@ -1,0 +1,32 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+  "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+  "spec": {
+    "operation": "shell",
+    "shell": {
+      "executable": "/bin/sh"
+    },
+    "attachment": "endpoint",
+    "endpoint": {
+      "mode": "exec"
+    },
+    "idempotencyKey": "build-2026-01-02.1"
+  },
+  "status": {
+    "phase": "ready",
+    "readyBy": "2026-01-02T03:06:05Z",
+    "attachBy": "2026-01-02T03:06:09Z",
+    "expiresAt": "2026-01-02T04:04:09Z",
+    "endpoint": {
+      "requestId": "build-2026-01-02.1",
+      "mode": "exec",
+      "epoch": 12,
+      "runtimeInstance": "task-3",
+      "placement": {
+        "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+        "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+        "sequence": 3
+      }
+    }
+  }
+}

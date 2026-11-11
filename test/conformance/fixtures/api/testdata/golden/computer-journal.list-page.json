@@ -1,0 +1,75 @@
+{
+  "items": [
+    {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab35",
+      "seq": 4,
+      "kind": "cell",
+      "admittedAt": "2026-01-02T03:08:07Z",
+      "cell": {
+        "id": "01954e20-7540-7ec4-93ec-14f783e6ab35",
+        "session": "01954e20-7540-7ec4-93ec-14f783e6ab23",
+        "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+        "creator": "developer@example.com",
+        "client": "sdk",
+        "mode": "endpoint-cell",
+        "terminal": false,
+        "command": {},
+        "state": "ended",
+        "recording": "recorded",
+        "startedAt": "2026-01-02T03:04:09.25Z",
+        "endedAt": "2026-01-02T03:05:41Z",
+        "process": {
+          "outcome": "signaled",
+          "signal": "SIGKILL"
+        },
+        "termination": "deadline",
+        "output": {
+          "stdoutBytes": 1048576,
+          "stderrBytes": 96,
+          "stored": "none"
+        }
+      }
+    },
+    {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab33",
+      "seq": 3,
+      "kind": "cell",
+      "admittedAt": "2026-01-02T03:07:07Z",
+      "cell": {
+        "id": "01954e20-7540-7ec4-93ec-14f783e6ab33",
+        "session": "01954e20-7540-7ec4-93ec-14f783e6ab21",
+        "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+        "creator": "developer@example.com",
+        "client": "cli",
+        "mode": "exec",
+        "terminal": false,
+        "command": {
+          "exec": {
+            "argv": [
+              "/bin/sh",
+              "-c",
+              "make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make test; make t"
+            ],
+            "truncated": true
+          }
+        },
+        "state": "ended",
+        "recording": "recorded",
+        "startedAt": "2026-01-02T03:04:09.25Z",
+        "endedAt": "2026-01-02T03:05:41Z",
+        "process": {
+          "outcome": "exited",
+          "exitCode": 0
+        },
+        "termination": "exited",
+        "output": {
+          "stdoutBytes": 18204,
+          "stderrBytes": 0,
+          "stored": "none"
+        }
+      }
+    }
+  ],
+  "totalCount": 5,
+  "continue": "eyJwYWdlIjoxfQ"
+}

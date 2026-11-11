@@ -1,0 +1,61 @@
+# Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
+#
+# Publishes @idyl-sh/sdk to npm when a version tag such as v0.1.0 is pushed.
+# The tag must name a commit on main and match the version in package.json.
+# The release is built from scratch, held to the full `pnpm check`, and
+# published through npm trusted publishing: npm verifies this workflow's
+# OpenID Connect identity, so no npm token is stored anywhere, and the
+# package carries a provenance statement naming this repository, workflow
+# and commit.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      # The OpenID Connect token for trusted publishing and provenance.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require the tag to be on main and to match the package version
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          version=$(node -p 'require("./package.json").version')
+          test "v$version" = "$GITHUB_REF_NAME"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Use the pinned pnpm
+        run: corepack enable
+      - name: Install wasm-bindgen, wasm-opt and gitleaks
+        run: |
+          scripts/ci/install-tools.sh "$RUNNER_TEMP/tools/bin"
+          echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
+      - name: Install the pinned Rust toolchain
+        working-directory: wasm
+        run: rustup toolchain install
+      - name: Use an LLVM clang for the WebAssembly target
+        run: scripts/ci/wasm-cc.sh >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Publish with provenance
+        run: npm publish --provenance --access public

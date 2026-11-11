@@ -1,0 +1,12 @@
+{
+  "operation": "shell",
+  "shell": {
+    "executable": "/bin/sh"
+  },
+  "attachment": "endpoint",
+  "endpoint": {
+    "mode": "exec"
+  },
+  "idempotencyKey": "build-2026-01-02.1",
+  "client": "cli"
+}

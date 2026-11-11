@@ -1,0 +1,22 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+  "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+  "spec": {
+    "operation": "shell",
+    "shell": {
+      "executable": "/bin/sh"
+    },
+    "attachment": "endpoint",
+    "endpoint": {
+      "mode": "cell"
+    },
+    "notebook": "build",
+    "idempotencyKey": "build-2026-01-02.1",
+    "client": "sdk"
+  },
+  "status": {
+    "phase": "pending",
+    "reason": "NotebookBusy",
+    "readyBy": "2026-01-02T03:06:05Z"
+  }
+}

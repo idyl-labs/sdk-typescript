@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "declaration": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "paths": {
+      "@idyl-sh/sdk": ["./src/index.ts"],
+      "@idyl-sh/sdk/computer-connection": ["./src/computer-connection/index.ts"]
+    }
+  },
+  "include": ["examples/**/*.ts"]
+}

@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab53",
+      "kind": "auto_refill",
+      "amountMicros": 20000000,
+      "state": "failed",
+      "reason": "PAYMENT_DECLINED",
+      "createdAt": "2026-10-27T09:00:00Z"
+    },
+    {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab52",
+      "kind": "manual",
+      "amountMicros": 10000000,
+      "state": "paid",
+      "createdAt": "2026-10-27T09:00:00Z"
+    }
+  ],
+  "totalCount": 2
+}

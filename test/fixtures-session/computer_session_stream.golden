@@ -1,0 +1,36 @@
+close-input	{"type":"close_input"}
+end	{"type":"end"}
+error	{"type":"error","code":"not_granted","message":"no grant was installed for the request"}
+error-bare	{"type":"error","code":"busy"}
+exit-code	{"type":"exit","code":0}
+exit-failed	{"type":"exit","code":1}
+exit-signal	{"type":"exit","signal":"SIGKILL"}
+listing	{"type":"listing","path":"src","entries":[{"name":"lib","type":"dir","size":0,"mode":493,"modified":1761650000000},{"name":"link","type":"symlink","size":7,"mode":511,"modified":1761650000000,"target":"main.go"},{"name":"main.go","type":"file","size":120,"mode":420,"modified":1761650000000}],"more":false}
+listing-more	{"type":"listing","path":"src","entries":[{"name":"a.txt","type":"file","size":1,"mode":420,"modified":1761650000000}],"more":true}
+listing-problem	{"type":"listing","path":"gone","entries":[],"more":false,"problem":"not_found"}
+listing-truncated	{"type":"listing","path":"big","entries":[{"name":"f00000","type":"file","size":0,"mode":420,"modified":1761650000000}],"more":false,"truncated":true}
+open-cell	{"type":"open","profile":"workload-session/json-v2","requestID":"req-3","mode":"cell","script":"make test","tty":false}
+open-exec	{"type":"open","profile":"workload-session/json-v2","requestID":"req-2","mode":"exec","command":["ls","-la","/workspace"],"tty":false}
+open-exec-features	{"type":"open","profile":"workload-session/json-v2","requestID":"req-4","mode":"exec","command":["make","test"],"tty":false,"features":["save-result","reattach"]}
+open-exec-tty	{"type":"open","profile":"workload-session/json-v2","requestID":"req-2","mode":"exec","command":["top"],"tty":true,"size":{"cols":80,"rows":24},"term":"xterm"}
+open-files	{"type":"open","profile":"workload-session/json-v2","requestID":"req-7","mode":"files","tty":false}
+open-reattach	{"type":"open","profile":"workload-session/json-v2","requestID":"req-5","mode":"reattach","tty":false,"session":"session-1","cursor":4096,"features":["save-result","reattach"]}
+open-records	{"type":"open","profile":"workload-session/json-v2","requestID":"req-6","mode":"records","tty":false,"notebook":"01954e20-7540-7ec4-93ec-14f783e6ab60","after":3}
+open-shell	{"type":"open","profile":"workload-session/json-v2","requestID":"req-1","mode":"shell","shell":"/bin/bash","tty":true,"size":{"cols":120,"rows":40},"term":"xterm-256color","locale":"en_US.UTF-8"}
+open-shell-automatic	{"type":"open","profile":"workload-session/json-v2","requestID":"req-1","mode":"shell","tty":true,"size":{"cols":80,"rows":24},"term":"xterm"}
+open-ssh	{"type":"open","profile":"workload-session/json-v2","requestID":"req-8","mode":"ssh","tty":false,"features":["raw-after-opened"]}
+opened	{"type":"opened","session":"session-1"}
+opened-reattach	{"type":"opened","session":"session-1","cursor":0,"dropped":true}
+opened-shell	{"type":"opened","session":"session-1","shell":"/bin/bash"}
+opened-ssh	{"type":"opened","session":"session-1","hostKey":"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBfLefsrQSDysexl5BmNbgiyjoE/6wHkpACDm4XhgIDO"}
+record	{"type":"record","cell":"01954e20-7540-7ec4-93ec-14f783e6ab61","order":4,"meta":{"command":"make test","exitCode":0}}
+record-output	{"type":"record_output","cell":"01954e20-7540-7ec4-93ec-14f783e6ab61","stream":"stdout","data":"b2sK"}
+records-end	{"type":"records_end","count":1}
+resize	{"type":"resize","size":{"cols":100,"rows":30}}
+saved-failed	{"type":"saved","outcome":"failed","reason":"the store is unavailable"}
+saved-published	{"type":"saved","outcome":"published","revision":42}
+stderr	{"type":"stderr","data":"/wB4"}
+stdin	{"type":"stdin","data":"bHMN"}
+stdout	{"type":"stdout","data":"dG90YWwgMA0K"}
+unwatch	{"type":"unwatch","path":"src/app"}
+watch	{"type":"watch","path":"src/app"}

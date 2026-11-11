@@ -1,0 +1,28 @@
+# Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
+
+# The Rust side of the browser Computer connection: the TLS crypto provider
+# and the sans-IO connection the package's Worker runs as WebAssembly.
+[workspace]
+resolver = "2"
+members = ["provider", "connection"]
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+rust-version = "1.96"
+
+[workspace.dependencies]
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std"] }
+rustls-webpki = { version = "=0.103.16", default-features = false, features = ["ring", "std"] }
+rustls-pki-types = { version = "=1.15.1", features = ["std"] }
+ring = { version = "=0.17.14", default-features = false }
+libcrux-ml-kem = { version = "=0.0.11", default-features = false, features = ["mlkem768"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+debug = false

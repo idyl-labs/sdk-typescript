@@ -1,0 +1,9 @@
+{
+  "purchase": {
+    "id": "01954e20-7540-7ec4-93ec-14f783e6ab52",
+    "kind": "manual",
+    "amountMicros": 10000000,
+    "state": "paid",
+    "createdAt": "2026-10-27T09:00:00Z"
+  }
+}

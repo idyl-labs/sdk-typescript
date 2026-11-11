@@ -1,0 +1,8 @@
+{
+  "error": "the computer does not fit a host of the subnet",
+  "code": "COMPUTER_DOES_NOT_FIT",
+  "details": {
+    "maxCPU": "2",
+    "maxMemory": "4Gi"
+  }
+}

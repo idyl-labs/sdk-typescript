@@ -1,0 +1,49 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab39",
+  "seq": 3,
+  "kind": "execution-settings",
+  "admittedAt": "2026-01-02T03:06:00Z",
+  "executionSettings": {
+    "cause": "image-patch",
+    "settings": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ]
+    },
+    "revision": 3,
+    "changed": [],
+    "imagePatch": {
+      "name": "python-3.12-ubuntu-24.04",
+      "from": {
+        "patch": "2026.01.01",
+        "image": "registry.example.com/python@sha256:0101010101010101010101010101010101010101010101010101010101010101"
+      },
+      "to": {
+        "patch": "2026.01.02.2",
+        "image": "registry.example.com/python@sha256:0202020202020202020202020202020202020202020202020202020202020202"
+      }
+    }
+  }
+}

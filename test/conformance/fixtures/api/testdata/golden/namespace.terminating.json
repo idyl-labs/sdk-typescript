@@ -1,0 +1,39 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab06",
+  "accountId": "550000000001",
+  "name": "production",
+  "description": "Production services",
+  "phase": "terminating",
+  "terminatingAt": "2026-01-02T05:06:07Z",
+  "termination": {
+    "computersRemaining": 1,
+    "zones": [
+      {
+        "zone": "zone-a",
+        "acknowledged": true,
+        "reportedAt": "2026-01-02T05:06:37Z",
+        "remaining": [
+          {
+            "kind": "Pod",
+            "count": 2
+          },
+          {
+            "kind": "Service",
+            "count": 1
+          },
+          {
+            "kind": "Secret",
+            "count": 0
+          }
+        ]
+      },
+      {
+        "zone": "zone-b",
+        "acknowledged": false,
+        "remaining": []
+      }
+    ]
+  },
+  "createdAt": "2026-01-02T03:04:05Z",
+  "updatedAt": "2026-01-02T04:05:06Z"
+}

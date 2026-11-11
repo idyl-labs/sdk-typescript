@@ -1,0 +1,7 @@
+{
+  "name": "source",
+  "type": "file",
+  "mode": 420,
+  "size": 123,
+  "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+}

@@ -1,0 +1,469 @@
+[
+  {
+    "case": "a session without its Computer",
+    "refusal": "computer: computer ID must be a canonical UUID",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "ready",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "expiresAt": "2026-01-02T04:04:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 12,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "an ID that is not canonical",
+    "refusal": "computer session ID must be a canonical UUID",
+    "value": {
+      "id": "01954E20-7540-7EC4-93EC-14F783E6AB20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "ready",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "expiresAt": "2026-01-02T04:04:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 12,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "a notebook on an interactive shell",
+    "refusal": "spec: a cell or a records stream names its notebook, and only those do",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "shell"
+        },
+        "notebook": "build",
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "ready",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "expiresAt": "2026-01-02T04:04:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 12,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "an attachment other than the endpoint",
+    "refusal": "spec: attachment \"ssh\" is not offered for Computer sessions",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "ssh",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "ready",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "expiresAt": "2026-01-02T04:04:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 12,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "a phase this version does not name",
+    "refusal": "unknown computer session phase \"suspended\"",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "suspended",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "expiresAt": "2026-01-02T04:04:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 12,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "a reason this version does not name",
+    "refusal": "unknown computer session reason \"Queued\"",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "pending",
+        "reason": "Queued",
+        "readyBy": "2026-01-02T03:06:05Z"
+      }
+    }
+  },
+  {
+    "case": "no ready deadline",
+    "refusal": "status.readyBy is required",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "ready",
+        "readyBy": "0001-01-01T00:00:00Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "expiresAt": "2026-01-02T04:04:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 12,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "a failed session without a reason",
+    "refusal": "status.reason is required in phase failed",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "failed",
+        "readyBy": "2026-01-02T03:06:05Z"
+      }
+    }
+  },
+  {
+    "case": "an ended session without a reason",
+    "refusal": "status.reason is required in phase ended",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "ended",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "expiresAt": "2026-01-02T04:04:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 12,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "a pending session with an attach deadline",
+    "refusal": "status.attachBy and status.expiresAt must be absent in phase pending",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "pending",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "expiresAt": "2026-01-02T04:04:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 12,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "a ready session without an attach deadline",
+    "refusal": "status.attachBy is required in phase ready",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "ready",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "expiresAt": "2026-01-02T04:04:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 12,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "a ready session without an expiry",
+    "refusal": "status.expiresAt is required in phase ready",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "ready",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 12,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "a ready session without its endpoint",
+    "refusal": "status.endpoint is required in phase ready",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "ready",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "expiresAt": "2026-01-02T04:04:09Z"
+      }
+    }
+  },
+  {
+    "case": "an endpoint without its epoch",
+    "refusal": "endpoint.epoch must be at least 1",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "spec": {
+        "operation": "shell",
+        "shell": {
+          "executable": "/bin/sh"
+        },
+        "attachment": "endpoint",
+        "endpoint": {
+          "mode": "exec"
+        },
+        "idempotencyKey": "build-2026-01-02.1"
+      },
+      "status": {
+        "phase": "ready",
+        "readyBy": "2026-01-02T03:06:05Z",
+        "attachBy": "2026-01-02T03:06:09Z",
+        "expiresAt": "2026-01-02T04:04:09Z",
+        "endpoint": {
+          "requestId": "build-2026-01-02.1",
+          "mode": "exec",
+          "epoch": 0,
+          "runtimeInstance": "task-3",
+          "placement": {
+            "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+            "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+            "sequence": 3
+          }
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "since": "2026-01-02T04:05:06Z",
+  "holds": [
+    {
+      "kind": "keep-awake",
+      "count": 0
+    },
+    {
+      "kind": "session",
+      "count": 1
+    }
+  ]
+}

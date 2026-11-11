@@ -1,0 +1,11 @@
+{
+  "error": "network class internet is not admitted in the subnet",
+  "code": "NETWORK_CLASS_NOT_ADMITTED",
+  "details": {
+    "allowed": [
+      "none",
+      "restricted-egress"
+    ],
+    "class": "internet"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "id": "00000000-0000-4000-8000-000000000101",
+  "seq": 2,
+  "kind": "execution-settings",
+  "admittedAt": "2026-01-02T03:06:00Z",
+  "origin": {
+    "source": {
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04"
+    },
+    "entry": "01954e20-7540-7ec4-93ec-14f783e6ab38"
+  },
+  "executionSettings": {
+    "cause": "settings",
+    "settings": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ]
+    },
+    "revision": 3,
+    "changed": [
+      "image",
+      "cpu",
+      "network",
+      "variables.LOG_LEVEL"
+    ],
+    "creator": "developer@example.com",
+    "client": "console"
+  }
+}

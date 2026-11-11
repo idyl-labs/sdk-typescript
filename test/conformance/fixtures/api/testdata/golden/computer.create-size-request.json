@@ -1,0 +1,10 @@
+{
+  "name": "payments",
+  "subnet": "550000000002",
+  "spec": {
+    "execution": {
+      "size": "small"
+    }
+  },
+  "client": "cli"
+}

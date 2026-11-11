@@ -1,0 +1,122 @@
+[
+  {
+    "case": "a name not in catalog form",
+    "refusal": "name: must be 1 to 63 lowercase letters, digits, '.', and '-', beginning and ending with a letter or digit",
+    "value": {
+      "name": "Ubuntu 24.04",
+      "displayName": "Ubuntu 24.04 LTS",
+      "description": "bash",
+      "os": {
+        "name": "ubuntu",
+        "version": "24.04"
+      },
+      "gpu": false,
+      "image": "registry.example.com/ubuntu@sha256:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "patch": "2026.01.02",
+      "default": true
+    }
+  },
+  {
+    "case": "no display name",
+    "refusal": "displayName is required",
+    "value": {
+      "name": "ubuntu-24.04",
+      "displayName": "",
+      "description": "bash",
+      "os": {
+        "name": "ubuntu",
+        "version": "24.04"
+      },
+      "gpu": false,
+      "image": "registry.example.com/ubuntu@sha256:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "patch": "2026.01.02",
+      "default": true
+    }
+  },
+  {
+    "case": "no OS version",
+    "refusal": "os.name and os.version are required",
+    "value": {
+      "name": "ubuntu-24.04",
+      "displayName": "Ubuntu 24.04 LTS",
+      "description": "bash",
+      "os": {
+        "name": "ubuntu",
+        "version": ""
+      },
+      "gpu": false,
+      "image": "registry.example.com/ubuntu@sha256:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "patch": "2026.01.02",
+      "default": true
+    }
+  },
+  {
+    "case": "an image by tag",
+    "refusal": "image must be pinned by a sha256 digest",
+    "value": {
+      "name": "ubuntu-24.04",
+      "displayName": "Ubuntu 24.04 LTS",
+      "description": "bash",
+      "os": {
+        "name": "ubuntu",
+        "version": "24.04"
+      },
+      "gpu": false,
+      "image": "registry.example.com/ubuntu:24.04",
+      "patch": "2026.01.02",
+      "default": true
+    }
+  },
+  {
+    "case": "a patch level not in its form",
+    "refusal": "patch: must be YYYY.MM.DD with an optional .N",
+    "value": {
+      "name": "ubuntu-24.04",
+      "displayName": "Ubuntu 24.04 LTS",
+      "description": "bash",
+      "os": {
+        "name": "ubuntu",
+        "version": "24.04"
+      },
+      "gpu": false,
+      "image": "registry.example.com/ubuntu@sha256:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "patch": "2026.1.2",
+      "default": true
+    }
+  },
+  {
+    "case": "a patch level on no calendar date",
+    "refusal": "patch: must name a calendar date",
+    "value": {
+      "name": "ubuntu-24.04",
+      "displayName": "Ubuntu 24.04 LTS",
+      "description": "bash",
+      "os": {
+        "name": "ubuntu",
+        "version": "24.04"
+      },
+      "gpu": false,
+      "image": "registry.example.com/ubuntu@sha256:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "patch": "2026.02.30",
+      "default": true
+    }
+  },
+  {
+    "case": "a class a Computer may not select",
+    "refusal": "isolation: must be secure-container or vm",
+    "value": {
+      "name": "ubuntu-24.04",
+      "displayName": "Ubuntu 24.04 LTS",
+      "description": "bash",
+      "os": {
+        "name": "ubuntu",
+        "version": "24.04"
+      },
+      "gpu": false,
+      "image": "registry.example.com/ubuntu@sha256:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "patch": "2026.01.02",
+      "default": true,
+      "isolation": "microvm"
+    }
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "version": 0,
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab13",
+  "seq": 1,
+  "kind": "save",
+  "admittedAt": "2026-01-02T03:04:06Z",
+  "creator": "developer@example.com",
+  "save": {
+    "trigger": "request"
+  }
+}

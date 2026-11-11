@@ -1,0 +1,10 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab51",
+  "plan": "pro",
+  "state": "pending",
+  "action": {
+    "kind": "checkout",
+    "url": "https://checkout.example.com/pay/session-1",
+    "expiresAt": "2026-10-28T09:00:00Z"
+  }
+}

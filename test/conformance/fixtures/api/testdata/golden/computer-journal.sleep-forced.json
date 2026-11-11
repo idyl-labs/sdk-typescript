@@ -1,0 +1,12 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab3c",
+  "seq": 11,
+  "kind": "sleep",
+  "admittedAt": "2026-01-02T03:05:41Z",
+  "creator": "developer@example.com",
+  "client": "unknown",
+  "sleep": {
+    "reason": "request",
+    "forced": true
+  }
+}

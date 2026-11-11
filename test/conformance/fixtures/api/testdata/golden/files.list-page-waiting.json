@@ -1,0 +1,13 @@
+{
+  "items": [],
+  "totalCount": 0,
+  "syncing": true,
+  "store": {
+    "state": "unreachable",
+    "cause": "connection",
+    "since": "2026-01-02T03:04:05Z",
+    "waiting": 1,
+    "fillDone": 0,
+    "fillTotal": 0
+  }
+}

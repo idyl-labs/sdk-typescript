@@ -1,0 +1,41 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+  "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+  "spec": {
+    "operation": "shell",
+    "shell": {
+      "executable": "/bin/sh"
+    },
+    "attachment": "endpoint",
+    "endpoint": {
+      "mode": "cell"
+    },
+    "notebook": "build",
+    "idempotencyKey": "build-2026-01-02.1",
+    "client": "sdk"
+  },
+  "status": {
+    "cell": "01954e20-7540-7ec4-93ec-14f783e6ab40",
+    "save": {
+      "state": "saved",
+      "version": 7,
+      "entry": "01954e20-7540-7ec4-93ec-14f783e6ab41"
+    },
+    "phase": "ended",
+    "reason": "Exited",
+    "readyBy": "2026-01-02T03:06:05Z",
+    "attachBy": "2026-01-02T03:06:09Z",
+    "expiresAt": "2026-01-02T04:04:09Z",
+    "endpoint": {
+      "requestId": "build-2026-01-02.1",
+      "mode": "cell",
+      "epoch": 12,
+      "runtimeInstance": "task-3",
+      "placement": {
+        "node": "ERERERERERERERERERERERERERERERERERERERERERE",
+        "hostPod": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+        "sequence": 3
+      }
+    }
+  }
+}

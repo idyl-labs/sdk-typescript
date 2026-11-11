@@ -1,0 +1,8 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab3b",
+  "seq": 10,
+  "kind": "wake",
+  "admittedAt": "2026-01-02T03:05:41Z",
+  "creator": "developer@example.com",
+  "client": "cli"
+}

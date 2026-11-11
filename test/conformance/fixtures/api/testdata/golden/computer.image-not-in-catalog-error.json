@@ -1,0 +1,7 @@
+{
+  "error": "the subnet's image catalog holds no image named debian-11",
+  "code": "IMAGE_NOT_IN_CATALOG",
+  "details": {
+    "name": "debian-11"
+  }
+}

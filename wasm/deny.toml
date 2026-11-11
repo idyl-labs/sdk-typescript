@@ -1,0 +1,36 @@
+# Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
+
+# cargo-deny configuration for the workspace. Run from wasm/: cargo deny check
+
+[graph]
+# The package ships the WebAssembly build; the check covers that target's
+# dependency graph.
+targets = ["wasm32-unknown-unknown"]
+
+[advisories]
+# The RustSec advisory database. Vulnerabilities, unsound and unmaintained
+# advisories fail the check, as do yanked crates.
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+
+[licenses]
+# Permissive licences only.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "ISC",
+    "MIT",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# The workspace's own crates refer to each other by path.
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

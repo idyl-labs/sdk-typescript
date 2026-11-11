@@ -1,0 +1,32 @@
+{
+  "planChange": {
+    "plan": "max",
+    "idempotencyKey": "plan-1"
+  },
+  "planChangeKeep": {
+    "plan": "pro"
+  },
+  "purchase": {
+    "amountMicros": 20000000,
+    "idempotencyKey": "buy-1"
+  },
+  "purchaseMinimal": {
+    "amountMicros": 10000000
+  },
+  "updateAutoRefill": {
+    "autoRefill": {
+      "enabled": false,
+      "amountMicros": 50000000
+    }
+  },
+  "updateRemoveCap": {
+    "spendCapMicros": null
+  },
+  "updateSetCap": {
+    "autoRefill": {
+      "enabled": true,
+      "amountMicros": 20000000
+    },
+    "spendCapMicros": 100000000
+  }
+}

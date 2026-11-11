@@ -1,0 +1,13 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+  "state": "published",
+  "base": 0,
+  "lastActivityAt": "2026-01-02T03:04:05Z",
+  "idleExpiresAt": "2026-01-02T04:04:05Z",
+  "version": 0,
+  "delivery": {
+    "state": "retrying",
+    "replacedCount": 0,
+    "reason": "writer unavailable"
+  }
+}

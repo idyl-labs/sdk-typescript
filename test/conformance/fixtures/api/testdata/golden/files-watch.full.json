@@ -1,0 +1,48 @@
+{
+  "cursor": "c-2",
+  "syncing": true,
+  "changes": [
+    {
+      "path": "build",
+      "change": "many",
+      "status": "syncing"
+    },
+    {
+      "path": "notes.md",
+      "change": "changed",
+      "type": "file",
+      "size": 12,
+      "modified": "2026-01-02T03:04:05Z",
+      "status": "conflict",
+      "statusReason": "kept-both"
+    },
+    {
+      "pathBase64": "/w==",
+      "change": "removed",
+      "status": "syncing"
+    }
+  ],
+  "published": [
+    {
+      "version": 7,
+      "paths": [
+        {
+          "path": "upload.bin"
+        }
+      ]
+    },
+    {
+      "version": 8,
+      "paths": [],
+      "more": true
+    }
+  ],
+  "store": {
+    "state": "waiting",
+    "cause": "store",
+    "since": "2026-01-02T03:04:05Z",
+    "waiting": 2,
+    "fillDone": 3,
+    "fillTotal": 4
+  }
+}

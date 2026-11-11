@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "name": "ubuntu-24.04",
+      "displayName": "Ubuntu 24.04 LTS",
+      "description": "bash",
+      "os": {
+        "name": "ubuntu",
+        "version": "24.04"
+      },
+      "gpu": false,
+      "image": "registry.example.com/ubuntu@sha256:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "patch": "2026.01.02",
+      "default": true
+    }
+  ],
+  "totalCount": 1
+}

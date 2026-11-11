@@ -1,0 +1,36 @@
+{
+  "items": [
+    {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab36",
+      "seq": 1,
+      "kind": "cell",
+      "admittedAt": "2026-01-02T03:05:07Z",
+      "cell": {
+        "id": "01954e20-7540-7ec4-93ec-14f783e6ab36",
+        "session": "01954e20-7540-7ec4-93ec-14f783e6ab23",
+        "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+        "creator": "developer@example.com",
+        "client": "cli",
+        "mode": "endpoint-cell",
+        "terminal": false,
+        "command": {},
+        "state": "error",
+        "error": {
+          "reason": "start-failed"
+        },
+        "recording": "recorded",
+        "endedAt": "2026-01-02T03:04:09.25Z",
+        "output": {
+          "stored": "none"
+        }
+      }
+    },
+    {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab31",
+      "seq": 0,
+      "kind": "genesis",
+      "admittedAt": "2026-01-02T03:04:06Z"
+    }
+  ],
+  "totalCount": 5
+}

@@ -1,0 +1,7 @@
+# Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
+# Lane frames for fixed inputs, encoded by hyperplane-go's wire package at
+# 2b6963f: a lane header for lane 300, class e2e-mtls, header bytes 01..21;
+# a LaneOpened for lane 77 and one data-dock principal; a TARGET_GONE Nak.
+lane_header=03ac020100210102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021
+lane_opened=2a4a084d124612447370696666653a2f2f7a6f6e652d612e7a6f6e652e6578616d706c652e746573742f7375626e65742f72657365617263682f6e6f64652f6e2d312f646174612d646f636b
+nak_target_gone=12020807

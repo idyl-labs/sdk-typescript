@@ -1,0 +1,37 @@
+# Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "idyl-tls-provider"
+version = "0.1.0"
+description = "TLS 1.3 crypto provider for the browser Computer connection: ring with the X25519MLKEM768 hybrid group from ring X25519 and libcrux ML-KEM-768."
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rustls = { workspace = true }
+rustls-webpki = { workspace = true }
+ring = { workspace = true }
+libcrux-ml-kem = { workspace = true }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+# ring reads randomness through crypto.getRandomValues on this target, and
+# rustls reads the time through Date.now().
+ring = { workspace = true, features = ["wasm32_unknown_unknown_js"] }
+rustls-pki-types = { workspace = true, features = ["web"] }
+
+[dev-dependencies]
+# Independent implementations the hybrid group is checked against, and test
+# certificates.
+ml-kem = { version = "=0.3.3", features = ["hazmat"] }
+x25519-dalek = { version = "=2.0.1", features = ["static_secrets"] }
+rcgen = { version = "=0.13.2", default-features = false, features = ["ring"] }
+serde_json = { version = "1", default-features = false, features = ["std"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+# rustls' aws-lc-rs X25519MLKEM768, the implementation the endpoint runs.
+rustls = { version = "=0.23.46", default-features = false, features = ["aws_lc_rs", "ring", "std"] }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "=0.3.79"

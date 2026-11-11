@@ -1,0 +1,104 @@
+{
+  "name": "@idyl-sh/sdk",
+  "version": "0.1.0",
+  "description": "The official TypeScript SDK for IDYL",
+  "keywords": [
+    "idyl",
+    "sdk",
+    "typescript"
+  ],
+  "license": "Apache-2.0",
+  "author": "Idyl Labs",
+  "homepage": "https://github.com/idyl-labs/sdk-typescript#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idyl-labs/sdk-typescript.git"
+  },
+  "bugs": {
+    "url": "https://github.com/idyl-labs/sdk-typescript/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.3"
+  },
+  "packageManager": "pnpm@10.26.2",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./computer-connection": {
+      "import": {
+        "types": "./dist/computer-connection.d.ts",
+        "default": "./dist/computer-connection.js"
+      }
+    },
+    "./computer-connection.wasm": "./dist/computer-connection.wasm"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "pnpm build:wasm && tsup",
+    "check": "pnpm build:wasm && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm conformance && pnpm deps:none && pnpm fixtures:verify && pnpm build && pnpm test:package && pnpm size && pnpm scan",
+    "clean": "node scripts/clean.mjs",
+    "conformance": "vitest run test/conformance",
+    "deps:none": "node scripts/assert-no-deps.mjs",
+    "fixtures:sync": "node scripts/sync-fixtures.mjs",
+    "fixtures:verify": "node scripts/sync-fixtures.mjs --verify",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "scan": "node scripts/publication-scan.mjs",
+    "size": "node scripts/size.mjs",
+    "test": "vitest run --exclude \"test/conformance/**\" --exclude \"test/dist/**\"",
+    "test:package": "pnpm build && pnpm pack --pack-destination .package-test && node scripts/package-smoke.mjs && vitest run test/dist",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json && tsc -p tsconfig.examples.json",
+    "build:wasm": "wasm/scripts/build.sh"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.13.3",
+    "@vitest/coverage-v8": "4.1.11",
+    "esbuild": "0.28.2",
+    "eslint": "10.9.1",
+    "fast-check": "4.10.2",
+    "globals": "17.12.0",
+    "playwright": "1.63.0",
+    "prettier": "3.9.6",
+    "publint": "0.3.24",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.69.0",
+    "vitest": "4.1.11",
+    "workerd": "1.20261004.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion": "5.0.12",
+      "esbuild": "0.28.2",
+      "source-map-js": "1.2.2"
+    }
+  },
+  "idyl": {
+    "contract": "b21432a2bcdd0574e0b97236237d3d9df446d41e"
+  }
+}

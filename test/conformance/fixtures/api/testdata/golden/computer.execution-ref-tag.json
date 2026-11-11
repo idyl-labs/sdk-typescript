@@ -1,0 +1,42 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+  "accountId": "550000000001",
+  "namespaceId": "01954e20-7540-7ec4-93ec-14f783e6ab06",
+  "namespace": "production",
+  "subnet": "550000000002",
+  "name": "payments",
+  "phase": "active",
+  "execution": "running",
+  "headVersion": 0,
+  "spec": {
+    "idleTimeout": "300s",
+    "execution": {
+      "image": {
+        "ref": "python:3.12"
+      }
+    }
+  },
+  "executionSettings": {
+    "revision": 1,
+    "entry": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+    "pending": false,
+    "effective": {
+      "image": {
+        "ref": "python:3.12"
+      },
+      "size": "xs",
+      "sizeLabel": "XS",
+      "cpu": "1",
+      "memory": "2Gi",
+      "disk": "10Gi",
+      "network": {
+        "class": "internet"
+      }
+    },
+    "image": {
+      "ref": "python:3.12"
+    }
+  },
+  "createdAt": "2026-01-02T03:04:05Z",
+  "updatedAt": "2026-01-02T04:05:06Z"
+}

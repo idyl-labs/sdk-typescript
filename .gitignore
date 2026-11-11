@@ -1,0 +1,8 @@
+/node_modules/
+/dist/
+/coverage/
+/.package-test/
+*.tgz
+.DS_Store
+/wasm/target/
+/wasm/pkg/

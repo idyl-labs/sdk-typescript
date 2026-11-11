@@ -1,0 +1,35 @@
+# Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
+#
+# gitleaks with its default rules and the allowances below, each a name or
+# a path, never a value.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "The WebAssembly workspace's lockfile (package names and checksums) and its ignored build output"
+paths = ['''^wasm/Cargo\.lock$''', '''^wasm/(target|pkg)/''']
+
+[[allowlists]]
+description = "The synthetic idempotency key of the endpoint session goldens"
+regexTarget = "match"
+regexes = ['''01954e20-7540-7ec4-93ec-14f783e6ab70''']
+
+[[allowlists]]
+description = "The fixture manifest, whose values are the SHA-256 digests of the vendored fixtures"
+paths = ['''^test/conformance/MANIFEST\.json$''']
+
+[[allowlists]]
+description = "The synthetic Secret IDs of the Computer attachment goldens"
+regexTarget = "match"
+regexes = ['''01954e20-7540-7ec4-93ec-14f783e6ab1[a-d]''']
+
+[[allowlists]]
+description = "The base64 of the synthetic value example-token in the keyed Secret goldens"
+regexTarget = "match"
+regexes = ['''ZXhhbXBsZS10b2tlbg==''']
+
+[[allowlists]]
+description = "The synthetic GitHub App private key of the Secret goldens and tests, whose body is EXAMPLE"
+regexTarget = "match"
+regexes = ['''-----BEGIN RSA PRIVATE KEY-----\\nEXAMPLE\\n-----END RSA PRIVATE KEY-----''']

@@ -1,0 +1,7 @@
+{
+  "name": "payments",
+  "subnet": "550000000002",
+  "spec": {
+    "idleTimeout": "15m"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "sleep": {
+    "idempotencyKey": "sleep-1",
+    "client": "cli"
+  },
+  "sleepDiscard": {
+    "idempotencyKey": "sleep-2",
+    "client": "cli",
+    "discardUnsavedChanges": true
+  },
+  "sleepForce": {
+    "idempotencyKey": "sleep-3",
+    "client": "cli",
+    "force": true
+  },
+  "sleepMinimal": {},
+  "wake": {
+    "idempotencyKey": "wake-1",
+    "client": "console"
+  },
+  "wakeMinimal": {}
+}

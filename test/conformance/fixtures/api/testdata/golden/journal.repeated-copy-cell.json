@@ -1,0 +1,31 @@
+{
+  "id": "00000000-0000-4000-8000-000000000310",
+  "seq": 2,
+  "kind": "cell",
+  "admittedAt": "2026-01-02T03:06:07Z",
+  "origin": {
+    "source": {
+      "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04"
+    },
+    "entry": "01954e20-7540-7ec4-93ec-14f783e6ab33",
+    "session": "00000000-0000-4000-8000-000000000006"
+  },
+  "cell": {
+    "id": "00000000-0000-4000-8000-000000000310",
+    "computer": "00000000-0000-4000-8000-000000000004",
+    "creator": "developer@example.com",
+    "client": "unknown",
+    "mode": "endpoint-cell",
+    "terminal": false,
+    "command": {},
+    "state": "ended",
+    "recording": "not-recorded",
+    "process": {
+      "outcome": "unknown"
+    },
+    "termination": "forked",
+    "output": {
+      "stored": "none"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "items": [
+    {
+      "name": "tiny",
+      "label": "Tiny",
+      "cpu": "1",
+      "memory": "2Gi",
+      "disk": "10Gi",
+      "names": 1000000,
+      "default": true
+    },
+    {
+      "name": "standard",
+      "label": "Standard",
+      "cpu": "2",
+      "memory": "4Gi",
+      "disk": "20Gi",
+      "names": 2000000,
+      "default": false
+    },
+    {
+      "name": "extra-large",
+      "label": "Extra large",
+      "cpu": "16",
+      "memory": "32Gi",
+      "disk": "160Gi",
+      "names": 16000000,
+      "default": false
+    }
+  ]
+}

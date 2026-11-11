@@ -1,0 +1,1565 @@
+[
+  {
+    "case": "an isolation class no Computer selects",
+    "field": "execution.isolation",
+    "refusal": "execution.isolation: must be secure-container or vm",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "microvm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an unknown isolation class",
+    "field": "execution.isolation",
+    "refusal": "execution.isolation: must be secure-container or vm",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "machine",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an image stating both an IDYL name and a reference",
+    "field": "execution.image",
+    "refusal": "execution.image: must state exactly one of idyl and ref",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04",
+        "ref": "python:3.12"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an image stating neither",
+    "field": "execution.image",
+    "refusal": "execution.image: must state exactly one of idyl and ref",
+    "value": {
+      "image": {},
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an IDYL name not in catalog form",
+    "field": "execution.image.idyl",
+    "refusal": "execution.image.idyl: must be 1 to 63 lowercase letters, digits, '.', and '-', beginning and ending with a letter or digit",
+    "value": {
+      "image": {
+        "idyl": "Ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a reference with whitespace",
+    "field": "execution.image.ref",
+    "refusal": "execution.image.ref: must not contain whitespace",
+    "value": {
+      "image": {
+        "ref": "python:3.12 --privileged"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a size not in identifier form",
+    "field": "execution.size",
+    "refusal": "execution.size: computer size \"Small\" must be 1 to 32 lowercase letters, digits and hyphens, beginning with a letter",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "size": "Small",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a size stated with CPU and memory",
+    "field": "execution.size",
+    "refusal": "execution.size: must not be stated with cpu or memory",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "size": "small",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an unrestricted network",
+    "field": "execution.network",
+    "refusal": "execution.network: network.class unrestricted is not supported for a Micropod",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "unrestricted"
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an egress block with internet",
+    "field": "execution.network",
+    "refusal": "execution.network: network.egress is not supported with network.class internet",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "internet",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a local network destination",
+    "field": "execution.network",
+    "refusal": "execution.network: network.egress.allow[2] is invalid: egress host \"10.0.0.1\" is inside the local network range 10.0.0.0/8",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com",
+            "tcp:443:10.0.0.1"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "one port too many",
+    "field": "execution.network",
+    "refusal": "execution.network: network.egress.allow[33]: too many distinct egress ports (max 32)",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:1000:api.example.com",
+            "tcp:1001:api.example.com",
+            "tcp:1002:api.example.com",
+            "tcp:1003:api.example.com",
+            "tcp:1004:api.example.com",
+            "tcp:1005:api.example.com",
+            "tcp:1006:api.example.com",
+            "tcp:1007:api.example.com",
+            "tcp:1008:api.example.com",
+            "tcp:1009:api.example.com",
+            "tcp:1010:api.example.com",
+            "tcp:1011:api.example.com",
+            "tcp:1012:api.example.com",
+            "tcp:1013:api.example.com",
+            "tcp:1014:api.example.com",
+            "tcp:1015:api.example.com",
+            "tcp:1016:api.example.com",
+            "tcp:1017:api.example.com",
+            "tcp:1018:api.example.com",
+            "tcp:1019:api.example.com",
+            "tcp:1020:api.example.com",
+            "tcp:1021:api.example.com",
+            "tcp:1022:api.example.com",
+            "tcp:1023:api.example.com",
+            "tcp:1024:api.example.com",
+            "tcp:1025:api.example.com",
+            "tcp:1026:api.example.com",
+            "tcp:1027:api.example.com",
+            "tcp:1028:api.example.com",
+            "tcp:1029:api.example.com",
+            "tcp:1030:api.example.com",
+            "tcp:1031:api.example.com",
+            "tcp:22:git.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a malformed variable name",
+    "field": "execution.variables[1].name",
+    "refusal": "execution.variables[1].name: must match [a-zA-Z_][a-zA-Z0-9_]*",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "1BAD",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an empty variable name",
+    "field": "execution.variables[0].name",
+    "refusal": "execution.variables[0].name: must match [a-zA-Z_][a-zA-Z0-9_]*",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a name IDYL reserves",
+    "field": "execution.variables[1].name",
+    "refusal": "execution.variables[1].name: names beginning IDYL_ are reserved for IDYL",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "IDYL_LOCAL_API",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a repeated name",
+    "field": "execution.variables[1].name",
+    "refusal": "execution.variables[1].name: duplicates variables[0]",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "LOG_LEVEL",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a NUL byte in a value",
+    "field": "execution.variables[0].value",
+    "refusal": "execution.variables[0].value: must not contain a NUL byte",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "a\u0000b"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a shell named without a path",
+    "field": "execution.shell",
+    "refusal": "execution.shell: must be a clean absolute POSIX path",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "zsh"
+    }
+  },
+  {
+    "case": "a shell path that is not clean",
+    "field": "execution.shell",
+    "refusal": "execution.shell: must be a clean absolute POSIX path",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/../bin/zsh"
+    }
+  },
+  {
+    "case": "the root as a shell",
+    "field": "execution.shell",
+    "refusal": "execution.shell: must be a clean absolute POSIX path",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/"
+    }
+  },
+  {
+    "case": "a line feed in a shell path",
+    "field": "execution.shell",
+    "refusal": "execution.shell: contains forbidden characters",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/bin/zsh\n"
+    }
+  },
+  {
+    "case": "a Secret attached under a malformed variable",
+    "field": "execution.secrets[0].env",
+    "refusal": "execution.secrets[0].env: must match [a-zA-Z_][a-zA-Z0-9_]*",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB-TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a Secret attached under a variable IDYL reserves",
+    "field": "execution.secrets[0].env",
+    "refusal": "execution.secrets[0].env: names beginning IDYL_ are reserved for IDYL",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "IDYL_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a Secret attached under a variable the settings set",
+    "field": "execution.secrets[0].env",
+    "refusal": "execution.secrets[0].env: duplicates variables[0]",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "LOG_LEVEL",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "two Secrets attached under one variable",
+    "field": "execution.secrets[1].env",
+    "refusal": "execution.secrets[1].env: duplicates secrets[0]",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        },
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "name": "github"
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a Secret named by both ID and name",
+    "field": "execution.secrets[0].secret",
+    "refusal": "execution.secrets[0].secret: must state exactly one of id and name",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "name": "github",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a Secret named by neither",
+    "field": "execution.secrets[0].secret",
+    "refusal": "execution.secrets[0].secret: must state exactly one of id and name",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {}
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a Secret ID not in canonical form",
+    "field": "execution.secrets[0].secret.id",
+    "refusal": "execution.secrets[0].secret.id: resource ID must be a canonical UUID",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "github",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "a variable IDYL sets beside an identity",
+    "field": "execution.variables[1].name",
+    "refusal": "execution.variables[1].name: AWS_ROLE_ARN is set by IDYL for a computer with an identity",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "AWS_ROLE_ARN",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an attachment under a variable IDYL sets beside an identity",
+    "field": "execution.secrets[0].env",
+    "refusal": "execution.secrets[0].env: AWS_WEB_IDENTITY_TOKEN_FILE is set by IDYL for a computer with an identity",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "AWS_WEB_IDENTITY_TOKEN_FILE",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an identity naming no provider",
+    "field": "execution.identity",
+    "refusal": "execution.identity: must state aws",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {},
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an AWS role that is not an IAM role ARN",
+    "field": "execution.identity.aws.roleArn",
+    "refusal": "execution.identity.aws.roleArn: must be an IAM role ARN: arn:\u003cpartition\u003e:iam::\u003caccount\u003e:role/\u003cname\u003e",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:user/ci"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  }
+]

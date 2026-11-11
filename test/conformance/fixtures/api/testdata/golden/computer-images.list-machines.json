@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "name": "ubuntu-24.04-machine",
+      "displayName": "Ubuntu 24.04 LTS",
+      "description": "a whole machine",
+      "os": {
+        "name": "ubuntu",
+        "version": "24.04"
+      },
+      "gpu": false,
+      "image": "registry.example.com/ubuntu-machine@sha256:0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+      "patch": "2026.11.01",
+      "default": false,
+      "isolation": "vm"
+    }
+  ],
+  "totalCount": 1
+}

@@ -1,0 +1,53 @@
+{
+  "autoRefillNeedsSpendCap": {
+    "error": "auto-refill can be on only with a monthly spend cap set",
+    "code": "AUTO_REFILL_NEEDS_SPEND_CAP"
+  },
+  "computerSizeBelowUsage": {
+    "error": "the size's disk cannot hold the Computer's files",
+    "code": "SIZE_BELOW_USAGE",
+    "details": {
+      "computerSize": "small",
+      "sizeBytes": 20000000000,
+      "usedBytes": 31000000000
+    }
+  },
+  "extraUsageNotInPlan": {
+    "error": "the Account's plan does not include extra usage",
+    "code": "EXTRA_USAGE_NOT_IN_PLAN"
+  },
+  "outOfUsage": {
+    "error": "this Account's usage is used up: upgrade its plan, buy extra usage, or wait for its next month",
+    "code": "OUT_OF_USAGE"
+  },
+  "planNotOffered": {
+    "error": "the plan is not offered",
+    "code": "PLAN_NOT_OFFERED"
+  },
+  "sizeNotInAnyPlan": {
+    "error": "the size xl is not in this Account's plan, whose largest size is large: resize the Computer",
+    "code": "SIZE_NOT_IN_PLAN",
+    "details": {
+      "largestSize": "large",
+      "size": "xl"
+    }
+  },
+  "sizeNotInPlan": {
+    "error": "the size xl is not in this Account's plan, whose largest size is large: resize the Computer, or upgrade to Max, which includes it",
+    "code": "SIZE_NOT_IN_PLAN",
+    "details": {
+      "largestSize": "large",
+      "plan": "max",
+      "planName": "Max",
+      "size": "xl"
+    }
+  },
+  "spendCapReached": {
+    "error": "the purchase would pass the Account's spend cap",
+    "code": "SPEND_CAP_REACHED",
+    "details": {
+      "boughtMicros": 90000000,
+      "spendCapMicros": 100000000
+    }
+  }
+}

@@ -1,0 +1,96 @@
+# Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
+#
+# Builds and checks every pull request and every change to main: the Rust
+# connection's format, lints and tests, then `pnpm check` on each supported
+# Node.js line (the WebAssembly build, format, lint, types, tests,
+# conformance, the package test, the size budget and the publication scan),
+# and the publication scan of a pull request's title and body, which become
+# the merged commit's message. It runs on GitHub-hosted runners with
+# read-only access and no secrets.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust connection
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: wasm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned Rust toolchain
+        run: rustup toolchain install
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            wasm/target
+          key: rust-host-${{ hashFiles('wasm/Cargo.lock', 'wasm/rust-toolchain.toml') }}
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - run: cargo test --locked --workspace
+
+  check:
+    name: Check on Node.js ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The publication scan reads every commit message, so it needs the
+          # whole history, and the pull request's own commits rather than
+          # the merge GitHub prepares.
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Use the pinned pnpm
+        run: corepack enable
+      - name: Install wasm-bindgen, wasm-opt and gitleaks
+        run: |
+          scripts/ci/install-tools.sh "$RUNNER_TEMP/tools/bin"
+          echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
+      - name: Install the pinned Rust toolchain
+        working-directory: wasm
+        run: rustup toolchain install
+      - name: Use an LLVM clang for the WebAssembly target
+        run: scripts/ci/wasm-cc.sh >> "$GITHUB_ENV"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            wasm/target
+          key: rust-wasm-${{ hashFiles('wasm/Cargo.lock', 'wasm/rust-toolchain.toml') }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Scan the pull request's title and body
+        if: github.event_name == 'pull_request' && matrix.node == 22
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s\n\n%s\n' "$TITLE" "$BODY" > "$RUNNER_TEMP/pull-request-message.txt"
+          node scripts/publication-scan.mjs --message "$RUNNER_TEMP/pull-request-message.txt"

@@ -1,0 +1,21 @@
+{
+  "items": [
+    {
+      "name": "src",
+      "type": "dir",
+      "mode": 493,
+      "size": 0,
+      "status": "syncing"
+    },
+    {
+      "name": "README.md",
+      "type": "file",
+      "mode": 420,
+      "size": 5,
+      "status": "synced"
+    }
+  ],
+  "totalCount": 2,
+  "continue": "page-2",
+  "syncing": true
+}

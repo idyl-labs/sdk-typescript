@@ -1,0 +1,82 @@
+[
+  {
+    "case": "unrestricted",
+    "refusal": "network.class unrestricted is not supported for a Micropod",
+    "value": {
+      "class": "unrestricted"
+    }
+  },
+  {
+    "case": "an egress block with internet",
+    "refusal": "network.egress is not supported with network.class internet",
+    "value": {
+      "class": "internet",
+      "egress": {
+        "allow": [
+          "dns"
+        ],
+        "denyLocalNetworks": true
+      }
+    }
+  },
+  {
+    "case": "a local network destination",
+    "refusal": "network.egress.allow[1] is invalid: egress host \"10.0.0.0/8\" is inside the local network range 10.0.0.0/8",
+    "value": {
+      "class": "restricted-egress",
+      "egress": {
+        "allow": [
+          "dns",
+          "tcp:443:10.0.0.0/8"
+        ],
+        "denyLocalNetworks": true
+      }
+    }
+  },
+  {
+    "case": "one port too many",
+    "refusal": "network.egress.allow[33]: too many distinct egress ports (max 32)",
+    "value": {
+      "class": "restricted-egress",
+      "egress": {
+        "allow": [
+          "dns",
+          "tcp:1000:api.example.com",
+          "tcp:1001:api.example.com",
+          "tcp:1002:api.example.com",
+          "tcp:1003:api.example.com",
+          "tcp:1004:api.example.com",
+          "tcp:1005:api.example.com",
+          "tcp:1006:api.example.com",
+          "tcp:1007:api.example.com",
+          "tcp:1008:api.example.com",
+          "tcp:1009:api.example.com",
+          "tcp:1010:api.example.com",
+          "tcp:1011:api.example.com",
+          "tcp:1012:api.example.com",
+          "tcp:1013:api.example.com",
+          "tcp:1014:api.example.com",
+          "tcp:1015:api.example.com",
+          "tcp:1016:api.example.com",
+          "tcp:1017:api.example.com",
+          "tcp:1018:api.example.com",
+          "tcp:1019:api.example.com",
+          "tcp:1020:api.example.com",
+          "tcp:1021:api.example.com",
+          "tcp:1022:api.example.com",
+          "tcp:1023:api.example.com",
+          "tcp:1024:api.example.com",
+          "tcp:1025:api.example.com",
+          "tcp:1026:api.example.com",
+          "tcp:1027:api.example.com",
+          "tcp:1028:api.example.com",
+          "tcp:1029:api.example.com",
+          "tcp:1030:api.example.com",
+          "tcp:1031:api.example.com",
+          "tcp:1032:api.example.com"
+        ],
+        "denyLocalNetworks": true
+      }
+    }
+  }
+]

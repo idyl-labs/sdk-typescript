@@ -1,0 +1,2180 @@
+[
+  {
+    "case": "settings update without a field",
+    "value": {},
+    "refusal": "billing update states no field"
+  },
+  {
+    "case": "unknown lifecycle",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "paused",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: lifecycle: unknown billing lifecycle \"paused\""
+  },
+  {
+    "case": "no lifecycle",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: lifecycle: billing lifecycle is required"
+  },
+  {
+    "case": "offer with a trial and a withheld reason",
+    "value": {
+      "trial": true,
+      "trialWithheld": "trials_closed"
+    },
+    "refusal": "trial must be false while trialWithheld is set"
+  },
+  {
+    "case": "offer with an unknown reason",
+    "value": {
+      "trial": false,
+      "trialWithheld": "unverified_email"
+    },
+    "refusal": "trialWithheld: unknown billing allowance withheld reason \"unverified_email\""
+  },
+  {
+    "case": "auto-refill amount not in whole dollars",
+    "value": {
+      "autoRefill": {
+        "enabled": false,
+        "amountMicros": 20500000
+      }
+    },
+    "refusal": "billing update: autoRefill: amountMicros must be a positive whole number of dollars"
+  },
+  {
+    "case": "negative spend cap",
+    "value": {
+      "spendCapMicros": -1
+    },
+    "refusal": "billing update: spendCapMicros must not be negative"
+  },
+  {
+    "case": "auto-refill on while the cap is removed",
+    "value": {
+      "autoRefill": {
+        "enabled": true,
+        "amountMicros": 20000000
+      },
+      "spendCapMicros": null
+    },
+    "refusal": "billing update: autoRefill can be enabled only with spendCapMicros set"
+  },
+  {
+    "case": "plan named by its display name",
+    "value": {
+      "plan": "Max"
+    },
+    "refusal": "plan: billing plan \"Max\" must be 1 to 63 lowercase letters, digits and underscores, beginning with a letter"
+  },
+  {
+    "case": "idempotency key past its bound",
+    "value": {
+      "amountMicros": 10000000,
+      "idempotencyKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+    },
+    "refusal": "idempotencyKey must be at most 64 bytes"
+  },
+  {
+    "case": "purchase of nothing",
+    "value": {
+      "amountMicros": 0
+    },
+    "refusal": "amountMicros must be a positive whole number of dollars"
+  },
+  {
+    "case": "more used than allowed",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 2000000,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: usedMicros must not exceed allowanceMicros"
+  },
+  {
+    "case": "plan in force not listed",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 50000000
+        },
+        "spendCapMicros": 100000000
+      },
+      "status": {
+        "plan": "pro",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 20000000,
+        "usedMicros": 7216667,
+        "extraBalanceMicros": 14200000,
+        "extraBoughtMicros": 40000000,
+        "standing": "ok",
+        "lifecycle": "full",
+        "renewal": "failed",
+        "largestSize": "large",
+        "storedData": "400Gi",
+        "scheduledChange": {
+          "plan": "none",
+          "at": "2026-11-12T00:00:00Z",
+          "largestSize": "medium"
+        },
+        "autoRefillStopped": {
+          "reason": "PAYMENT_DECLINED",
+          "at": "2026-10-27T09:00:00Z"
+        },
+        "hasInvoices": true,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [
+          {
+            "subnet": "550000000003",
+            "sizeRates": [
+              {
+                "size": "xs",
+                "perHourMicros": 100000,
+                "label": "XS",
+                "cpu": "1",
+                "memory": "2Gi",
+                "disk": "10Gi",
+                "default": true
+              },
+              {
+                "size": "small",
+                "perHourMicros": 200000,
+                "label": "Small",
+                "cpu": "2",
+                "memory": "4Gi",
+                "disk": "20Gi"
+              },
+              {
+                "size": "medium",
+                "perHourMicros": 400000,
+                "label": "Medium",
+                "cpu": "4",
+                "memory": "8Gi",
+                "disk": "40Gi"
+              },
+              {
+                "size": "large",
+                "perHourMicros": 800000,
+                "label": "Large",
+                "cpu": "8",
+                "memory": "16Gi",
+                "disk": "80Gi"
+              },
+              {
+                "size": "xl",
+                "perHourMicros": 1600000,
+                "label": "XL",
+                "cpu": "16",
+                "memory": "32Gi",
+                "disk": "160Gi"
+              }
+            ]
+          }
+        ],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 100000
+      }
+    },
+    "refusal": "status: plans must list the plan in force, \"pro\""
+  },
+  {
+    "case": "rates naming a size twice",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: sizeRates[1]: size \"xs\" is listed twice"
+  },
+  {
+    "case": "negative storage rate",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": -1,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: storageMicrosPerGiBMonth must not be negative"
+  },
+  {
+    "case": "negative download rate",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": -1
+      }
+    },
+    "refusal": "status: downloadMicrosPerGiB must not be negative"
+  },
+  {
+    "case": "negative rate",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": -50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": -100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": -200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": -400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": -800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: sizeRates[0]: perHourMicros must not be negative"
+  },
+  {
+    "case": "Subnet rates not named by slug",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 50000000
+        },
+        "spendCapMicros": 100000000
+      },
+      "status": {
+        "plan": "pro",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 20000000,
+        "usedMicros": 7216667,
+        "extraBalanceMicros": 14200000,
+        "extraBoughtMicros": 40000000,
+        "standing": "ok",
+        "lifecycle": "full",
+        "renewal": "failed",
+        "largestSize": "large",
+        "storedData": "400Gi",
+        "scheduledChange": {
+          "plan": "none",
+          "at": "2026-11-12T00:00:00Z",
+          "largestSize": "medium"
+        },
+        "autoRefillStopped": {
+          "reason": "PAYMENT_DECLINED",
+          "at": "2026-10-27T09:00:00Z"
+        },
+        "hasInvoices": true,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [
+          {
+            "subnet": "zone-a",
+            "sizeRates": [
+              {
+                "size": "xs",
+                "perHourMicros": 100000,
+                "label": "XS",
+                "cpu": "1",
+                "memory": "2Gi",
+                "disk": "10Gi",
+                "default": true
+              },
+              {
+                "size": "small",
+                "perHourMicros": 200000,
+                "label": "Small",
+                "cpu": "2",
+                "memory": "4Gi",
+                "disk": "20Gi"
+              },
+              {
+                "size": "medium",
+                "perHourMicros": 400000,
+                "label": "Medium",
+                "cpu": "4",
+                "memory": "8Gi",
+                "disk": "40Gi"
+              },
+              {
+                "size": "large",
+                "perHourMicros": 800000,
+                "label": "Large",
+                "cpu": "8",
+                "memory": "16Gi",
+                "disk": "80Gi"
+              },
+              {
+                "size": "xl",
+                "perHourMicros": 1600000,
+                "label": "XL",
+                "cpu": "16",
+                "memory": "32Gi",
+                "disk": "160Gi"
+              }
+            ]
+          }
+        ],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 100000
+      }
+    },
+    "refusal": "status: subnetSizeRates[0]: subnet: subnet slug must be exactly 12 characters"
+  },
+  {
+    "case": "Subnet rates listed twice",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 50000000
+        },
+        "spendCapMicros": 100000000
+      },
+      "status": {
+        "plan": "pro",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 20000000,
+        "usedMicros": 7216667,
+        "extraBalanceMicros": 14200000,
+        "extraBoughtMicros": 40000000,
+        "standing": "ok",
+        "lifecycle": "full",
+        "renewal": "failed",
+        "largestSize": "large",
+        "storedData": "400Gi",
+        "scheduledChange": {
+          "plan": "none",
+          "at": "2026-11-12T00:00:00Z",
+          "largestSize": "medium"
+        },
+        "autoRefillStopped": {
+          "reason": "PAYMENT_DECLINED",
+          "at": "2026-10-27T09:00:00Z"
+        },
+        "hasInvoices": true,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [
+          {
+            "subnet": "550000000003",
+            "sizeRates": [
+              {
+                "size": "xs",
+                "perHourMicros": 100000,
+                "label": "XS",
+                "cpu": "1",
+                "memory": "2Gi",
+                "disk": "10Gi",
+                "default": true
+              },
+              {
+                "size": "small",
+                "perHourMicros": 200000,
+                "label": "Small",
+                "cpu": "2",
+                "memory": "4Gi",
+                "disk": "20Gi"
+              },
+              {
+                "size": "medium",
+                "perHourMicros": 400000,
+                "label": "Medium",
+                "cpu": "4",
+                "memory": "8Gi",
+                "disk": "40Gi"
+              },
+              {
+                "size": "large",
+                "perHourMicros": 800000,
+                "label": "Large",
+                "cpu": "8",
+                "memory": "16Gi",
+                "disk": "80Gi"
+              },
+              {
+                "size": "xl",
+                "perHourMicros": 1600000,
+                "label": "XL",
+                "cpu": "16",
+                "memory": "32Gi",
+                "disk": "160Gi"
+              }
+            ]
+          },
+          {
+            "subnet": "550000000003",
+            "sizeRates": [
+              {
+                "size": "xs",
+                "perHourMicros": 100000,
+                "label": "XS",
+                "cpu": "1",
+                "memory": "2Gi",
+                "disk": "10Gi",
+                "default": true
+              },
+              {
+                "size": "small",
+                "perHourMicros": 200000,
+                "label": "Small",
+                "cpu": "2",
+                "memory": "4Gi",
+                "disk": "20Gi"
+              },
+              {
+                "size": "medium",
+                "perHourMicros": 400000,
+                "label": "Medium",
+                "cpu": "4",
+                "memory": "8Gi",
+                "disk": "40Gi"
+              },
+              {
+                "size": "large",
+                "perHourMicros": 800000,
+                "label": "Large",
+                "cpu": "8",
+                "memory": "16Gi",
+                "disk": "80Gi"
+              },
+              {
+                "size": "xl",
+                "perHourMicros": 1600000,
+                "label": "XL",
+                "cpu": "16",
+                "memory": "32Gi",
+                "disk": "160Gi"
+              }
+            ]
+          }
+        ],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 100000
+      }
+    },
+    "refusal": "status: subnetSizeRates[1]: subnet \"550000000003\" is listed twice"
+  },
+  {
+    "case": "auto-refill on with no cap",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": true,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "spec: autoRefill can be enabled only with spendCapMicros set"
+  },
+  {
+    "case": "allowance withheld for a reason not named",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 0,
+        "allowanceWithheld": "unverified_email",
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "out",
+        "lifecycle": "ended",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: allowanceWithheld: unknown billing allowance withheld reason \"unverified_email\""
+  },
+  {
+    "case": "allowance withheld yet granted",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "allowanceWithheld": "trial_one_per_person",
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "out",
+        "lifecycle": "ended",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 50000,
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 100000,
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 200000,
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 400000,
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 800000,
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: allowanceMicros must be zero while allowanceWithheld is set"
+  },
+  {
+    "case": "failed change without a reason",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab51",
+      "plan": "max",
+      "state": "failed"
+    },
+    "refusal": "reason is required once failed"
+  },
+  {
+    "case": "applied change without its time",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab51",
+      "plan": "max",
+      "state": "applied"
+    },
+    "refusal": "effectiveAt is required in states applied and scheduled and absent otherwise, not in state applied"
+  },
+  {
+    "case": "paid purchase with an action",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab52",
+      "kind": "manual",
+      "amountMicros": 10000000,
+      "state": "paid",
+      "action": {
+        "kind": "checkout",
+        "url": "https://checkout.example.com/pay/session-1",
+        "expiresAt": "2026-10-28T09:00:00Z"
+      },
+      "createdAt": "2026-10-27T09:00:00Z"
+    },
+    "refusal": "action is carried only while pending"
+  },
+  {
+    "case": "action page not on https",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab52",
+      "kind": "manual",
+      "amountMicros": 10000000,
+      "state": "pending",
+      "action": {
+        "kind": "checkout",
+        "url": "http://checkout.example.com/pay",
+        "expiresAt": "2026-10-28T09:00:00Z"
+      },
+      "createdAt": "2026-10-27T09:00:00Z"
+    },
+    "refusal": "action: url must be an absolute https URL with a host"
+  }
+]

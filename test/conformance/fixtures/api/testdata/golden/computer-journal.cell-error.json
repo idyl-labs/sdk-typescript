@@ -1,0 +1,23 @@
+{
+  "id": "01954e20-7540-7ec4-93ec-14f783e6ab34",
+  "seq": 3,
+  "kind": "cell",
+  "admittedAt": "2026-01-02T03:07:07Z",
+  "cell": {
+    "id": "01954e20-7540-7ec4-93ec-14f783e6ab34",
+    "session": "01954e20-7540-7ec4-93ec-14f783e6ab22",
+    "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+    "creator": "developer@example.com",
+    "client": "console",
+    "mode": "endpoint-cell",
+    "terminal": false,
+    "command": {},
+    "state": "error",
+    "error": {
+      "reason": "wake-timeout"
+    },
+    "output": {
+      "stored": "none"
+    }
+  }
+}

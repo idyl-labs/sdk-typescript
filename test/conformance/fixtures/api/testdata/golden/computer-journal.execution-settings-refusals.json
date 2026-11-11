@@ -1,0 +1,1005 @@
+[
+  {
+    "case": "an execution-settings entry without its change",
+    "refusal": "executionSettings is required on an execution-settings entry",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z"
+    }
+  },
+  {
+    "case": "an execution-settings entry with a cell",
+    "refusal": "cell must be absent on an execution-settings entry",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "cell": {
+        "id": "01954e20-7540-7ec4-93ec-14f783e6ab32",
+        "session": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+        "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+        "creator": "developer@example.com",
+        "client": "cli",
+        "mode": "exec",
+        "terminal": true,
+        "command": {
+          "exec": {
+            "argv": [
+              "/bin/sh",
+              "-c",
+              "make test"
+            ]
+          }
+        },
+        "state": "ended",
+        "recording": "recorded",
+        "startedAt": "2026-01-02T03:04:09.25Z",
+        "endedAt": "2026-01-02T03:05:41Z",
+        "process": {
+          "outcome": "exited",
+          "exitCode": 0
+        },
+        "termination": "exited",
+        "output": {
+          "stdoutBytes": 18204,
+          "stderrBytes": 0,
+          "stored": "none"
+        }
+      },
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "image",
+          "cpu",
+          "network",
+          "variables.LOG_LEVEL"
+        ],
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "a cell entry with an execution-settings change",
+    "refusal": "executionSettings must be absent on a cell entry",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab32",
+      "seq": 2,
+      "kind": "cell",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "cell": {
+        "id": "01954e20-7540-7ec4-93ec-14f783e6ab32",
+        "session": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+        "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+        "creator": "developer@example.com",
+        "client": "cli",
+        "mode": "exec",
+        "terminal": true,
+        "command": {
+          "exec": {
+            "argv": [
+              "/bin/sh",
+              "-c",
+              "make test"
+            ]
+          }
+        },
+        "state": "ended",
+        "recording": "recorded",
+        "startedAt": "2026-01-02T03:04:09.25Z",
+        "endedAt": "2026-01-02T03:05:41Z",
+        "process": {
+          "outcome": "exited",
+          "exitCode": 0
+        },
+        "termination": "exited",
+        "output": {
+          "stdoutBytes": 18204,
+          "stderrBytes": 0,
+          "stored": "none"
+        }
+      },
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "image",
+          "cpu",
+          "network",
+          "variables.LOG_LEVEL"
+        ],
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "settings a Micropod cannot run",
+    "refusal": "executionSettings: execution.network: network.class unrestricted is not supported for a Micropod",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "unrestricted"
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "image",
+          "cpu",
+          "network",
+          "variables.LOG_LEVEL"
+        ],
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "a cause this version does not name",
+    "refusal": "executionSettings: unknown computer execution-settings change cause \"rollback\"",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "rollback",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "image",
+          "cpu",
+          "network",
+          "variables.LOG_LEVEL"
+        ],
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "a change of the settings with an image patch",
+    "refusal": "executionSettings: imagePatch must be absent on a change of the settings",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "image",
+          "cpu",
+          "network",
+          "variables.LOG_LEVEL"
+        ],
+        "imagePatch": {
+          "name": "python-3.12-ubuntu-24.04",
+          "from": {
+            "patch": "2026.01.01",
+            "image": "registry.example.com/python@sha256:0101010101010101010101010101010101010101010101010101010101010101"
+          },
+          "to": {
+            "patch": "2026.01.02.2",
+            "image": "registry.example.com/python@sha256:0202020202020202020202020202020202020202020202020202020202020202"
+          }
+        },
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "an image patch without its patch",
+    "refusal": "executionSettings: imagePatch is required on an image patch",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "image-patch",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": []
+      }
+    }
+  },
+  {
+    "case": "an image patch with a creator",
+    "refusal": "executionSettings: changed, creator, and client must be absent on an image patch",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "image-patch",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [],
+        "imagePatch": {
+          "name": "python-3.12-ubuntu-24.04",
+          "from": {
+            "patch": "2026.01.01",
+            "image": "registry.example.com/python@sha256:0101010101010101010101010101010101010101010101010101010101010101"
+          },
+          "to": {
+            "patch": "2026.01.02.2",
+            "image": "registry.example.com/python@sha256:0202020202020202020202020202020202020202020202020202020202020202"
+          }
+        },
+        "creator": "developer@example.com"
+      }
+    }
+  },
+  {
+    "case": "an image patch of another image",
+    "refusal": "executionSettings: imagePatch.name must be the IDYL image the settings name",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "image-patch",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [],
+        "imagePatch": {
+          "name": "ubuntu-24.04",
+          "from": {
+            "patch": "2026.01.01",
+            "image": "registry.example.com/python@sha256:0101010101010101010101010101010101010101010101010101010101010101"
+          },
+          "to": {
+            "patch": "2026.01.02.2",
+            "image": "registry.example.com/python@sha256:0202020202020202020202020202020202020202020202020202020202020202"
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "an image patch to an image by tag",
+    "refusal": "executionSettings: imagePatch.to.image must be pinned by a sha256 digest",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "image-patch",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [],
+        "imagePatch": {
+          "name": "python-3.12-ubuntu-24.04",
+          "from": {
+            "patch": "2026.01.01",
+            "image": "registry.example.com/python@sha256:0101010101010101010101010101010101010101010101010101010101010101"
+          },
+          "to": {
+            "patch": "2026.01.02.2",
+            "image": "registry.example.com/python:3.12"
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "an image patch to an earlier level",
+    "refusal": "executionSettings: imagePatch.to.patch must be later than imagePatch.from.patch",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "image-patch",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [],
+        "imagePatch": {
+          "name": "python-3.12-ubuntu-24.04",
+          "from": {
+            "patch": "2026.01.02.2",
+            "image": "registry.example.com/python@sha256:0202020202020202020202020202020202020202020202020202020202020202"
+          },
+          "to": {
+            "patch": "2026.01.01",
+            "image": "registry.example.com/python@sha256:0101010101010101010101010101010101010101010101010101010101010101"
+          }
+        }
+      }
+    }
+  },
+  {
+    "case": "revision zero",
+    "refusal": "executionSettings: revision must be positive",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 0,
+        "changed": [
+          "image",
+          "cpu",
+          "network",
+          "variables.LOG_LEVEL"
+        ],
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "no changed path",
+    "refusal": "executionSettings: changed must name at least one path",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [],
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "a path this version does not name",
+    "refusal": "executionSettings: changed[0]: unknown execution settings path \"gpu\"",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "gpu"
+        ],
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "a variable path without a valid name",
+    "refusal": "executionSettings: changed[0]: \"variables.1BAD\" does not name a variable: must match [a-zA-Z_][a-zA-Z0-9_]*",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "variables.1BAD"
+        ],
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "a Secret path without a valid name",
+    "refusal": "executionSettings: changed[0]: \"secrets.1BAD\" does not name a variable: must match [a-zA-Z_][a-zA-Z0-9_]*",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "secrets.1BAD"
+        ],
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "a repeated path",
+    "refusal": "executionSettings: changed[1] duplicates changed[0]",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "cpu",
+          "cpu"
+        ],
+        "creator": "developer@example.com",
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "no creator",
+    "refusal": "executionSettings: creator is required",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "image",
+          "cpu",
+          "network",
+          "variables.LOG_LEVEL"
+        ],
+        "client": "console"
+      }
+    }
+  },
+  {
+    "case": "a client this version does not name",
+    "refusal": "executionSettings: unknown computer session client \"agent\"",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "debug"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "image",
+          "cpu",
+          "network",
+          "variables.LOG_LEVEL"
+        ],
+        "creator": "developer@example.com",
+        "client": "agent"
+      }
+    }
+  },
+  {
+    "case": "truncated values over the list bound",
+    "refusal": "executionSettings: settings.variables values must not exceed 4096 bytes when truncated",
+    "value": {
+      "id": "01954e20-7540-7ec4-93ec-14f783e6ab38",
+      "seq": 2,
+      "kind": "execution-settings",
+      "admittedAt": "2026-01-02T03:06:00Z",
+      "executionSettings": {
+        "cause": "settings",
+        "settings": {
+          "image": {
+            "idyl": "python-3.12-ubuntu-24.04"
+          },
+          "cpu": "2",
+          "memory": "4Gi",
+          "network": {
+            "class": "restricted-egress",
+            "egress": {
+              "allow": [
+                "dns",
+                "tcp:443:pypi.example.com"
+              ],
+              "denyLocalNetworks": true
+            }
+          },
+          "variables": [
+            {
+              "name": "LOG_LEVEL",
+              "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            {
+              "name": "EMPTY",
+              "value": ""
+            }
+          ]
+        },
+        "revision": 3,
+        "changed": [
+          "image",
+          "cpu",
+          "network",
+          "variables.LOG_LEVEL"
+        ],
+        "creator": "developer@example.com",
+        "client": "console",
+        "truncated": true
+      }
+    }
+  }
+]

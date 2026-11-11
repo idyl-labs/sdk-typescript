@@ -1,0 +1,10 @@
+{
+  "number": 1,
+  "name": "release",
+  "createdAt": "2026-01-02T03:04:05Z",
+  "origin": "commit",
+  "entry": "01954e20-7540-7ec4-93ec-14f783e6ab13",
+  "operation": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+  "parent": 0,
+  "logicalBytes": 123
+}

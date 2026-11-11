@@ -1,0 +1,13 @@
+{
+  "operation": "shell",
+  "shell": {
+    "executable": "/bin/sh"
+  },
+  "attachment": "endpoint",
+  "endpoint": {
+    "mode": "cell"
+  },
+  "notebook": "build",
+  "idempotencyKey": "build-2026-01-02.1",
+  "client": "sdk"
+}
