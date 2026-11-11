@@ -19,6 +19,9 @@ rustls-pki-types = { version = "=1.15.1", features = ["std"] }
 ring = { version = "=0.17.14", default-features = false }
 libcrux-ml-kem = { version = "=0.0.11", default-features = false, features = ["mlkem768"] }
 
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
 [profile.release]
 opt-level = "z"
 lto = true

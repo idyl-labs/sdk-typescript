@@ -3,11 +3,14 @@
 [package]
 name = "idyl-computer-connection"
 version = "0.1.0"
-description = "The browser's connection to IDYL Computers: TLS and dock/3 to the Hyperplane edge over fallback/1, then TLS, yamux and workload-session/json-v2 to a Computer's endpoint. Sans-IO; run as WebAssembly in a Worker."
+description = "The browser's connection to IDYL Computers, sans-IO and run as WebAssembly in a Worker."
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 rust-version.workspace = true
+
+[lints]
+workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -19,7 +22,7 @@ rustls-webpki = { workspace = true }
 ring = { workspace = true }
 prost = { version = "=0.14.4", default-features = false, features = ["derive", "std"] }
 yamux = { version = "=0.14.1", default-features = false }
-futures = { version = "0.3", default-features = false, features = ["std"] }
+futures = { version = "=0.3.34", default-features = false, features = ["std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "=0.2.129" }
@@ -31,5 +34,6 @@ rcgen = { version = "=0.13.2", default-features = false, features = ["ring", "x5
 x509-parser = { version = "=0.18.1", features = ["verify"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-# rustls' aws-lc-rs X25519MLKEM768 as the endpoint runs it.
-rustls = { version = "=0.23.46", default-features = false, features = ["aws_lc_rs", "ring", "std"] }
+# rustls' aws-lc-rs X25519MLKEM768, an independent implementation of the
+# group for the tests to handshake with.
+rustls = { workspace = true, features = ["aws_lc_rs"] }

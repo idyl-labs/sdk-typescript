@@ -1,9 +1,9 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
 //! The Computer connection against an in-memory endpoint: a rustls server
-//! with aws-lc-rs (the endpoint's implementation) requiring the client
-//! certificate, and a yamux server that echoes every stream and then
-//! finishes it.
+//! with aws-lc-rs' `X25519MLKEM768` (an independent implementation of the
+//! group) requiring the client certificate, and a yamux server that echoes
+//! every stream and then finishes it.
 
 #![cfg(not(target_arch = "wasm32"))]
 

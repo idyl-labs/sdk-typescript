@@ -56,7 +56,7 @@
   },
   "scripts": {
     "build": "pnpm build:wasm && tsup",
-    "check": "pnpm build:wasm && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm conformance && pnpm deps:none && pnpm fixtures:verify && pnpm build && pnpm test:package && pnpm size && pnpm scan",
+    "check": "pnpm build:wasm && pnpm test:wasm && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm conformance && pnpm deps:none && pnpm fixtures:verify && pnpm build && pnpm test:package && pnpm size && pnpm scan",
     "clean": "node scripts/clean.mjs",
     "conformance": "vitest run test/conformance",
     "deps:none": "node scripts/assert-no-deps.mjs",
@@ -69,6 +69,7 @@
     "size": "node scripts/size.mjs",
     "test": "vitest run --exclude \"test/conformance/**\" --exclude \"test/dist/**\"",
     "test:package": "pnpm build && pnpm pack --pack-destination .package-test && node scripts/package-smoke.mjs && vitest run test/dist",
+    "test:wasm": "wasm/scripts/test-wasm.sh",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json && tsc -p tsconfig.examples.json",
     "build:wasm": "wasm/scripts/build.sh"

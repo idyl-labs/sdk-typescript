@@ -19,12 +19,14 @@ enabled, the pinned pnpm is used automatically.
 
 The build compiles the Computer connection in `wasm/` to WebAssembly, so it
 also needs the Rust toolchain that `wasm/rust-toolchain.toml` pins (rustup
-installs it), [wasm-bindgen](https://github.com/wasm-bindgen/wasm-bindgen)
-at the version `wasm/Cargo.lock` names, `wasm-opt` from
+installs it), `wasm-bindgen` and `wasm-bindgen-test-runner` from
+[wasm-bindgen](https://github.com/wasm-bindgen/wasm-bindgen) at the version
+`wasm/Cargo.lock` names, `wasm-opt` from
 [binaryen](https://github.com/WebAssembly/binaryen), and an LLVM `clang` and
 `llvm-ar` with a wasm32 target, named by `CC_wasm32_unknown_unknown` and
 `AR_wasm32_unknown_unknown` when the default compiler has none.
 `scripts/ci/install-tools.sh` installs the pinned tools on Linux x86-64.
+[wasm/README.md](wasm/README.md) lists the Rust workspace's own checks.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -33,13 +35,14 @@ pnpm check
 
 `pnpm check` runs every gate, and a pull request is ready when it is green on
 Node.js 22 and on Node.js 24. CI runs it on both for every pull request and
-every change to `main`, with the Rust connection's format, lints and tests,
-and the publication scan of the pull request's title and body, which become
-the merged commit's message. Pushing a version tag such as `v0.1.0` on `main`
+every change to `main`, with the Rust connection's format, lints, tests and
+dependency check, and the publication scan of the pull request's title and
+body, which become the merged commit's message. Pushing a version tag such as `v0.1.0` on `main`
 publishes the package to npm with provenance. [ARCHITECTURE.md](ARCHITECTURE.md) lists the
 gates and what each proves. The individual scripts are:
 
 ```sh
+pnpm test:wasm     # the Rust tests that run compiled to WebAssembly
 pnpm format        # rewrite with Prettier
 pnpm lint          # ESLint, including the layering rules
 pnpm typecheck     # src against web-standard types; tests and scripts with Node.js types
