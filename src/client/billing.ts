@@ -33,6 +33,11 @@ import { formatCpu, type CpuQuantity } from "../resource/cpu.js";
 import { formatMemory, type MemoryQuantity } from "../resource/memory.js";
 import { formatVolume, type VolumeQuantity } from "../resource/volume.js";
 import {
+  durationMilliseconds,
+  isZeroDuration,
+  type Duration,
+} from "../resource/duration.js";
+import {
   parseBillingPlanChangeId,
   parseBillingPurchaseId,
 } from "../resource/uuid-id.js";
@@ -186,6 +191,13 @@ export interface BillingPlanOffer {
    * `undefined` when the plan has no such limit.
    */
   readonly storedData?: string;
+  /**
+   * The most vCPU an Account on the plan keeps awake at once, across all its
+   * Computers. Asleep Computers count for nothing. A wake that would go past
+   * it fails with `ERROR_CODE_VCPU_LIMIT_REACHED`. `undefined` when the plan
+   * has no such limit.
+   */
+  readonly awakeVCPU?: number;
   /** Whether an Account on the plan can buy extra usage and turn on auto-refill. */
   readonly extraUsage: boolean;
 }
@@ -273,6 +285,20 @@ export interface AccountBillingStatus {
    * when the plan has no such limit.
    */
   readonly storedData?: string;
+  /**
+   * How long, in milliseconds, an Account keeps its files once it has no
+   * plan and nothing left to spend, under the default rate card in force
+   * now. The files are deleted no earlier than that. An Account whose files
+   * are already being kept this way keeps the terms it started with.
+   * `undefined` when the rate card has no free trial.
+   */
+  readonly fileRetentionMs?: number;
+  /**
+   * How long, in milliseconds, before its files are deleted each warning is
+   * sent to the Account's owner, longest first. `undefined` when the rate
+   * card has no free trial.
+   */
+  readonly deletionWarningsMs?: readonly number[];
   /**
    * The plan the Account changes to at the end of the current period, when
    * a downgrade or a cancellation is scheduled; `undefined` when none is.
@@ -760,6 +786,7 @@ async function billingOf(
         status["storedData"] as VolumeQuantity | undefined,
         formatVolume,
       ),
+      ...fileTerms(status),
       ...(isRecord(scheduled)
         ? {
             scheduledChange: Object.freeze({
@@ -793,6 +820,7 @@ async function billingOf(
             item["storedData"] as VolumeQuantity | undefined,
             formatVolume,
           ),
+          ...count("awakeVCPU", item["awakeVCPU"]),
           extraUsage: item["extraUsage"] === true,
         }),
       ),
@@ -937,6 +965,35 @@ function quantityText<K extends string, T>(
   return (spelling === undefined ? {} : { [key]: spelling }) as Readonly<
     Partial<Record<K, string>>
   >;
+}
+
+/** A served optional count, present only when it is a positive safe integer. */
+function count<K extends string>(
+  key: K,
+  value: unknown,
+): Readonly<Partial<Record<K, number>>> {
+  return (
+    typeof value === "number" && Number.isSafeInteger(value) && value > 0
+      ? { [key]: value }
+      : {}
+  ) as Readonly<Partial<Record<K, number>>>;
+}
+
+/**
+ * The served terms on which the Account's files are kept, in milliseconds,
+ * present only when the status states a retention.
+ */
+function fileTerms(status: Record<string, unknown>): {
+  readonly fileRetentionMs?: number;
+  readonly deletionWarningsMs?: readonly number[];
+} {
+  const retention = status["fileRetention"] as Duration | undefined;
+  if (retention === undefined || isZeroDuration(retention)) return {};
+  const warnings = (status["deletionWarnings"] ?? []) as readonly Duration[];
+  return {
+    fileRetentionMs: durationMilliseconds(retention),
+    deletionWarningsMs: Object.freeze(warnings.map(durationMilliseconds)),
+  };
 }
 
 /** A served optional string, present only when it is a non-empty string. */

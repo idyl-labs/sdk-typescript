@@ -520,6 +520,36 @@ describe("idyl.billing", () => {
     expect(granted.status).not.toHaveProperty("allowanceWithheld");
   });
 
+  // Contract: each plan states the vCPU an Account on it keeps awake at
+  // once, and a status under a rate card with a free trial states how long
+  // files are kept and when each deletion warning goes, in milliseconds,
+  // longest first. A status under a rate card with no trial states neither.
+  it("reads each plan's awake vCPU limit and the file terms", async () => {
+    const responses = [
+      json({ billing: golden("billing.paid-full.json") }),
+      served("billing.get-response.json"),
+    ];
+    const { idyl } = network(() => responses.shift());
+    const day = 24 * 60 * 60 * 1000;
+
+    const paid = await idyl.billing.get();
+    expect(
+      paid.status.plans.map((offer) => [offer.plan, offer.awakeVCPU]),
+    ).toEqual([
+      ["trial", 8],
+      ["none", 8],
+      ["pro", 100],
+      ["max", 500],
+      ["ultra", 2500],
+    ]);
+    expect(paid.status.fileRetentionMs).toBe(90 * day);
+    expect(paid.status.deletionWarningsMs).toEqual([30 * day, 7 * day, day]);
+
+    const trial = await idyl.billing.get();
+    expect(trial.status).not.toHaveProperty("fileRetentionMs");
+    expect(trial.status).not.toHaveProperty("deletionWarningsMs");
+  });
+
   // Contract: an amount that cannot be shown as the number it is, past
   // the safe-integer range or not a number, makes the response unreadable
   // rather than reading as another amount.

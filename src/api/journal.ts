@@ -158,6 +158,8 @@ export function validateJournalEntryKind(kind: JournalEntryKind): void {
  * - `request`: a save a caller asked for with a commit.
  * - `release`: the save IDYL made when the execution holding the files was
  *   released.
+ * - `recovery`: a save of work kept after the session that wrote it ended
+ *   without saving it. It names no `creator`.
  *
  * The union is open: a token the platform reports that this SDK does not
  * know is carried as a string; {@link validateJournalSaveTrigger} judges
@@ -169,6 +171,7 @@ export type JournalSaveTrigger =
   | "change"
   | "request"
   | "release"
+  | "recovery"
   | (string & Record<never, never>);
 
 /**
@@ -181,6 +184,7 @@ export function validateJournalSaveTrigger(trigger: JournalSaveTrigger): void {
     case "change":
     case "request":
     case "release":
+    case "recovery":
       return;
     case "":
       throw new TypeError("save trigger is required");

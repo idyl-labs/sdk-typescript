@@ -58,6 +58,12 @@ import {
   type VolumeQuantity,
 } from "../resource/volume.js";
 import { parseJson } from "../resource/json.js";
+import {
+  compareDuration,
+  durationShape,
+  isZeroDuration,
+  type Duration,
+} from "../resource/duration.js";
 import type { Integer, JsonObject } from "../resource/json.js";
 import { timestampShape } from "../resource/shapes.js";
 import {
@@ -607,6 +613,13 @@ export interface BillingPlanOffer {
    */
   readonly storedData?: VolumeQuantity;
   /**
+   * The most vCPU an Account on the plan keeps awake at once, across all its
+   * Computers. Asleep Computers count for nothing. A wake that would go past
+   * it fails with `ERROR_CODE_VCPU_LIMIT_REACHED`. `undefined` when the plan
+   * has no such limit.
+   */
+  readonly awakeVCPU?: Integer;
+  /**
    * Whether an Account on the plan can buy extra usage and turn on
    * auto-refill. Always written.
    */
@@ -622,13 +635,14 @@ export const billingPlanOfferShape: Shape<BillingPlanOffer> =
     allowanceMicros: always(microsShape),
     largestSize: always(string()),
     storedData: omitZero(volumeQuantityShape),
+    awakeVCPU: omitEmpty(integer({ unsigned: false, bits: 64 })),
     extraUsage: always(boolean()),
   });
 
 /**
- * Judges the offer: a plan in identifier form, a name, amounts that are not
- * negative, a size in identifier form, and a valid stored-data limit when
- * one is stated. Throws a `TypeError`.
+ * Judges the offer: a plan in identifier form, a name, amounts and an awake
+ * vCPU limit that are not negative, a size in identifier form, and a valid
+ * stored-data limit when one is stated. Throws a `TypeError`.
  */
 export function validateBillingPlanOffer(offer: BillingPlanOffer): void {
   prefixed("plan", () => {
@@ -638,10 +652,48 @@ export function validateBillingPlanOffer(offer: BillingPlanOffer): void {
   if (isNegative(offer.priceMicros) || isNegative(offer.allowanceMicros)) {
     throw new TypeError("priceMicros and allowanceMicros must not be negative");
   }
+  if (offer.awakeVCPU !== undefined && isNegative(offer.awakeVCPU)) {
+    throw new TypeError("awakeVCPU must not be negative");
+  }
   prefixed("largestSize", () => {
     validateComputerSize(offer.largestSize);
   });
   validateStoredData(offer.storedData);
+}
+
+/**
+ * Judges the terms on which an Account's files are kept: warnings only beside
+ * a retention, each positive and shorter than it, longest first.
+ */
+function validateFileRetention(
+  retention: Duration | undefined,
+  warnings: readonly Duration[] | undefined,
+): void {
+  if (retention !== undefined && isBelowZero(retention)) {
+    throw new TypeError("fileRetention must not be negative");
+  }
+  if (warnings === undefined || warnings.length === 0) return;
+  if (retention === undefined || isZeroDuration(retention)) {
+    throw new TypeError("deletionWarnings need a fileRetention");
+  }
+  let longest = retention;
+  warnings.forEach((warning, index) => {
+    if (
+      isBelowZero(warning) ||
+      isZeroDuration(warning) ||
+      compareDuration(warning, longest) >= 0
+    ) {
+      throw new TypeError(
+        `deletionWarnings[${String(index)}] must be positive and shorter than the one before it and fileRetention`,
+      );
+    }
+    longest = warning;
+  });
+}
+
+/** Whether the duration runs backwards. */
+function isBelowZero(duration: Duration): boolean {
+  return compareDuration(duration, { seconds: 0, nanoseconds: 0 }) < 0;
 }
 
 /** Judges a stated limit on stored data: a valid quantity. */
@@ -718,6 +770,21 @@ export interface AccountBillingStatus {
    */
   readonly storedData?: VolumeQuantity;
   /**
+   * How long an Account keeps its files once it has no plan and nothing
+   * left to spend, under the platform's default rate card in force now. The
+   * files are deleted no earlier than that. An Account whose files are
+   * already being kept this way keeps the terms it started with.
+   * `undefined` when the rate card has no free trial.
+   */
+  readonly fileRetention?: Duration;
+  /**
+   * How long before its files are deleted each warning is sent to the
+   * Account's owner, longest first, under the same rate card as
+   * `fileRetention`. Each is shorter than `fileRetention`. `undefined` when
+   * the rate card has no free trial.
+   */
+  readonly deletionWarnings?: readonly Duration[];
+  /**
    * The plan the Account changes to at the end of the current period, when
    * a downgrade or a cancellation is scheduled; `undefined` when none is.
    */
@@ -786,6 +853,8 @@ export const accountBillingStatusShape: Shape<AccountBillingStatus> =
     renewal: always(string<BillingRenewalState>()),
     largestSize: always(string()),
     storedData: omitZero(volumeQuantityShape),
+    fileRetention: omitZero(durationShape),
+    deletionWarnings: omitEmpty(array(durationShape)),
     scheduledChange: pointer(billingScheduledChangeShape),
     autoRefillStopped: pointer(billingAutoRefillStopShape),
     hasInvoices: always(boolean()),
@@ -860,6 +929,7 @@ export function validateAccountBillingStatus(
     validateComputerSize(status.largestSize);
   });
   validateStoredData(status.storedData);
+  validateFileRetention(status.fileRetention, status.deletionWarnings);
   const scheduled = status.scheduledChange;
   if (scheduled !== undefined) {
     prefixed("scheduledChange", () => {
