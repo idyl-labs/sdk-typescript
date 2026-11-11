@@ -20,6 +20,12 @@
       "renewal": "failed",
       "largestSize": "large",
       "storedData": "400Gi",
+      "fileRetention": "2160h",
+      "deletionWarnings": [
+        "720h",
+        "168h",
+        "24h"
+      ],
       "scheduledChange": {
         "plan": "none",
         "at": "2026-11-12T00:00:00Z",
@@ -60,6 +66,7 @@
           "allowanceMicros": 1000000,
           "largestSize": "medium",
           "storedData": "10Gi",
+          "awakeVCPU": 8,
           "extraUsage": false
         },
         {
@@ -69,6 +76,7 @@
           "allowanceMicros": 1000000,
           "largestSize": "medium",
           "storedData": "10Gi",
+          "awakeVCPU": 8,
           "extraUsage": false
         },
         {
@@ -78,6 +86,7 @@
           "allowanceMicros": 20000000,
           "largestSize": "large",
           "storedData": "400Gi",
+          "awakeVCPU": 100,
           "extraUsage": true
         },
         {
@@ -87,6 +96,7 @@
           "allowanceMicros": 100000000,
           "largestSize": "xl",
           "storedData": "2Ti",
+          "awakeVCPU": 500,
           "extraUsage": true
         },
         {
@@ -96,6 +106,7 @@
           "allowanceMicros": 500000000,
           "largestSize": "xl",
           "storedData": "10Ti",
+          "awakeVCPU": 2500,
           "extraUsage": true
         }
       ],

@@ -1,6 +1,10 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
 import { computerAwakeShape, type ComputerAwake } from "./computer-awake.js";
+import {
+  computerRecoveryShape,
+  type ComputerRecovery,
+} from "./computer-recovery.js";
 import { parseJson } from "../resource/json.js";
 import type { Integer } from "../resource/json.js";
 import { durationShape, type Duration } from "../resource/duration.js";
@@ -341,6 +345,13 @@ const computerExecutionSettingsStatusShape: Shape<ComputerExecutionSettingsStatu
 export interface Computer {
   /** Usage observations when reported; present objects retain all zero counts. */
   readonly usage?: StorageUsage;
+  /**
+   * Work on its way into the Computer as a new version, after the session
+   * that wrote it ended without saving it. A read of one Computer reports
+   * it until the version is published; it is absent from every other
+   * response.
+   */
+  readonly recovery?: ComputerRecovery;
   /** Historical saved-state provenance, independent of ongoing copying. */
   readonly forkOf?: VersionRef;
   /** Copying progress only when reported. */
@@ -399,6 +410,7 @@ const computerShape: Shape<Computer> = object<Computer>({
   headVersion: always(integer({ unsigned: false, bits: 64 })),
   spec: always(computerSpecShape),
   usage: pointer(storageUsageShape),
+  recovery: pointer(computerRecoveryShape),
   forkOf: pointer(versionRefShape),
   status: pointer(storageStatusShape),
   executionSettings: pointer(computerExecutionSettingsStatusShape),

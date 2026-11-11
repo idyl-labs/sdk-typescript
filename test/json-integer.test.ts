@@ -311,7 +311,7 @@ describe("ordinary fixture rendering", () => {
       (entry): entry is string =>
         typeof entry === "string" && entry.endsWith(".json"),
     );
-    expect(paths.length).toBe(172);
+    expect(paths.length).toBe(174);
     for (const path of paths) {
       const text = readFileSync(`${root}/${path}`, "utf8");
       const exact = parseJson(text);
