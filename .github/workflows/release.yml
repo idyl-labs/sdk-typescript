@@ -48,7 +48,7 @@ jobs:
         run: corepack enable
       - name: Install wasm-bindgen, wasm-opt and gitleaks
         run: |
-          scripts/ci/install-tools.sh "$RUNNER_TEMP/tools/bin"
+          scripts/ci/install-tools.sh "$RUNNER_TEMP/tools/bin" wasm-bindgen wasm-opt gitleaks
           echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
       - name: Install the pinned Rust toolchain
         working-directory: wasm

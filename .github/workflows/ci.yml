@@ -1,12 +1,12 @@
 # Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 #
 # Builds and checks every pull request and every change to main: the Rust
-# connection's format, lints and tests, then `pnpm check` on each supported
-# Node.js line (the WebAssembly build, format, lint, types, tests,
-# conformance, the package test, the size budget and the publication scan),
-# and the publication scan of a pull request's title and body, which become
-# the merged commit's message. It runs on GitHub-hosted runners with
-# read-only access and no secrets.
+# connection's format, lints, tests and dependency check, then `pnpm check`
+# on each supported Node.js line (the WebAssembly build and its tests,
+# format, lint, types, tests, conformance, the package test, the size budget
+# and the publication scan), and the publication scan of a pull request's
+# title and body, which become the merged commit's message. It runs on
+# GitHub-hosted runners with read-only access and no secrets.
 name: CI
 
 on:
@@ -35,16 +35,22 @@ jobs:
           persist-credentials: false
       - name: Install the pinned Rust toolchain
         run: rustup toolchain install
+      - name: Install cargo-deny
+        working-directory: ${{ github.workspace }}
+        run: |
+          scripts/ci/install-tools.sh "$RUNNER_TEMP/tools/bin" cargo-deny
+          echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             wasm/target
-          key: rust-host-${{ hashFiles('wasm/Cargo.lock', 'wasm/rust-toolchain.toml') }}
+          key: rust-host-${{ hashFiles('wasm/Cargo.lock', 'wasm/rust-toolchain.toml', 'wasm/**/Cargo.toml') }}
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
+      - run: cargo deny --locked check
 
   check:
     name: Check on Node.js ${{ matrix.node }}
@@ -70,7 +76,7 @@ jobs:
         run: corepack enable
       - name: Install wasm-bindgen, wasm-opt and gitleaks
         run: |
-          scripts/ci/install-tools.sh "$RUNNER_TEMP/tools/bin"
+          scripts/ci/install-tools.sh "$RUNNER_TEMP/tools/bin" wasm-bindgen wasm-opt gitleaks
           echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
       - name: Install the pinned Rust toolchain
         working-directory: wasm
@@ -83,7 +89,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             wasm/target
-          key: rust-wasm-${{ hashFiles('wasm/Cargo.lock', 'wasm/rust-toolchain.toml') }}
+          key: rust-wasm-${{ hashFiles('wasm/Cargo.lock', 'wasm/rust-toolchain.toml', 'wasm/**/Cargo.toml') }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - name: Scan the pull request's title and body

@@ -602,6 +602,7 @@ Node.js 22 and on Node.js 24:
 
 | Gate                   | Proves                                                                                                                                                                         |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm test:wasm`       | The TLS provider's tests pass compiled to WebAssembly, in Node.js.                                                                                                             |
 | `pnpm format:check`    | Formatting matches Prettier.                                                                                                                                                   |
 | `pnpm lint`            | ESLint's strict type-checked rules and the layering rules hold.                                                                                                                |
 | `pnpm typecheck`       | `src/` compiles against web-standard types only; tests and scripts compile with Node.js types.                                                                                 |

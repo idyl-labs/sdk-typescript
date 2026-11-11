@@ -3,11 +3,14 @@
 [package]
 name = "idyl-tls-provider"
 version = "0.1.0"
-description = "TLS 1.3 crypto provider for the browser Computer connection: ring with the X25519MLKEM768 hybrid group from ring X25519 and libcrux ML-KEM-768."
+description = "TLS 1.3 crypto provider for the browser Computer connection, with the X25519MLKEM768 hybrid group."
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 rust-version.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 rustls = { workspace = true }
@@ -27,11 +30,12 @@ rustls-pki-types = { workspace = true, features = ["web"] }
 ml-kem = { version = "=0.3.3", features = ["hazmat"] }
 x25519-dalek = { version = "=2.0.1", features = ["static_secrets"] }
 rcgen = { version = "=0.13.2", default-features = false, features = ["ring"] }
-serde_json = { version = "1", default-features = false, features = ["std"] }
+serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-# rustls' aws-lc-rs X25519MLKEM768, the implementation the endpoint runs.
-rustls = { version = "=0.23.46", default-features = false, features = ["aws_lc_rs", "ring", "std"] }
+# rustls' aws-lc-rs X25519MLKEM768, an independent implementation of the
+# group for the tests to handshake with.
+rustls = { workspace = true, features = ["aws_lc_rs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "=0.3.79"
