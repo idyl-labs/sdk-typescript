@@ -1218,9 +1218,9 @@ describe("idyl.computers listing and images", () => {
               request.url.searchParams.get("isolation") === "vm"
                 ? [
                     {
-                      name: "ubuntu-24.04-machine",
-                      displayName: "Ubuntu 24.04 LTS",
-                      os: { name: "ubuntu", version: "24.04" },
+                      name: "ubuntu-26.04-machine",
+                      displayName: "Ubuntu 26.04 LTS machine",
+                      os: { name: "ubuntu", version: "26.04" },
                       gpu: false,
                       image: "registry.example.com/ubuntu-machine@sha256:00",
                       patch: "2026.11.01",
@@ -1241,9 +1241,9 @@ describe("idyl.computers listing and images", () => {
     expect(network.plane.requests).toHaveLength(0);
     expect(await computers.images({ isolation: "vm" })).toEqual([
       {
-        name: "ubuntu-24.04-machine",
-        displayName: "Ubuntu 24.04 LTS",
-        os: { name: "ubuntu", version: "24.04" },
+        name: "ubuntu-26.04-machine",
+        displayName: "Ubuntu 26.04 LTS machine",
+        os: { name: "ubuntu", version: "26.04" },
         gpu: false,
         patch: "2026.11.01",
         default: true,
@@ -1644,7 +1644,7 @@ describe("Computer isolation", () => {
     await computer.update({ isolation: "vm" });
     await computer.update({
       isolation: "vm",
-      image: "ubuntu-24.04-machine",
+      image: "ubuntu-26.04-machine",
       client: "console",
     });
     const unknown = "microvm" as "vm";
@@ -1654,7 +1654,7 @@ describe("Computer isolation", () => {
     expect(sent).toEqual([
       { isolation: "vm", client: "sdk" },
       {
-        image: { idyl: "ubuntu-24.04-machine" },
+        image: { idyl: "ubuntu-26.04-machine" },
         isolation: "vm",
         client: "console",
       },
