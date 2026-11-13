@@ -1,17 +1,27 @@
 # Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 #
-# Publishes @idyl-sh/sdk to npm when a version tag such as v0.1.0 is pushed.
-# The tag must name a commit on main and match the version in package.json.
-# The release is built from scratch, held to the full `pnpm check`, and
-# published through npm trusted publishing: npm verifies this workflow's
-# OpenID Connect identity, so no npm token is stored anywhere, and the
-# package carries a provenance statement naming this repository, workflow
-# and commit.
+# Stages a release of @idyl-sh/sdk on npm when a version tag such as v0.1.0
+# is pushed. The tag must name a commit on main and match the version in
+# package.json. The release is built from scratch on a GitHub-hosted runner,
+# held to the full `pnpm check`, and uploaded with `npm stage publish`: it
+# carries a provenance statement naming this repository, workflow and
+# commit, and it becomes public only when a maintainer approves it on npm
+# with two-factor authentication.
+#
+# The tagged run uses the `npm` environment, which only version tags may
+# use. npm verifies the workflow's OpenID Connect identity against the
+# package's trusted publisher. A package's first release precedes its
+# trusted publisher, so that one authenticates with the environment's
+# stage-only token, which can stage a version and cannot publish one.
+#
+# Run by hand, the workflow is a rehearsal: it builds, checks and packs a
+# commit of main, and uploads nothing.
 name: Release
 
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -21,10 +31,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Publish to npm
+  stage:
+    name: Stage on npm
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    environment: ${{ github.ref_type == 'tag' && 'npm' || '' }}
     permissions:
       contents: read
       # The OpenID Connect token for trusted publishing and provenance.
@@ -34,16 +45,22 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Require the tag to be on main and to match the package version
+      - name: Require a commit of main, and a tag that matches the package version
         run: |
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-          version=$(node -p 'require("./package.json").version')
-          test "v$version" = "$GITHUB_REF_NAME"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version=$(node -p 'require("./package.json").version')
+            test "v$version" = "$GITHUB_REF_NAME"
+          fi
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+      - name: Require an npm that stages releases
+        run: |
+          npm --version
+          npm stage publish --help > /dev/null
       - name: Use the pinned pnpm
         run: corepack enable
       - name: Install wasm-bindgen, wasm-opt and gitleaks
@@ -57,5 +74,12 @@ jobs:
         run: scripts/ci/wasm-cc.sh >> "$GITHUB_ENV"
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
-      - name: Publish with provenance
-        run: npm publish --provenance --access public
+      - name: Stage the release with provenance, or rehearse it
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_STAGE_TOKEN }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            npm stage publish --provenance --access public
+          else
+            npm stage publish --provenance --access public --dry-run
+          fi

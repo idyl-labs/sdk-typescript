@@ -37,9 +37,9 @@ pnpm check
 Node.js 22 and on Node.js 24. CI runs it on both for every pull request and
 every change to `main`, with the Rust connection's format, lints, tests and
 dependency check, and the publication scan of the pull request's title and
-body, which become the merged commit's message. Pushing a version tag such as `v0.1.0` on `main`
-publishes the package to npm with provenance. [ARCHITECTURE.md](ARCHITECTURE.md) lists the
-gates and what each proves. The individual scripts are:
+body, which become the merged commit's message.
+[ARCHITECTURE.md](ARCHITECTURE.md) lists the gates and what each proves. The
+individual scripts are:
 
 ```sh
 pnpm test:wasm     # the Rust tests that run compiled to WebAssembly
@@ -121,6 +121,19 @@ such as domains under `example.com`.
 
 **Comments.** Document what an exported name guarantees, not how it came to
 be.
+
+## Releases
+
+A release is the version in `package.json`, tagged on `main` as `v` and that
+version, such as `v0.1.0`. A maintainer pushes the tag. The release workflow
+then builds the package from scratch on a GitHub-hosted runner, holds it to
+`pnpm check`, and stages it on npm with a provenance statement that names
+this repository, the workflow and the commit. The version becomes public when
+a maintainer approves it on npm with two-factor authentication. Nothing built
+anywhere else is published.
+
+Run by hand, the same workflow rehearses a release: it builds, checks and
+packs a commit of `main`, and uploads nothing.
 
 ## Commits
 
