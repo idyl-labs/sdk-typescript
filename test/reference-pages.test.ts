@@ -97,7 +97,9 @@ describe("reference pages", () => {
         (entry) =>
           entry.name === PAGES.find((spec) => spec.slug === page.slug)?.subject,
       );
-      const members = new Set(subject?.symbol.members?.keys() ?? []);
+      const members = new Set<string>(
+        [...(subject?.symbol.members?.keys() ?? [])].map(String),
+      );
       for (const [, level, heading = ""] of page.text.matchAll(
         /^(#{3,4}) (.+)$/gmu,
       )) {
