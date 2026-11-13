@@ -86,13 +86,13 @@ export interface ExecutionSettings {
 
 /**
  * The save that covers a command: `saved` with the version it published,
- * `unchanged` when nothing changed, `failed` with its reason, `off` when
- * the Computer does not save on its own, or `pending` or `retrying` while
- * it is under way. `entry` names the history entry that owns a published
- * version, which a fork starts from. A state this package does not name is
+ * `unchanged` when there was nothing to save, `failed` with its reason,
+ * `off` when the Computer does not save on its own, or `pending` or
+ * `retrying` while it is under way. A state this package does not name is
  * carried as reported.
  */
 export interface Save {
+  /** Where the save stands, as the description of {@link Save} lists. */
   readonly state:
     | "pending"
     | "retrying"
@@ -101,8 +101,11 @@ export interface Save {
     | "failed"
     | "off"
     | (string & Record<never, never>);
+  /** The version a `saved` save published. */
   readonly version?: number;
+  /** The history entry that owns the published version, which a fork can start from. */
   readonly entry?: string;
+  /** Why a `failed` save failed, as a stable code. */
   readonly reason?: string;
 }
 
@@ -110,7 +113,9 @@ export interface Save {
 export interface CellProcess {
   /** `exited`, `signaled`, `unknown` or `start-unknown`. */
   readonly outcome: string;
+  /** The exit code of an `exited` process, when it was observed; zero is a reading. */
   readonly exitCode?: number;
+  /** The signal that ended a `signaled` process, as the machine reports it, when it was observed. */
   readonly signal?: string;
 }
 
@@ -123,21 +128,30 @@ export interface CellProcess {
  * alone, so its `command` is empty; a `records` session reads it.
  */
 export interface Cell {
+  /** The cell's ID, which a fork can start from. */
   readonly id: string;
+  /** The name of the notebook that recorded it. */
   readonly notebook?: string;
+  /** The ID of the session that ran it. */
   readonly session?: string;
+  /** The command as recorded, its arguments joined by spaces; empty for a script. */
   readonly command: string;
+  /** Whether `command` holds only the start of the command. */
   readonly commandTruncated: boolean;
+  /** `running`, then `ended`; or `error` when its session never ran it. */
   readonly state:
     "running" | "ended" | "error" | (string & Record<never, never>);
+  /** Why a cell in state `error` never ran, as a stable code. */
   readonly error?: { readonly reason: string };
+  /** How its process ended, once that is known. */
   readonly process?: CellProcess;
   /**
    * What ended the cell's session, once it has ended: `exited` when its
    * command ended, `client-disconnected` when the client that ran it closed
    * the session (the command is then ended with it), `deadline`,
-   * `put-to-sleep`, or another reason this package names in
-   * `ComputerCellTermination`.
+   * `put-to-sleep`, `forked`, `interrupted`, `runtime-error`,
+   * `node-restarted`, `unknown`, or a reason this package does not name,
+   * carried as reported.
    */
   readonly termination?: string;
   /** How much output the cell produced, in bytes. */
@@ -145,12 +159,15 @@ export interface Cell {
     readonly stdoutBytes?: number;
     readonly stderrBytes?: number;
   };
+  /** The save that covers it, once one does. */
   readonly save?: Save;
   /** Who ran it. */
   readonly creator: string;
   /** The kind of client that ran it, such as `sdk` or `console`. */
   readonly client: string;
+  /** When its process started, as an RFC 3339 instant, once that is reported. */
   readonly startedAt?: string;
+  /** When it ended, as an RFC 3339 instant; absent while it runs. */
   readonly endedAt?: string;
 }
 
@@ -163,11 +180,15 @@ export interface Cell {
  * caused it, absent when IDYL made it on its own.
  */
 export interface HistoryEntry {
+  /** The entry's ID, which a fork can start from. */
   readonly id: string;
+  /** What the entry records, as the description of {@link HistoryEntry} lists. */
   readonly kind: string;
   /** When IDYL admitted the entry, as an RFC 3339 instant. */
   readonly admittedAt: string;
+  /** The saved version the entry owns, when it owns one. */
   readonly version?: number;
+  /** Who caused it; absent when IDYL made it on its own. */
   readonly creator?: string;
   /**
    * The kind of client that made it, such as `console`, `cli` or `sdk`, or
@@ -229,8 +250,9 @@ export interface HistoryEntry {
 export interface AwakeHold {
   /**
    * What it is: `session`, `keep-awake`, `starting-session`,
-   * `settings-restart`, or a kind newer than this SDK. A `settings-restart`
-   * keeps nothing awake: the Computer sleeps as soon as no session holds it.
+   * `settings-restart`, or a kind this package does not name. A
+   * `settings-restart` keeps nothing awake: the Computer sleeps once no
+   * session holds it.
    */
   readonly kind: string;
   /** How many sessions it names; zero on a hold that names none. */
@@ -238,8 +260,8 @@ export interface AwakeHold {
 }
 
 /**
- * Why a Computer is awake and when it will sleep, as of the read that
- * reported it. A Computer counting down states `sleepsAt` and `sleepsIn`;
+ * Why a Computer is awake and when it sleeps, at the read that reported
+ * it. A Computer counting down states `sleepsAt` and `sleepsIn`;
  * count down from `sleepsIn`, which needs no agreement between this machine's
  * clock and IDYL's, and read the Computer again to follow a change made
  * elsewhere.
@@ -247,7 +269,7 @@ export interface AwakeHold {
 export interface Awake {
   /** When its current execution started, as an RFC 3339 instant. */
   readonly since: string;
-  /** What is keeping it awake now; empty when it is counting down. */
+  /** What keeps it awake at the read; empty while it counts down. */
   readonly holds: readonly AwakeHold[];
   /** When it sleeps by IDYL's clock, as an RFC 3339 instant. */
   readonly sleepsAt?: string;
@@ -260,6 +282,7 @@ export interface Awake {
  * it. It carries no command, output or credential, and it grants nothing.
  */
 export interface OpenSession {
+  /** The session's ID. */
   readonly id: string;
   /**
    * `terminal`, `command`, `notebook-cell`, `ssh` (an SSH connection), or a
@@ -280,6 +303,7 @@ export interface OpenSession {
 
 /** One saved version of a Computer's files. */
 export interface Version {
+  /** The version's number; zero is the empty first version. */
   readonly number: number;
   /** The name it was given, if any. */
   readonly name?: string;

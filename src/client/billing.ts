@@ -117,6 +117,7 @@ export interface AccountBillingSpec {
  * every field but `size` and `perHourMicros`.
  */
 export interface BillingSizeRate {
+  /** The size this rate prices. */
   readonly size: ComputerSize;
   /**
    * The price of one hour a Computer is awake at `size`, in micro-dollars;
@@ -165,6 +166,7 @@ export interface BillingAutoRefillStop {
 
 /** Names the smallest plan that includes a size. */
 export interface BillingSizePlan {
+  /** A size some plan includes. */
   readonly size: ComputerSize;
   /** The smallest plan whose largest size is at least `size`. */
   readonly plan: BillingPlan;
@@ -172,6 +174,7 @@ export interface BillingSizePlan {
 
 /** A plan as it is offered. */
 export interface BillingPlanOffer {
+  /** The plan's identifier, as a plan change names it. */
   readonly plan: BillingPlan;
   /** The plan's name for display, such as `Max 5x`. */
   readonly name: string;
@@ -203,7 +206,7 @@ export interface BillingPlanOffer {
 }
 
 /**
- * An Account's billing as IDYL reports it. Usage is counted as soon as it
+ * An Account's billing as IDYL reports it. Usage is counted the moment it
  * is recorded, before it is settled, so the amounts are the ones the
  * Account's standing is judged on. Instants are RFC 3339 strings.
  */
@@ -213,7 +216,7 @@ export interface AccountBillingStatus {
   /**
    * The start of the current period, which is `[periodStart, periodEnd)`:
    * one month of the plan in force, or a trial's whole length. An upgrade
-   * starts a new period at once.
+   * starts a fresh period at once.
    */
   readonly periodStart: string;
   /** The end of the current period: when the allowance resets, a paid plan renews and a trial ends. */
@@ -229,7 +232,7 @@ export interface AccountBillingStatus {
    * `undefined` otherwise. `trial_one_per_person` is an unpaid allowance
    * withheld because it is given once per person and the verified sign-in
    * email of the Account's owner already holds it on another Account.
-   * `trials_closed` is one withheld because new trials were closed when the
+   * `trials_closed` is one withheld because IDYL offered no trials when the
    * Account was created. A paid plan's allowance is never withheld for
    * either reason.
    */
@@ -241,8 +244,8 @@ export interface AccountBillingStatus {
    */
   readonly usedMicros: number;
   /**
-   * The extra usage bought and not yet used. It never expires and is used
-   * only once the allowance is used up.
+   * The extra usage bought and unused. It never expires and is used only
+   * once the allowance is used up.
    */
   readonly extraBalanceMicros: number;
   /**
@@ -253,7 +256,7 @@ export interface AccountBillingStatus {
   /**
    * Whether the Account's Computers may wake: `ok`, or `out` when the
    * allowance and the extra usage are used and auto-refill cannot buy
-   * more. An `out` Account's wakes and new sessions are refused with
+   * more. An `out` Account's wakes and session starts are refused with
    * `ERROR_CODE_OUT_OF_USAGE` and its awake Computers are asked to sleep,
    * their files kept. It is `ok` again after a purchase, an upgrade or the
    * start of its next period; its Computers are not woken by that.
@@ -287,8 +290,8 @@ export interface AccountBillingStatus {
   readonly storedData?: string;
   /**
    * How long, in milliseconds, an Account keeps its files once it has no
-   * plan and nothing left to spend, under the default rate card in force
-   * now. The files are deleted no earlier than that. An Account whose files
+   * plan and nothing left to spend, under the default rate card in force.
+   * The files are deleted no earlier than that. An Account whose files
    * are already being kept this way keeps the terms it started with.
    * `undefined` when the rate card has no free trial.
    */
@@ -323,16 +326,16 @@ export interface AccountBillingStatus {
   readonly plans: readonly BillingPlanOffer[];
   /**
    * What an awake hour of each size costs the Account's Computers under the
-   * rate card in force now: one entry per size, smallest first.
+   * rate card in force: one entry per size, smallest first.
    */
   readonly sizeRates: readonly BillingSizeRate[];
   /**
-   * The rate in force now for storing one GiB for one month, in micro-dollars,
+   * The rate in force for storing one GiB for one month, in micro-dollars,
    * before tax. Zero is a rate.
    */
   readonly storageMicrosPerGiBMonth: number;
   /**
-   * The rate in force now for downloading one GiB, in micro-dollars, before
+   * The rate in force for downloading one GiB, in micro-dollars, before
    * tax. Zero is a rate.
    */
   readonly downloadMicrosPerGiB: number;
@@ -341,14 +344,16 @@ export interface AccountBillingStatus {
 /**
  * An Account's billing: `spec` is what the Account's owner sets, and
  * `status` is what IDYL reports. Every Account has one, from sign-up onwards.
- * The plan is changed through a plan change, not through `spec`.
+ * A plan change, not `spec`, moves the Account to another plan.
  *
  * Every amount of money is in US dollars, as a whole number of
  * micro-dollars (`MICROS_PER_DOLLAR` to the dollar), so usage priced by the
  * minute is exact and sums without rounding. Amounts are never negative.
  */
 export interface AccountBilling {
+  /** What the Account's owner sets: auto-refill and the spend cap. */
   readonly spec: AccountBillingSpec;
+  /** What IDYL reports: the plan, the period, usage, standing and rates. */
   readonly status: AccountBillingStatus;
 }
 
@@ -384,9 +389,10 @@ export interface BillingAction {
  * - From `trial` or `none` to a paid plan, the change waits for the user in Stripe
  *   Checkout and is applied once Stripe confirms the first payment.
  * - To a plan with a higher price, it is an upgrade: it takes effect at
- *   once, a new period starts with the new plan's whole allowance, what was
- *   left of the old allowance expires, and Stripe charges the saved card the
- *   new plan's price less a credit for the unused part of the old period. A
+ *   once, a fresh period starts with the higher plan's whole allowance, what
+ *   was left of the old allowance expires, and Stripe charges the saved card
+ *   the higher plan's price less a credit for the unused part of the old
+ *   period. A
  *   charge the card's issuer asks the user to authenticate waits for the
  *   user; a declined charge fails the change with
  *   `ERROR_CODE_PAYMENT_DECLINED` and leaves the plan as it was. An
@@ -403,6 +409,7 @@ export interface BillingAction {
  * while after it is final, and then reads HTTP 404.
  */
 export interface BillingPlanChange {
+  /** The change's ID, a canonical UUID, which `getPlanChange` reads. */
   readonly id: string;
   /** The plan the change is to. */
   readonly plan: BillingPlan;
@@ -435,6 +442,7 @@ export interface BillingPlanChange {
  * auto-refill off.
  */
 export interface BillingPurchase {
+  /** The purchase's ID, a canonical UUID, which `purchases.get` reads. */
   readonly id: string;
   /** `manual`, a purchase a user created, or `auto_refill`. */
   readonly kind: BillingPurchaseKind;
@@ -442,8 +450,8 @@ export interface BillingPurchase {
   readonly amountMicros: number;
   /**
    * `pending`, which counts against the spend cap; `paid`, whose amount is
-   * in the extra usage balance; or `failed`, which charged nothing and no
-   * longer counts against the cap.
+   * in the extra usage balance; or `failed`, which charged nothing and does
+   * not count against the cap.
    */
   readonly state: BillingPurchaseState;
   /**
@@ -530,13 +538,48 @@ export interface BillingPurchases {
    * Buys extra usage. The answer is the purchase as it stood when IDYL's
    * short wait ended: paid or failed, or pending, in which case its
    * `action` may name a page the user completes in Stripe.
+   *
+   * @throws {@link TypeError} `amountMicros` is not a positive whole number
+   *   of dollars in micro-dollars, or `idempotencyKey` is not a string of at
+   *   most 64 bytes, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the purchase, such as with
+   *   `ERROR_CODE_EXTRA_USAGE_NOT_IN_PLAN` or `ERROR_CODE_SPEND_CAP_REACHED`;
+   *   a refused purchase records nothing
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer cannot be read
    */
   create(options: CreatePurchaseOptions): Promise<BillingPurchase>;
-  /** Reads one purchase. */
+  /**
+   * Reads one purchase.
+   *
+   * @param purchaseId - The purchase's `id`.
+   * @throws {@link TypeError} `purchaseId` is not a canonical UUID, before
+   *   any request is sent
+   * @throws {@link ApiError} IDYL refuses the read, such as with status 404
+   *   for a purchase the Account does not hold
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer cannot be read
+   */
   get(purchaseId: string, options?: CallOptions): Promise<BillingPurchase>;
-  /** Every purchase, page by page. */
+  /**
+   * Every purchase, page by page.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer cannot be read
+   */
   list(options?: ListOptions): AsyncIterable<BillingPurchase>;
-  /** One page of the purchases. */
+  /**
+   * One page of the purchases.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer, or
+   *   `continue` is not one a page of this listing returned, before any
+   *   request is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer cannot be read
+   */
   listPage(options?: PageOptions): Promise<Page<BillingPurchase>>;
 }
 
@@ -547,27 +590,79 @@ export interface BillingPurchases {
  * (`isOutOfUsage`, `sizeNotInPlan`). Every request is judged before it is
  * sent: an invalid option or a malformed ID throws a `TypeError` and sends
  * nothing.
+ *
+ * @example
+ * ```ts
+ * import { MICROS_PER_DOLLAR } from "@idyl-sh/sdk";
+ *
+ * const { status } = await idyl.billing.get();
+ * const left = (status.allowanceMicros - status.usedMicros) / MICROS_PER_DOLLAR;
+ * console.log(`${status.plan}: $${left.toFixed(2)} of allowance left`);
+ * console.log(`resets ${status.periodEnd}, standing ${status.standing}`);
+ * ```
  */
 export interface Billing {
-  /** The Account's billing. */
+  /**
+   * The Account's billing.
+   *
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer cannot be read
+   */
   get(options?: CallOptions): Promise<AccountBilling>;
-  /** Changes the Account's billing settings and returns the billing as the update left it. */
+  /**
+   * Changes the Account's billing settings and returns the billing as the
+   * update left it.
+   *
+   * @throws {@link TypeError} the update states no field, or a field is
+   *   invalid, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the settings, such as with
+   *   `ERROR_CODE_AUTO_REFILL_NEEDS_SPEND_CAP` or
+   *   `ERROR_CODE_EXTRA_USAGE_NOT_IN_PLAN`; a refused update changes
+   *   nothing
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer cannot be read
+   */
   update(options: UpdateBillingOptions): Promise<AccountBilling>;
   /**
    * Asks for the Account's plan to change. The answer is the change as it
    * stood when IDYL's short wait ended: applied, scheduled or failed, or
    * pending, in which case its `action` may name a page the user completes
    * in Stripe.
+   *
+   * @throws {@link TypeError} `plan` is not in the form of a plan, or
+   *   `idempotencyKey` is not a string of at most 64 bytes, before any
+   *   request is sent
+   * @throws {@link ApiError} IDYL refuses the change, such as with
+   *   `ERROR_CODE_PLAN_NOT_OFFERED`
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer cannot be read
    */
   createPlanChange(
     options: CreatePlanChangeOptions,
   ): Promise<BillingPlanChange>;
-  /** Reads one plan change of the Account. */
+  /**
+   * Reads one plan change of the Account.
+   *
+   * @param planChangeId - The plan change's `id`.
+   * @throws {@link TypeError} `planChangeId` is not a canonical UUID, before
+   *   any request is sent
+   * @throws {@link ApiError} IDYL refuses the read, such as with status 404
+   *   for a change it does not keep
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer cannot be read
+   */
   getPlanChange(
     planChangeId: string,
     options?: CallOptions,
   ): Promise<BillingPlanChange>;
-  /** Opens a new session of Stripe's customer portal for the Account. */
+  /**
+   * Opens a session of Stripe's customer portal for the Account.
+   *
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer cannot be read
+   */
   createPortalSession(options?: CallOptions): Promise<BillingPortalSession>;
   /** The Account's purchases of extra usage. */
   readonly purchases: BillingPurchases;

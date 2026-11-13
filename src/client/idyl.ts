@@ -36,8 +36,11 @@ const DEFAULT_NAMESPACE = "default";
 
 /** Explicit origins for the public endpoints, each `https://host[:port]`. */
 export interface Endpoints {
+  /** The API that serves Accounts, Computers, Secrets and billing. */
   readonly api?: string;
+  /** The identity service that signs people in and issues tokens. */
   readonly identity?: string;
+  /** The public metadata service, which lists the sizes a Computer can run at. */
   readonly meta?: string;
 }
 
@@ -74,8 +77,8 @@ export interface IdylOptions {
    * The Namespace of the Account that `computers` and `secrets` address,
    * such as `team-a`: 1 to 63 lowercase letters, digits, `.`, `_` and `-`,
    * beginning and ending with a letter or a digit. Defaults to `default`,
-   * the Namespace every Account has. A client for another Namespace is a
-   * new client.
+   * the Namespace every Account has. Another Namespace takes another
+   * client.
    */
   readonly namespace?: string;
   /**
@@ -112,7 +115,9 @@ export interface IdylOptions {
 export interface Account {
   /** The Account's twelve-digit identifier. */
   readonly id: string;
+  /** The Account's email address; empty when IDYL reports none. */
   readonly email: string;
+  /** The Account's display name; empty when IDYL reports none. */
   readonly displayName: string;
 }
 
@@ -127,15 +132,17 @@ export interface DeleteAccountResult {
  * source, the Account it acts as, and the connection. Each product is a
  * property of it.
  *
+ * The Account is the one the credential acts as, read once, on first use,
+ * and kept for the life of the client; another Account takes another
+ * client. A client is safe to share across concurrent calls.
+ *
+ * @example
  * ```ts
  * import { Idyl } from "@idyl-sh/sdk";
  *
  * const idyl = new Idyl({ accessKey: process.env.IDYL_ACCESS_KEY });
+ * const computer = await idyl.computers.create({ name: "eval" });
  * ```
- *
- * The Account is the one the credential acts as, read once, on first use,
- * and kept for the life of the client; a client for another Account is a
- * new client. A client is safe to share across concurrent calls.
  */
 export class Idyl {
   readonly #state: ServiceState;
@@ -150,8 +157,11 @@ export class Idyl {
   #context: PlacementContext | undefined;
 
   /**
-   * Builds a client. Nothing is sent until a call is made. Throws a
-   * `TypeError` naming the first invalid option.
+   * Builds a client. Nothing is sent until a call is made.
+   *
+   * @param options The client's configuration; every option is optional.
+   * @throws {@link TypeError} an option is invalid; the message names the
+   *   first invalid option
    */
   constructor(options: IdylOptions = {}) {
     if (
@@ -256,6 +266,12 @@ export class Idyl {
   /**
    * The Account the credential acts as. It is read once, on first use; a
    * read that fails is not kept, so the next call reads again.
+   *
+   * @throws {@link TypeError} the client has no credential, or its
+   *   credential source returns one that cannot be presented
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or the
+   *   response names no valid Account
    */
   async account(options?: CallOptions): Promise<Account> {
     const read = (this.#account ??= getCurrentAccount(this.#state)
@@ -313,9 +329,15 @@ export class Idyl {
 
   /**
    * Deletes the Account the credential acts as. `accepted` is `true` when
-   * IDYL accepted the deletion. A refusal, such as of a credential without
-   * the permission to delete the Account, rejects with an `ApiError` and
-   * deletes nothing.
+   * IDYL accepted the deletion.
+   *
+   * @throws {@link TypeError} the client has no credential, or its
+   *   credential source returns one that cannot be presented
+   * @throws {@link ApiError} IDYL refuses the deletion, for example of a
+   *   credential without the permission to delete the Account; nothing is
+   *   deleted
+   * @throws {@link TransportError} the request does not complete, or the
+   *   response is not an object
    */
   async deleteAccount(options?: CallOptions): Promise<DeleteAccountResult> {
     const accountId = parseAccount(await this.account(signalOf(options)));

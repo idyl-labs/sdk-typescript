@@ -38,7 +38,7 @@ export interface ExecOptions extends CallOptions {
   readonly signal?: AbortSignal;
 }
 
-/** What became of the files a command changed. */
+/** What became of the files a command wrote. */
 export type CommandSave =
   /** Its changes are saved, as the version `version`. */
   | "published"
@@ -53,7 +53,7 @@ export type CommandSave =
 export interface ExecResult extends CommandOutput {
   /** Always 0: any other exit rejects with {@link ExitError}. */
   readonly exitCode: 0;
-  /** What became of the files the command changed. */
+  /** What became of the files the command wrote. */
   readonly save: CommandSave;
   /** The saved version its changes became, when `save` is `published`. */
   readonly version?: number;

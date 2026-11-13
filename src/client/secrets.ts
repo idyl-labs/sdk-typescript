@@ -109,6 +109,7 @@ export interface SecretKey {
 export interface Secret {
   /** The Secret's ID, a canonical UUID; a Computer's attachment holds it. */
   readonly id: string;
+  /** The Secret's name, unique within its Namespace. */
   readonly name: string;
   /** The Namespace the Secret lives in. */
   readonly namespace: string;
@@ -122,13 +123,14 @@ export interface Secret {
    * a Computer cannot use.
    */
   readonly credential?: SecretCredential;
+  /** Where the value comes from, without the value itself. */
   readonly source: SecretSource;
   /** The current version, from 1; an attachment can pin one. */
   readonly version: number;
   /**
-   * The Secret's resource version, from 1, which every change advances. A
-   * rotation states the one it expects, and is refused if the Secret has
-   * changed since.
+   * The Secret's resource version, from 1, which every write advances. A
+   * rotation states the one it expects, and is refused if the Secret was
+   * written since.
    */
   readonly resourceVersion: number;
   /**
@@ -144,7 +146,7 @@ export interface Secret {
   readonly health?: string;
   /** When it was created, as an RFC 3339 instant. */
   readonly createdAt?: string;
-  /** When it last changed, as an RFC 3339 instant. */
+  /** When it was last written, as an RFC 3339 instant. */
   readonly updatedAt?: string;
 }
 
@@ -185,6 +187,7 @@ export interface SecretContentOptions extends CallOptions {
    * origin can read it, so name only the API hosts that need it.
    */
   readonly origins: readonly string[];
+  /** The place in a request the value fills. */
   readonly credential: SecretCredential;
 }
 
@@ -199,15 +202,15 @@ export interface CreateSecretOptions extends SecretContentOptions {
 }
 
 /**
- * Rotates a Secret: the content of its new version, which states a source
- * and an egress as the Secret does, and the two guards every rotation
- * carries.
+ * Rotates a Secret: the content of the version the rotation appends, which
+ * states a source and an egress as the Secret does, and the two guards
+ * every rotation carries.
  */
 export interface RotateSecretOptions extends SecretContentOptions {
   /**
    * The {@link Secret.resourceVersion} the rotation expects, from a read of
-   * the Secret. A Secret that has changed since is not rotated, and the
-   * call rejects with an `ApiError` whose code is
+   * the Secret. A Secret written since is not rotated, and the call
+   * rejects with an `ApiError` whose code is
    * `VAULT_RESOURCE_VERSION_CONFLICT`.
    */
   readonly resourceVersion: number;
@@ -269,6 +272,19 @@ export interface SecretVersion {
  * on the Namespace; a refusal rejects with an `ApiError` that carries
  * IDYL's stable code, such as `VAULT_POLICY_DISABLED` where Secrets are not
  * enabled.
+ *
+ * @example
+ * ```ts
+ * await idyl.secrets.create({
+ *   name: "github-token",
+ *   value: process.env.GITHUB_TOKEN!,
+ *   origins: ["https://api.github.com"],
+ *   credential: { type: "authorization-token", scheme: "Bearer" },
+ * });
+ *
+ * const computer = await idyl.computers.get("research");
+ * await computer.update({ secrets: { GITHUB_TOKEN: "github-token" } });
+ * ```
  */
 export interface Secrets {
   /**
@@ -276,36 +292,74 @@ export interface Secrets {
    * Secret again returns it; other content under a name in use is refused
    * with `VAULT_RESOURCE_VERSION_CONFLICT`. Creating a Secret under the name
    * of one deleted within seven days restores that Secret, with its ID, and
-   * the Computers attached to it resume. Throws a `TypeError` naming the
-   * field before any request when an option is invalid; no message ever
-   * contains the value or the key.
+   * the Computers attached to it resume. No error message ever contains
+   * the value or the key.
+   *
+   * @throws {@link TypeError} an option is invalid, naming the field,
+   *   before any request is sent
+   * @throws {@link ApiError} IDYL refuses the Secret, such as
+   *   `VAULT_RESOURCE_VERSION_CONFLICT` for other content under a name in
+   *   use, or `VAULT_POLICY_DISABLED`
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer is not a valid Secret
    */
   create(options: CreateSecretOptions): Promise<Secret>;
   /**
-   * The Secret with this name. A name the Namespace does not hold rejects
-   * with an `ApiError` whose status is 404.
+   * The Secret with this name.
+   *
+   * @param name - The Secret's name.
+   * @throws {@link TypeError} `name` is empty, before any request is sent
+   * @throws {@link ApiError} the Namespace holds no Secret of this name
+   *   (status 404), or IDYL refuses the read
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer is not a valid Secret
    */
   get(name: string, options?: CallOptions): Promise<Secret>;
   /**
    * Every Secret of the Namespace, by name, page by page. No item carries a
    * value.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer
+   * @throws {@link ApiError} IDYL refuses the request; it carries IDYL's
+   *   stable code, such as `VAULT_POLICY_DISABLED`
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer is not a valid Secret
    */
   list(options?: ListOptions): AsyncIterable<Secret>;
-  /** One page of the Namespace's Secrets, by name. */
+  /**
+   * One page of the Namespace's Secrets, by name.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer, or
+   *   `continue` is not one a page of this listing returned, before any
+   *   request is sent
+   * @throws {@link ApiError} IDYL refuses the request; it carries IDYL's
+   *   stable code, such as `VAULT_POLICY_DISABLED`
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer is not a valid Secret
+   */
   listPage(options?: PageOptions): Promise<Page<Secret>>;
   /**
-   * Writes a new version of the Secret with this name and makes it current,
-   * returning the Secret. The new version states a source and an egress as
-   * the first did; the origins and the credential may change with it.
-   * Attachments that follow the current version send the new value from
-   * their next request; an attachment pinned to a version keeps its
-   * version. A Secret whose source is a GitHub App mints its own tokens and
-   * keeps no versions to pin.
+   * Appends a version to the Secret with this name and makes it current,
+   * returning the Secret. The version states a source and an egress as the
+   * first did; its origins and credential may differ from the last.
+   * Attachments that follow the current version send its value from their
+   * next request; an attachment pinned to a version keeps its version. A
+   * Secret whose source is a GitHub App mints its own tokens and keeps no
+   * versions to pin.
    *
    * The rotation is conditioned on `resourceVersion` and made safe to retry
-   * by `idempotencyKey`. Throws a `TypeError` naming the field before any
-   * request when an option is invalid; no message ever contains the value
-   * or the key.
+   * by `idempotencyKey`. No error message ever contains the value or the
+   * key.
+   *
+   * @param name - The Secret's name.
+   * @throws {@link TypeError} `name` is empty or an option is invalid,
+   *   naming the field, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the rotation, such as
+   *   `VAULT_RESOURCE_VERSION_CONFLICT` when the Secret was written since
+   *   `resourceVersion`, or status 404 for a name the Namespace does not
+   *   hold
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer is not a valid Secret
    */
   rotate(name: string, options: RotateSecretOptions): Promise<Secret>;
   /**
@@ -313,14 +367,27 @@ export interface Secrets {
    * Unlike `delete`, it cannot be restored, and creating a Secret of its
    * name later creates another Secret with another ID; attachments that
    * named the purged Secret read `secret_not_found`. `confirm` must be
-   * `purge`; any other value is refused with a `TypeError` before any
-   * request.
+   * `purge`.
+   *
+   * @param name - The Secret's name.
+   * @throws {@link TypeError} `name` is empty, `confirm` is not `purge`, or
+   *   `force` is not a boolean, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the purge, such as
+   *   `VAULT_ACTIVE_BINDINGS` for a Secret Pods still hold without `force`
+   * @throws {@link TransportError} the request does not complete
    */
   purge(name: string, options: PurgeSecretOptions): Promise<SecretPurge>;
   /**
    * The stored versions of the Secret with this name, newest first: the
    * newest `limit` of them, or the platform's default count when `limit`
    * is absent. The current version is the first.
+   *
+   * @param name - The Secret's name.
+   * @throws {@link TypeError} `name` is empty, or `limit` is not a positive
+   *   integer, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the read, such as with status 404
+   *   for a name the Namespace does not hold
+   * @throws {@link TransportError} the request does not complete
    */
   versions(
     name: string,
@@ -330,6 +397,12 @@ export interface Secrets {
    * Deletes the Secret with this name. For seven days, creating a Secret of
    * its name restores it, with its ID. To stop one Computer using a Secret,
    * detach it from that Computer instead.
+   *
+   * @param name - The Secret's name.
+   * @throws {@link TypeError} `name` is empty, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the delete, such as with status
+   *   404 for a name the Namespace does not hold
+   * @throws {@link TransportError} the request does not complete
    */
   delete(name: string, options?: CallOptions): Promise<void>;
 }

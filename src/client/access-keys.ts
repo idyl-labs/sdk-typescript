@@ -20,9 +20,13 @@ import { requireText, signalOf, type CallOptions } from "./common.js";
  * public key IDYL keeps.
  */
 export interface AccessKey {
+  /** The key's ID, a lowercase canonical UUID; {@link AccessKeys.revoke} takes it. */
   readonly id: string;
+  /** The key's name, as it was created. */
   readonly name: string;
+  /** What the key is for; absent when it was created without one. */
   readonly description?: string;
+  /** The RFC 7638 SHA-256 thumbprint of the key's public half, unpadded base64url. */
   readonly keyThumbprint: string;
   /** When it expires, as an RFC 3339 instant; absent for a key with no expiry. */
   readonly expiresAt?: string;
@@ -42,15 +46,19 @@ export interface AccessKey {
  * `accessKeyCredentials`, its private key held non-extractable.
  */
 export interface CreatedAccessKey {
+  /** The key's record, as IDYL registered it. */
   readonly accessKey: AccessKey;
+  /** The access key file's text, which holds the private key. */
   readonly keyFile: string;
+  /** The same file, parsed, with its private key held non-extractable. */
   readonly file: AccessKeyFile;
 }
 
 /** Creates an access key. */
 export interface CreateAccessKeyOptions extends CallOptions {
-  /** 1 to 128 characters. */
+  /** The key's name: 1 to 128 characters. */
   readonly name: string;
+  /** What the key is for, shown with its record; none when absent or empty. */
   readonly description?: string;
   /** When the key expires; a key with none never expires. */
   readonly expiresAt?: Date | string;
@@ -64,23 +72,52 @@ export interface CreateAccessKeyOptions extends CallOptions {
  * that person, with their permissions, until the key expires or is
  * revoked. Every ID is judged before any request: a malformed one throws a
  * `TypeError` and sends nothing.
+ *
+ * @example
+ * ```ts
+ * import { writeFile } from "node:fs/promises";
+ *
+ * const { accessKey, keyFile } = await idyl.accessKeys.create({
+ *   name: "ci",
+ *   expiresAt: "2027-01-01T00:00:00Z",
+ * });
+ * await writeFile("ci.idyl-key", keyFile, { mode: 0o600 });
+ * console.log(accessKey.id);
+ * ```
  */
 export interface AccessKeys {
   /**
    * Creates an access key: generates an Ed25519 key pair with WebCrypto,
    * registers its public half, and returns the record and the key file.
    * The private key never leaves the runtime except in the returned file.
-   * Throws a `TypeError` when `name` is blank, `expiresAt` is not a valid
-   * instant, or the client was built from explicit endpoints without a
-   * `network`, which the key file names.
+   *
+   * @throws {@link TypeError} `name` is blank, `description` is not a
+   *   string, `expiresAt` is not a valid instant, or the client was built
+   *   from explicit endpoints without a `network`, which the key file names;
+   *   nothing is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or the
+   *   response does not name the key that was registered
    */
   create(options: CreateAccessKeyOptions): Promise<CreatedAccessKey>;
-  /** Every access key, without any private key. */
+  /**
+   * Every access key, without any private key.
+   *
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or the
+   *   response carries no key records
+   */
   list(options?: CallOptions): Promise<readonly AccessKey[]>;
   /**
-   * Revokes one access key. It can no longer be exchanged, and tokens it
-   * obtained stop authorizing within the platform's authorization cache
-   * lifetime.
+   * Revokes one access key. A revoked key is never exchanged again, and
+   * tokens it obtained stop authorizing within the platform's
+   * authorization cache lifetime.
+   *
+   * @param accessKeyId The key's `id`, a lowercase canonical UUID.
+   * @throws {@link TypeError} `accessKeyId` is not a lowercase canonical
+   *   UUID; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
    */
   revoke(accessKeyId: string, options?: CallOptions): Promise<void>;
 }

@@ -6,7 +6,7 @@
  * managing what is there is `list`, `createFolder`, `move` and `remove`,
  * and `watch` follows a folder's status as its names change.
  * Each change is one upload operation: opened on the current files, sent,
- * published as one new version, and read until it settles. A download is one
+ * published as one version, and read until it settles. A download is one
  * resumable, checked stream, read by `./download.ts`, and `downloadLink`
  * hands the same bytes to something that holds no credential.
  */
@@ -133,6 +133,10 @@ export interface DownloadLinkOptions extends CallOptions {
  * as the Account's downloads.
  */
 export interface DownloadLink {
+  /**
+   * The link: an `https:` URL that carries its own authority, read with a
+   * plain `GET` and no credential.
+   */
   readonly url: string;
   /** When the link stops working, as an RFC 3339 timestamp. */
   readonly expiresAt: string;
@@ -206,9 +210,9 @@ export interface FolderStatus {
    */
   readonly syncing: boolean;
   /**
-   * Every name below the folder that changed on the running Computer since
+   * Every name below the folder that differs on the running Computer from
    * its last saved version, in byte order of path. It is the whole set each
-   * time, not what changed since the answer before.
+   * time, not the difference from the answer before.
    */
   readonly changes: readonly FileChange[];
   /** The versions published since the answer before, oldest first. */
@@ -223,14 +227,14 @@ export interface FolderStatus {
   readonly store?: FileStoreWait;
 }
 
-/** One changed name of a {@link FolderStatus}. */
+/** One name of a {@link FolderStatus} that differs from the last saved version. */
 export interface FileChange {
   /** Its path relative to the workspace, not to the watched folder. */
   readonly path: string;
   /**
    * `changed` for a name created, replaced or moved to its path; `removed`
-   * for a saved name the running Computer no longer holds; `many` for a
-   * folder holding more changed names than are listed one by one, the
+   * for a saved name the running Computer does not hold; `many` for a
+   * folder holding more differing names than are listed one by one, the
    * workspace itself when `path` is empty, whose names a listing shows.
    */
   readonly change:
@@ -249,11 +253,12 @@ export interface FileChange {
 
 /** One version published to the files, such as a save, an upload or a restore. */
 export interface FilePublication {
+  /** The saved version it published. */
   readonly version: number;
-  /** The paths it changed, relative to the workspace, when they are known. */
+  /** The paths it wrote or removed, relative to the workspace, when they are known. */
   readonly paths: readonly string[];
   /**
-   * Whether it changed more than `paths` lists, so the folders shown are
+   * Whether it touched more than `paths` lists, so the folders shown are
    * listed again.
    */
   readonly more: boolean;
@@ -274,7 +279,7 @@ export interface FileStoreWait {
   readonly cause: "store" | "connection" | (string & Record<never, never>);
   /** When the wait began, as an RFC 3339 timestamp. */
   readonly since: string;
-  /** The reads waiting now. */
+  /** How many reads are waiting. */
   readonly waiting: number;
   /** The bytes the largest waiting file has. */
   readonly fillDone: number;
@@ -343,20 +348,58 @@ export interface ReplacedPath {
  * seconds after writes go quiet, at the end of a command, or on
  * `computer.save()`; its content follows with that save.
  *
- * A change that ends without publishing, because the files changed under
- * it or it expired, rejects with an `ApiError` (status 409) carrying its
- * outcome's code, such as `UPLOAD_CONFLICT`. One that fails for size carries
- * its reason as the code: `SAVE_REASON_ACCOUNT_STORAGE_LIMIT`,
- * `SAVE_REASON_COMPUTER_SIZE` or `SAVE_REASON_NAME_LIMIT`.
+ * A change that ends without publishing, because another change to the same
+ * files was published first or it expired, rejects with an `ApiError`
+ * (status 409) carrying its outcome's code, such as `UPLOAD_CONFLICT`. One
+ * that fails for size carries its reason as the code:
+ * `SAVE_REASON_ACCOUNT_STORAGE_LIMIT`, `SAVE_REASON_COMPUTER_SIZE` or
+ * `SAVE_REASON_NAME_LIMIT`.
+ *
+ * @example
+ * ```ts
+ * await computer.files.upload("data/input.csv", "id,score\n1,0.9\n");
+ *
+ * for await (const entry of computer.files.list("data")) {
+ *   console.log(entry.path, entry.size);
+ * }
+ *
+ * const results = await computer.files.download("results.json");
+ * console.log(await results.json());
+ * ```
  */
 export interface Files {
-  /** Uploads one file, or a tar archive into a directory with `archive`. */
+  /**
+   * Uploads one file, or a tar archive into a directory with `archive`.
+   *
+   * @param path - The file's path, relative to the workspace; with
+   *   `archive`, the directory the archive unpacks into, the workspace
+   *   itself when empty.
+   * @param data - The file's content, or the archive.
+   * @throws {@link TypeError} the path, the data or an option is invalid, or
+   *   `mode` is stated with `archive`, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the upload or one of its parts, or
+   *   the upload ends without publishing (status 409, with the outcome's
+   *   code, such as `UPLOAD_CONFLICT`, or the size reason that stopped it)
+   * @throws {@link TransportError} a request does not complete
+   */
   upload(
     path: string,
     data: FileData,
     options?: UploadOptions,
   ): Promise<Uploaded>;
-  /** Uploads many files, by path, as one version. */
+  /**
+   * Uploads many files, by path, as one version.
+   *
+   * @param files - Each file's content by its path, relative to the
+   *   workspace.
+   * @throws {@link TypeError} `files` names no file, a path, a file's data
+   *   or an option is invalid, or `archive` is stated, before any request
+   *   is sent
+   * @throws {@link ApiError} IDYL refuses the upload or one of its parts, or
+   *   the upload ends without publishing (status 409, with the outcome's
+   *   code, such as `UPLOAD_CONFLICT`, or the size reason that stopped it)
+   * @throws {@link TransportError} a request does not complete
+   */
   upload(
     files: Readonly<Record<string, FileData>>,
     options?: UploadOptions,
@@ -364,8 +407,18 @@ export interface Files {
   /**
    * Downloads a file, or a directory as a tar archive with `archive`, as a
    * body that resumes across breaks and hands a file's bytes over only once
-   * they are checked; see {@link FileBody}. Rejects when the content cannot
-   * be resolved.
+   * they are checked; see {@link FileBody}. It resolves once the content is
+   * resolved, and reads no bytes until the body is read.
+   *
+   * @param path - The file's path, relative to the workspace; with
+   *   `archive`, the directory's, the workspace itself when empty.
+   * @throws {@link TypeError} the path or an option is invalid, before any
+   *   request is sent
+   * @throws {@link ApiError} IDYL refuses to resolve the content, such as
+   *   with status 404 for a path or version it does not hold, or
+   *   `DOWNLOAD_LIMIT_REACHED`
+   * @throws {@link TransportError} the content cannot be resolved after
+   *   15 minutes of retries, or its answer cannot be used
    */
   download(path: string, options?: DownloadOptions): Promise<FileBody>;
   /**
@@ -373,12 +426,31 @@ export interface Files {
    * when `path` is empty, with no other credential. Whoever holds its `url`
    * can read those bytes until it expires, so it is handled as a secret. A
    * `version` of `save-first` is refused with a `TypeError`.
+   *
+   * @param path - The file's or directory's path, relative to the
+   *   workspace; empty for the workspace itself.
+   * @throws {@link TypeError} the path or `version` is invalid, before any
+   *   request is sent
+   * @throws {@link ApiError} IDYL refuses the link, such as with status 404
+   *   for a path or version it does not hold
+   * @throws {@link TransportError} the request does not complete
    */
   downloadLink(
     path: string,
     options?: DownloadLinkOptions,
   ): Promise<DownloadLink>;
-  /** The entries of a directory, the workspace itself when `path` is absent. */
+  /**
+   * The entries of a directory, the workspace itself when `path` is absent.
+   * Pages are read as the iteration asks for them.
+   *
+   * @param path - The directory's path, relative to the workspace; empty or
+   *   absent for the workspace itself.
+   * @throws {@link TypeError} the path or `version` is invalid, when the
+   *   iteration starts and before any request is sent
+   * @throws {@link ApiError} IDYL refuses a page, such as with status 404
+   *   for a directory or version it does not hold
+   * @throws {@link TransportError} a request does not complete
+   */
   list(path?: string, options?: ListFilesOptions): AsyncIterable<FileEntry>;
   /**
    * Follows a folder, the workspace itself when `path` is absent. The first
@@ -397,6 +469,15 @@ export interface Files {
    * the iteration with that error. It runs until the consumer stops
    * iterating, which leaves no request or timer behind, or until `signal`
    * aborts, which rejects with the signal's reason.
+   *
+   * @param path - The folder's path, relative to the workspace; empty or
+   *   absent for the workspace itself.
+   * @throws {@link TypeError} the path is invalid, when the iteration starts
+   *   and before any request is sent
+   * @throws {@link ApiError} IDYL refuses a request with a status other than
+   *   408, 429 or 5xx, which are asked again
+   * @throws {@link TransportError} a request does not complete for a reason
+   *   other than the network or a timeout, which are asked again
    */
   watch(path?: string, options?: CallOptions): AsyncIterable<FolderStatus>;
   /**
@@ -407,11 +488,41 @@ export interface Files {
    * is based on, so a change to the same path published after that version
    * ends the upload in conflict (`UPLOAD_CONFLICT`) rather than being
    * replaced.
+   *
+   * @param path - The folder to create, relative to the workspace.
+   * @returns the saved version that holds the folder
+   * @throws {@link TypeError} the path is invalid, before any request is
+   *   sent
+   * @throws {@link ApiError} the name is taken (status 409), the parent
+   *   folder is missing (status 404), IDYL refuses the change, or it ends
+   *   without publishing (status 409, with the outcome's code)
+   * @throws {@link TransportError} a request does not complete
    */
   createFolder(path: string, options?: ChangeOptions): Promise<number>;
-  /** Moves, which also renames, a file or directory. */
+  /**
+   * Moves, which also renames, a file or directory.
+   *
+   * @param from - The path to move, relative to the workspace.
+   * @param to - Its path after the move, relative to the workspace.
+   * @returns the saved version that holds the move
+   * @throws {@link TypeError} a path is invalid, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the move, or it ends without
+   *   publishing (status 409, with the outcome's code)
+   * @throws {@link TransportError} a request does not complete
+   */
   move(from: string, to: string, options?: ChangeOptions): Promise<number>;
-  /** Removes files and directories. */
+  /**
+   * Removes files and directories.
+   *
+   * @param paths - The path, or the paths, to remove, relative to the
+   *   workspace.
+   * @returns the saved version that holds the removal
+   * @throws {@link TypeError} `paths` names no path or a path is invalid,
+   *   before any request is sent
+   * @throws {@link ApiError} IDYL refuses the removal, or it ends without
+   *   publishing (status 409, with the outcome's code)
+   * @throws {@link TransportError} a request does not complete
+   */
   remove(
     paths: string | readonly string[],
     options?: ChangeOptions,

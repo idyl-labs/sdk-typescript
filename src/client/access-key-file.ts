@@ -55,9 +55,11 @@ const INVALID_KEY =
 export interface AccessKeyFile {
   /** The IDYL network's API domain, the `network` a client is built with. */
   readonly network: string;
+  /** The access key's ID, a lowercase canonical UUID: its record's `id`. */
   readonly accessKeyId: string;
   /** The twelve-digit ID of the Account the key acts in. */
   readonly account: string;
+  /** The key pair; its private key is non-extractable unless it was imported extractable. */
   readonly key: CryptoKeyPair;
 }
 
@@ -94,9 +96,12 @@ interface FileDocument {
  * with exactly the members of the format, of type `idyl-access-key`,
  * naming a network domain, a canonical access key ID and a twelve-digit
  * Account ID, and an Ed25519 or P-256 private key whose public members
- * match it. Rejects with a `TypeError` that names the problem and no key
- * material. The private key is imported non-extractable unless
+ * match it. The private key is imported non-extractable unless
  * `options.extractable` is set.
+ *
+ * @param text The access key file's text, as {@link CreatedAccessKey.keyFile} gave it.
+ * @throws {@link TypeError} the text is not a valid access key file; the
+ *   message names the problem and no key material
  */
 export async function parseAccessKeyFile(
   text: string,
@@ -152,8 +157,11 @@ function decodeFile(text: string): FileDocument {
  * Encodes an access key file in the format {@link parseAccessKeyFile}
  * reads, members in the format's order. The private key must be
  * extractable, as a key {@link parseAccessKeyFile} imported with
- * `extractable` is; rejects with a `TypeError` otherwise, or when a field
- * is invalid.
+ * `extractable` is.
+ *
+ * @param file The access key to encode.
+ * @throws {@link TypeError} the private key is not extractable, the key
+ *   pair is not an Ed25519 or ECDSA P-256 pair, or a field is invalid
  */
 export async function encodeAccessKeyFile(
   file: AccessKeyFile,
@@ -350,8 +358,14 @@ interface HeldToken {
  * timeout rather than by any one caller. A failed background renewal is
  * tried again at most every 30 seconds while the token is valid; once it
  * has expired, a failed exchange rejects the requests that waited for it
- * and is tried again by the next. Throws a `TypeError` when `file` or
- * `identity` is unusable.
+ * and is tried again by the next.
+ *
+ * @param file The access key, as {@link parseAccessKeyFile} returns it.
+ * @param identity The identity of a client for the key's network, which
+ *   performs the exchanges.
+ * @throws {@link TypeError} `file` is missing, names a malformed access key
+ *   ID or holds an unusable key pair, or `identity` is not a client's
+ *   identity
  */
 export function accessKeyCredentials(
   file: AccessKeyFile,

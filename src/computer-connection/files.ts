@@ -79,16 +79,23 @@ export interface ComputerFilesSession {
    * Watches the folder at `path`, relative to `/workspace` (`""` is the
    * root), and asks for a pass of it. Watching a folder already watched
    * asks for a fresh pass. A session watches at most 32 folders; a further
-   * watch is answered with the problem `too_many`. Throws a `TypeError`
-   * for a path that is not one the endpoint takes: segments joined by `/`,
+   * watch is answered with the problem `too_many`. A path the endpoint
+   * takes is segments joined by `/`,
    * no leading or trailing `/`, no empty, `.` or `..` segment, well-formed
    * text, at most 4096 bytes in UTF-8 and at most 255 bytes per segment.
    * Does nothing once the session has ended.
+   *
+   * @param path the folder, relative to `/workspace`
+   * @throws TypeError `path` is not one the endpoint takes; nothing is sent
    */
   watch(path: string): void;
   /**
    * Stops watching the folder at `path`. Unwatching a folder not watched
-   * does nothing. Throws a `TypeError` for a path {@link watch} refuses.
+   * does nothing.
+   *
+   * @param path the folder, relative to `/workspace`
+   * @throws TypeError `path` is one {@link ComputerFilesSession.watch}
+   *   refuses; nothing is sent
    */
   unwatch(path: string): void;
   /** Ends the session on purpose. */

@@ -103,10 +103,9 @@ export { validateComputerSize, type ComputerSize };
  * Identifies a plan. The plans an Account can be on are a catalog the
  * platform serves with every read of its billing
  * ({@link AccountBillingStatus.plans}), so a plan is an identifier rather
- * than a closed set: {@link validateBillingPlan} judges only its form. The
- * tokens this SDK names are:
+ * than a closed set. The tokens this SDK names are:
  *
- * - `trial`: the plan a new Account starts on. It costs nothing, needs no
+ * - `trial`: the plan an Account starts on. It costs nothing, needs no
  *   card and cannot be requested.
  * - `none`: no plan: an Account whose paid plan has ended. It costs nothing
  *   and needs no card, and a plan change to it cancels a paid plan.
@@ -230,15 +229,14 @@ export function validateAccountBillingSpec(spec: AccountBillingSpec): void {
  * - `ok`: an Account whose Computers may wake: it has allowance or extra
  *   usage left, or auto-refill can buy more.
  * - `out`: an Account that has used its month's allowance and its extra
- *   usage, and that auto-refill cannot refill. Its wakes and new sessions
+ *   usage, and that auto-refill cannot refill. Its wakes and session starts
  *   are refused with `ERROR_CODE_OUT_OF_USAGE` and its awake Computers are
  *   asked to sleep, their files kept. It is `ok` again after a purchase, an
  *   upgrade or the start of its next period; its Computers are not woken by
  *   that.
  *
  * The union is open: a token the platform reports that this SDK does not
- * know is carried as a string; {@link validateBillingStanding} judges
- * membership.
+ * know is carried as a string.
  */
 export type BillingStanding = "ok" | "out" | (string & Record<never, never>);
 
@@ -270,8 +268,7 @@ export function validateBillingStanding(standing: BillingStanding): void {
  *   unpaid, the plan ends and the Account is on `none`.
  *
  * The union is open: a token the platform reports that this SDK does not
- * know is carried as a string; {@link validateBillingRenewalState} judges
- * membership.
+ * know is carried as a string.
  */
 export type BillingRenewalState =
   "ok" | "failed" | (string & Record<never, never>);
@@ -302,13 +299,12 @@ export function validateBillingRenewalState(state: BillingRenewalState): void {
  *   once per person: the verified sign-in email of the Account's owner
  *   already holds it on another Account. The Account may still use a paid
  *   plan, whose allowance is never withheld for this reason.
- * - `trials_closed`: an unpaid allowance withheld because new trials were
- *   closed when the Account was created. The Account may still use a paid
+ * - `trials_closed`: an unpaid allowance withheld because IDYL offered no
+ *   trials when the Account was created. The Account may still use a paid
  *   plan.
  *
  * The union is open: a token the platform reports that this SDK does not
- * know is carried as a string; {@link validateBillingAllowanceWithheld}
- * judges membership.
+ * know is carried as a string.
  */
 export type BillingAllowanceWithheld =
   "trial_one_per_person" | "trials_closed" | (string & Record<never, never>);
@@ -353,8 +349,7 @@ export function validateBillingAllowanceWithheld(
  *   returns it to `full`.
  *
  * The union is open: a token the platform reports that this SDK does not
- * know is carried as a string; {@link validateBillingLifecycle} judges
- * membership.
+ * know is carried as a string.
  */
 export type BillingLifecycle =
   "full" | "trial" | "ended" | "deleting" | (string & Record<never, never>);
@@ -1170,8 +1165,7 @@ export const updateAccountBillingResponseShape: Shape<UpdateAccountBillingRespon
  *   page.
  *
  * The union is open: a token the platform reports that this SDK does not
- * know is carried as a string; {@link validateBillingActionKind} judges
- * membership.
+ * know is carried as a string.
  */
 export type BillingActionKind =
   "checkout" | "confirm_payment" | (string & Record<never, never>);
@@ -1323,8 +1317,7 @@ function validateBillingIdempotencyKey(key: string): void {
  *   is unchanged.
  *
  * The union is open: a token the platform reports that this SDK does not
- * know is carried as a string; {@link validateBillingPlanChangeState}
- * judges membership.
+ * know is carried as a string.
  */
 export type BillingPlanChangeState =
   | "pending"
@@ -1358,6 +1351,8 @@ export function validateBillingPlanChangeState(
 /**
  * Whether a plan change in `state` will not change state again: `applied`,
  * `scheduled` or `failed`. A state this SDK does not name is not final.
+ *
+ * @param state - The `state` of a {@link BillingPlanChange}.
  */
 export function isBillingPlanChangeStateFinal(
   state: BillingPlanChangeState,
@@ -1530,8 +1525,7 @@ export const getBillingPlanChangeResponseShape: Shape<GetBillingPlanChangeRespon
  *   reached zero.
  *
  * The union is open: a token the platform reports that this SDK does not
- * know is carried as a string; {@link validateBillingPurchaseKind} judges
- * membership.
+ * know is carried as a string.
  */
 export type BillingPurchaseKind =
   "manual" | "auto_refill" | (string & Record<never, never>);
@@ -1562,11 +1556,10 @@ export function validateBillingPurchaseKind(kind: BillingPurchaseKind): void {
  * - `paid`: a purchase Stripe confirmed: its amount is in the extra usage
  *   balance.
  * - `failed`: a purchase that was not paid, with `reason`. Nothing was
- *   charged, and it no longer counts against the cap.
+ *   charged, and it does not count against the cap.
  *
  * The union is open: a token the platform reports that this SDK does not
- * know is carried as a string; {@link validateBillingPurchaseState} judges
- * membership.
+ * know is carried as a string.
  */
 export type BillingPurchaseState =
   "pending" | "paid" | "failed" | (string & Record<never, never>);
@@ -1595,6 +1588,8 @@ export function validateBillingPurchaseState(
 /**
  * Whether a purchase in `state` will not change state again: `paid` or
  * `failed`. A state this SDK does not name is not final.
+ *
+ * @param state - The `state` of a {@link BillingPurchase}.
  */
 export function isBillingPurchaseStateFinal(
   state: BillingPurchaseState,

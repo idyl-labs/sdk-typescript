@@ -18,8 +18,8 @@ import {
 export const ERROR_CODE_NOTEBOOK_NOT_FOUND = "NOTEBOOK_NOT_FOUND";
 
 /**
- * Commands cannot run yet: execution is not turned on for the Computer.
- * A command can run once it is.
+ * Execution is not turned on for the Computer, so it runs no command. A
+ * command runs once execution is turned on.
  */
 export const ERROR_CODE_EXECUTION_NOT_ENABLED = "EXECUTION_NOT_ENABLED";
 
@@ -35,32 +35,32 @@ export const ERROR_CODE_COMPUTER_TERMINATING = "COMPUTER_TERMINATING";
 
 /**
  * The Computer's CPU and memory fit no machine that could run it, so it
- * cannot start until they are changed.
+ * cannot start until an update gives it a size that fits.
  */
 export const ERROR_CODE_PROFILE_FITS_NO_HOST = "PROFILE_FITS_NO_HOST";
 
 /**
- * The Computer was not ready in time for a command. A new attempt may
+ * The Computer was not ready in time for a command. A later attempt may
  * succeed.
  */
 export const ERROR_CODE_WAKE_TIMEOUT = "WAKE_TIMEOUT";
 
 /**
- * A limit on concurrent commands and terminals is reached (HTTP 429). A new
- * one can start once another ends.
+ * A limit on concurrent commands and terminals is reached (HTTP 429).
+ * Another can start once one of them ends.
  */
 export const ERROR_CODE_SESSION_BUDGET_EXCEEDED = "SESSION_BUDGET_EXCEEDED";
 
 /**
  * No machine that could run the Computer has the CPU and memory free for it
- * now. Unlike `ERROR_CODE_PROFILE_FITS_NO_HOST`, a new attempt can succeed
- * once capacity is released.
+ * when the request arrives. Unlike `ERROR_CODE_PROFILE_FITS_NO_HOST`, a
+ * later attempt can succeed once capacity is released.
  */
 export const ERROR_CODE_INSUFFICIENT_CAPACITY = "INSUFFICIENT_CAPACITY";
 
 /**
  * No machine that could run the Computer has the disk space its files
- * need. A new attempt can succeed once space is freed.
+ * need. A later attempt can succeed once space is freed.
  */
 export const ERROR_CODE_INSUFFICIENT_DISK = "INSUFFICIENT_DISK";
 
@@ -94,9 +94,9 @@ export const ERROR_CODE_IMAGE_NOT_IN_CATALOG = "IMAGE_NOT_IN_CATALOG";
 
 /**
  * The CPU and memory asked for fit no machine that could run the Computer
- * (HTTP 422). The details state the largest size that fits one now, the
- * size the snapshot's `largestSize` names, as its CPU and memory under
- * `maxCPU` and `maxMemory`.
+ * (HTTP 422). The details state the largest size that fits one at the time
+ * of the request, the size the snapshot's `largestSize` names, as its CPU
+ * and memory under `maxCPU` and `maxMemory`.
  */
 export const ERROR_CODE_COMPUTER_DOES_NOT_FIT = "COMPUTER_DOES_NOT_FIT";
 
@@ -109,8 +109,9 @@ export const ERROR_CODE_NETWORK_CLASS_NOT_ADMITTED =
 
 /**
  * An isolation class not offered where the Computer lives (HTTP 403), on a
- * create or on an update that changes the class; a wake or command of a
- * Computer whose class is no longer offered there fails with it too. The
+ * create or on an update that moves the Computer to another class; a wake
+ * or command of a Computer whose class is withdrawn there fails with it
+ * too. The
  * details name the refused class under `isolation.class` and the offered
  * ones under `allowedIsolationClasses`. `idyl.computers.images({ isolation })`
  * is empty for a class that is not offered.
@@ -145,22 +146,25 @@ export const ERROR_CODE_FORK_NOT_QUIESCENT = "FORK_NOT_QUIESCENT";
 /** A path the workspace cannot hold, or one that is reserved. */
 export const ERROR_CODE_PATH_INVALID = "PATH_INVALID";
 
-/** A new file name that is not in Unicode normalization form C. */
+/** A file name a call writes that is not in Unicode normalization form C. */
 export const ERROR_CODE_NAME_NOT_NFC = "NAME_NOT_NFC";
 
-/** Saved files are not available to the Account yet. */
+/**
+ * The Account's storage is not open, so its saved files can be neither read
+ * nor written.
+ */
 export const ERROR_CODE_STORAGE_NOT_OPEN = "STORAGE_NOT_OPEN";
 
-/** The files changed while the call ran; read again and retry. */
+/** The files were modified while the call ran; read again and retry. */
 export const ERROR_CODE_HEAD_MOVED = "HEAD_MOVED";
 
-/** Files a call changed were changed by someone else first. */
+/** Files a call writes were modified by someone else first. */
 export const ERROR_CODE_UPLOAD_CONFLICT = "UPLOAD_CONFLICT";
 
-/** A files change that went quiet for too long and can no longer publish. */
+/** A files change that went quiet for too long, so it cannot publish. */
 export const ERROR_CODE_UPLOAD_EXPIRED = "UPLOAD_EXPIRED";
 
-/** A files change that was cancelled and can no longer publish. */
+/** A files change that was cancelled, so it cannot publish. */
 export const ERROR_CODE_UPLOAD_CANCELLED = "UPLOAD_CANCELLED";
 
 /** A `continue` position the listing did not issue; list again without it. */
@@ -197,8 +201,8 @@ export const ERROR_CODE_VCPU_LIMIT_REACHED = "VCPU_LIMIT_REACHED";
 /**
  * An Account on a free trial or on no plan has downloaded as much of its saved
  * files as one window allows (HTTP 429, with `Retry-After`). The details carry
- * `limitBytes` and `usedBytes`. A paid plan has no limit, and a new window opens
- * when `Retry-After` has passed.
+ * `limitBytes` and `usedBytes`. A paid plan has no limit, and the next window
+ * opens when `Retry-After` has passed.
  */
 export const ERROR_CODE_DOWNLOAD_LIMIT_REACHED = "DOWNLOAD_LIMIT_REACHED";
 
@@ -206,7 +210,7 @@ export const ERROR_CODE_DOWNLOAD_LIMIT_REACHED = "DOWNLOAD_LIMIT_REACHED";
  * Why a plan change or a purchase failed: the card was declined, or could
  * not be charged without the user, as an auto-refill cannot. The plan in
  * force is unchanged and nothing was charged. It is also why auto-refill
- * was turned off. The card is changed in a portal session.
+ * was turned off. A portal session replaces the card.
  */
 export const ERROR_CODE_PAYMENT_DECLINED = "PAYMENT_DECLINED";
 

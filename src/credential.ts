@@ -14,7 +14,9 @@ import { keyPairProblem, keyProfile } from "./internal/dpop.js";
  * leaves the runtime's key store through the package.
  */
 export interface Credential {
+  /** The access token, presented as issued and never inspected. */
   readonly accessToken: string;
+  /** The key pair the token is bound to, which signs each request's proof. */
   readonly key: CryptoKeyPair;
 }
 
@@ -39,16 +41,28 @@ export interface CredentialContext {
  * source may be consulted concurrently by requests in flight at once.
  */
 export interface CredentialSource {
+  /**
+   * Returns the credential for one request. A rejection fails that request
+   * with the source's error, and the next request asks again.
+   *
+   * @param context The request's context, whose `signal` ends when the
+   *   request is cancelled.
+   * @throws {@link Error} whatever the source throws or rejects with; the
+   *   request fails with it and sends nothing
+   */
   credential(context: CredentialContext): Credential | Promise<Credential>;
 }
 
 /**
  * A fixed access token and its key. An access token expires within an hour,
  * so prefer a refreshing {@link CredentialSource}, such as
- * `accessKeyCredentials`, for a long-running program. Throws a `TypeError`
- * when `accessToken` is empty or contains whitespace or control characters,
- * or when `key` is not an Ed25519 or ECDSA P-256 key pair whose private key
- * may sign.
+ * `accessKeyCredentials`, for a long-running program.
+ *
+ * @param accessToken An access token IDYL issued for `key`.
+ * @param key The Ed25519 or ECDSA P-256 key pair the token is bound to.
+ * @throws {@link TypeError} `accessToken` is empty or contains whitespace or
+ *   control characters, or `key` is not an Ed25519 or ECDSA P-256 key pair
+ *   whose private key may sign
  */
 export function staticCredential(
   accessToken: string,
@@ -71,6 +85,9 @@ export function staticCredential(
  * Adapts a function into a {@link CredentialSource}. The function is called
  * for every authenticated request with the request's
  * {@link CredentialContext}.
+ *
+ * @param source Returns the credential for one request, or a promise of it.
+ * @throws {@link TypeError} `source` is not a function
  */
 export function credentialSourceFunc(
   source: (context: CredentialContext) => Credential | Promise<Credential>,
@@ -87,7 +104,11 @@ export function credentialSourceFunc(
  * The RFC 7638 SHA-256 thumbprint of an Ed25519 or ECDSA P-256 public key,
  * unpadded base64url: the `cnf.jkt` of every token bound to the key, and
  * the `dpopJkt` a browser hand-off names. The key's JWK is exported once
- * and kept while the key is. Rejects with a `TypeError` for any other key.
+ * and kept while the key is.
+ *
+ * @param publicKey The public half of an Ed25519 or ECDSA P-256 key pair.
+ * @throws {@link TypeError} `publicKey` is any other key, or its public half
+ *   cannot be exported
  */
 export async function keyThumbprint(publicKey: CryptoKey): Promise<string> {
   return (await keyProfile(publicKey)).thumbprint;

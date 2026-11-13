@@ -120,7 +120,10 @@ releases everything it holds when it is aborted or fails.
 such as domains under `example.com`.
 
 **Comments.** Document what an exported name guarantees, not how it came to
-be.
+be. The doc comments are also the package's reference on the documentation
+site, page for page: every public property and parameter has one, every call
+that can fail lists its errors with `@throws`, and the comment of each
+page's subject carries one `@example`. `pnpm test` fails on a gap.
 
 ## Releases
 
@@ -134,6 +137,20 @@ anywhere else is published.
 
 Run by hand, the same workflow rehearses a release: it builds, checks and
 packs a commit of `main`, and uploads nothing.
+
+The release's reference pages are written into a checkout of the
+documentation site, from a checkout of the release's commit, and land there
+as a pull request:
+
+```sh
+pnpm reference:pages <site-checkout>
+```
+
+`scripts/reference-pages.mjs` reads the declarations and doc comments of the
+two entry points and replaces the site's `reference/sdk/` folder: one page
+per area of the API, each stating the version, and a manifest of the pages'
+hashes that the site's checks hold the pages to. A page that reads wrong is
+fixed in its doc comment here, never on the site.
 
 ## Commits
 

@@ -1,5 +1,44 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
+/**
+ * How the package reports a failure. Every failure is an error class a
+ * caller classifies by its class and its stable code; a message is for
+ * people and is never a contract.
+ *
+ * - An invalid argument or option throws a `TypeError` naming the field,
+ *   before any request is sent.
+ * - A request IDYL refuses rejects with an {@link ApiError}. Its `code` is
+ *   stable: classify it with {@link isApiCode} and the `ERROR_CODE_*`
+ *   constants, never by its message. {@link NotebookNotFoundError} and
+ *   {@link ComputerNotAwakeError} are the codes with classes of their own.
+ * - A request that does not complete rejects with a
+ *   {@link TransportError}, classified by its `code`.
+ * - A command that ends other than with exit code 0 rejects with an
+ *   {@link ExitError}, one whose changes cannot be saved with a
+ *   {@link CommandSaveError}, and one whose session fails before its end
+ *   is known with a {@link CommandSessionError}.
+ * - A Computer session that ends before it opens is a
+ *   {@link ComputerSessionEndedError}, a session trust bundle the client
+ *   refuses is a {@link SessionTrustError}, and a session frame that cannot
+ *   be read is a {@link FrameError}.
+ *
+ * A cancelled call rejects with its signal's reason.
+ *
+ * @example
+ * ```ts
+ * import { ERROR_CODE_INSUFFICIENT_CAPACITY, isApiCode } from "@idyl-sh/sdk";
+ *
+ * try {
+ *   await computer.wake();
+ * } catch (error) {
+ *   if (!isApiCode(error, ERROR_CODE_INSUFFICIENT_CAPACITY)) throw error;
+ *   // No machine has room for the Computer; a later wake may succeed.
+ * }
+ * ```
+ *
+ * @packageDocumentation
+ */
+
 import type { JsonObject } from "./resource/json.js";
 import { ERROR_CODE_CLIENT_UPGRADE_REQUIRED } from "./api/types.js";
 import type { UploadTransfer } from "./api/upload-transfer.js";
@@ -22,40 +61,61 @@ import { ERROR_CODE_SIZE_BELOW_USAGE } from "./api/storage-errors.js";
 
 /** What a non-2xx response carried. */
 export interface ApiErrorOptions {
+  /** The response's HTTP status. */
   readonly status: number;
+  /**
+   * The server's message, which the error carries as `detail`; the empty
+   * string when the response carried none.
+   */
   readonly message: string;
+  /** The stable error code, when the response carried one. */
   readonly code?: string;
+  /** The structured context the code documents, when the response carried any. */
   readonly details?: JsonObject;
+  /** The server's request identifier, when the response carried one. */
   readonly requestId?: string;
+  /** The delay `Retry-After` advertised, in milliseconds, when the response carried one. */
   readonly retryAfterMs?: number;
+  /** The failure behind this one, which the error carries as `cause`. */
   readonly cause?: unknown;
 }
 
 /**
- * A non-2xx response from the IDYL API.
- *
- * `status` is the HTTP status. `code` is the stable error code when the endpoint publishes one and
- * is what a caller branches on. `detail` is the server's message, the reference
- * contract's `Message`: prose for a person, never parsed, and absent when the
- * response carried none. When the error body could not be read it is the
- * sentence that says so, on a route held to a disclosure allow-list it is
- * the fixed sentence `request failed` outside the listed codes. `message` is the sentence composed for
- * logs from the status and the code; it never carries `detail`, and is not
- * a contract either. `details` carries per-code structured context where a code
- * documents it, `requestId` the server's request identifier when one was
- * returned, and `retryAfterMs` the delay the server advertised through
- * `Retry-After`, in milliseconds, when it sent one.
+ * A request IDYL refused: a non-2xx response from the IDYL API. `code` is
+ * what a caller branches on. `message` is the sentence composed for logs
+ * from the status and the code; it never carries `detail`, and is not a
+ * contract either.
  *
  * Match it with `instanceof`, or classify it with {@link isApiCode}.
  */
 export class ApiError extends Error {
+  /** The response's HTTP status. */
   readonly status: number;
+  /** The stable error code, when the endpoint publishes one. */
   declare readonly code?: string;
+  /**
+   * The server's message: prose for a person, never parsed, and absent
+   * when the response carried none. When the error body could not be read
+   * it is the sentence that says so, and on a route held to a disclosure
+   * allow-list it is the fixed sentence `request failed` outside the
+   * listed codes.
+   */
   declare readonly detail?: string;
+  /**
+   * Structured context, where the code documents it: {@link sizeNotInPlan},
+   * {@link sizeBelowUsage} and {@link spendCapReached} read it.
+   */
   declare readonly details?: JsonObject;
+  /** The server's request identifier, when it returned one. */
   declare readonly requestId?: string;
+  /** The delay the server advertised through `Retry-After`, in milliseconds, when it sent one. */
   declare readonly retryAfterMs?: number;
 
+  /**
+   * Builds the error from what a non-2xx response carried. The package
+   * builds every `ApiError` it rejects with; a caller builds one to stand
+   * in for a refusal, as in a test.
+   */
   constructor(options: ApiErrorOptions) {
     super(describeApiError(options), causeOption(options.cause));
     this.name = "ApiError";
@@ -88,10 +148,11 @@ function describeApiError(options: ApiErrorOptions): string {
  * The platform's refusal of a call that names a notebook the Computer does
  * not have, carrying `NOTEBOOK_NOT_FOUND`. A notebook comes into being only
  * through `computer.notebooks.create(name)`, which is repeat-safe, so a
- * caller that may meet a new Computer creates the notebook before its first
- * run.
+ * caller that may meet a Computer without the notebook creates it before
+ * its first run.
  */
 export class NotebookNotFoundError extends ApiError {
+  /** Builds the error from what the refusal carried. */
   constructor(options: ApiErrorOptions) {
     super(options);
     this.name = "NotebookNotFoundError";
@@ -109,6 +170,7 @@ const NOTEBOOK_NOT_FOUND = "NOTEBOOK_NOT_FOUND";
  * saved files instead.
  */
 export class ComputerNotAwakeError extends ApiError {
+  /** Builds the error from what the refusal carried. */
   constructor(options: ApiErrorOptions) {
     super(options);
     this.name = "ComputerNotAwakeError";
@@ -169,8 +231,19 @@ export type TransportErrorCode =
  * `files.download`, which change nothing and resume on their own.
  */
 export class TransportError extends Error {
+  /** Why the request did not complete. */
   readonly code: TransportErrorCode;
 
+  /**
+   * Builds the error. The package builds every `TransportError` it rejects
+   * with; a caller builds one to stand in for a failed request, as in a
+   * test.
+   *
+   * @param code why the request did not complete
+   * @param message a fixed sentence naming the rule that failed, never
+   *   text a peer sent
+   * @param options `cause`, the underlying failure, when there is one
+   */
   constructor(
     code: TransportErrorCode,
     message: string,
@@ -192,7 +265,12 @@ export function isApiStatus(error: unknown, status: number): error is ApiError {
   return error instanceof ApiError && error.status === status;
 }
 
-/** Reports whether `error` is an {@link ApiError} carrying the given stable code. */
+/**
+ * Reports whether `error` is an {@link ApiError} carrying the given stable code.
+ *
+ * @param error any value, as a `catch` receives it
+ * @param code the stable code to match, such as an `ERROR_CODE_*` constant
+ */
 export function isApiCode(error: unknown, code: string): error is ApiError {
   return error instanceof ApiError && error.code === code;
 }
@@ -266,6 +344,8 @@ export interface SpendCapReachedDetails {
  * an {@link ApiError}, with HTTP 402, carrying `ERROR_CODE_OUT_OF_USAGE`. A
  * wake or a session that fails later for the same cause carries the code as
  * its reason instead.
+ *
+ * @param error any value, as a `catch` receives it
  */
 export function isOutOfUsage(error: unknown): error is ApiError {
   return isApiCode(error, ERROR_CODE_OUT_OF_USAGE);
@@ -279,6 +359,8 @@ export function isOutOfUsage(error: unknown): error is ApiError {
  * error. The details are read as a response is: a key the details do not
  * name is ignored, and a key the error does not carry, or carries in
  * another form, reads as the empty string.
+ *
+ * @param error any value, as a `catch` receives it
  */
 export function sizeNotInPlan(
   error: unknown,
@@ -301,6 +383,8 @@ export function sizeNotInPlan(
  * any other error. The details are read as {@link sizeNotInPlan} reads its
  * own: a key carried in another form, a byte count below zero or past
  * `Number.MAX_SAFE_INTEGER` included, reads as zero or the empty string.
+ *
+ * @param error any value, as a `catch` receives it
  */
 export function sizeBelowUsage(
   error: unknown,
@@ -321,6 +405,8 @@ export function sizeBelowUsage(
  * bought, in micro-dollars. `undefined` for any other error. The details
  * are read as {@link sizeNotInPlan} reads its own: a key carried in another
  * form, an amount past the safe-integer range included, reads as zero.
+ *
+ * @param error any value, as a `catch` receives it
  */
 export function spendCapReached(
   error: unknown,
@@ -480,10 +566,22 @@ export class ExitError extends Error implements CommandOutput {
   declare readonly code?: number;
   /** The signal that ended it, when one did. */
   declare readonly signal?: string;
+  /** Its standard output, decoded as UTF-8. */
   readonly stdout: string;
+  /** Its standard error, decoded as UTF-8. */
   readonly stderr: string;
+  /** The notebook cell that recorded it, when it ran in a notebook. */
   declare readonly cell?: string;
 
+  /**
+   * Builds the error from how the command ended. The package builds every
+   * `ExitError` it rejects with.
+   *
+   * @param code the exit code, or `undefined` when the command did not exit
+   *   by itself
+   * @param signal the signal that ended it, or `undefined` when none did
+   * @param output what the command wrote
+   */
   constructor(
     code: number | undefined,
     signal: string | undefined,
@@ -513,11 +611,25 @@ export class CommandSaveError extends Error implements CommandOutput {
    * `SAVE_REASON_COMPUTER_SIZE`.
    */
   declare readonly reason?: string;
+  /** The command's own exit code, when it exited by itself. */
   declare readonly exitCode?: number;
+  /** Its standard output, decoded as UTF-8. */
   readonly stdout: string;
+  /** Its standard error, decoded as UTF-8. */
   readonly stderr: string;
+  /** The notebook cell that recorded it, when it ran in a notebook. */
   declare readonly cell?: string;
 
+  /**
+   * Builds the error from the save's outcome. The package builds every
+   * `CommandSaveError` it rejects with.
+   *
+   * @param reason why the save failed, or `undefined` when the platform
+   *   states no reason
+   * @param exitCode the command's exit code, or `undefined` when it did not
+   *   exit by itself
+   * @param output what the command wrote
+   */
   constructor(
     reason: string | undefined,
     exitCode: number | undefined,
@@ -535,17 +647,30 @@ export class CommandSaveError extends Error implements CommandOutput {
 
 /**
  * A command's session failed before the command's end was known, so the
- * command may not have run, or may have been cut short. `code` is the
- * session's error code; `broken` and `no_exit` name a connection that ended
- * without an exit, and `output_too_large` a stream past the 16 MiB a command
- * keeps. The message names the code alone.
+ * command may not have run, or may have been cut short. The message names
+ * the code alone.
  */
 export class CommandSessionError extends Error implements CommandOutput {
+  /**
+   * The session's error code: `broken` and `no_exit` name a connection that
+   * ended without an exit, and `output_too_large` a stream past the 16 MiB
+   * a command keeps.
+   */
   readonly code: string;
+  /** Its standard output so far, decoded as UTF-8. */
   readonly stdout: string;
+  /** Its standard error so far, decoded as UTF-8. */
   readonly stderr: string;
+  /** The notebook cell that recorded it, when it ran in a notebook. */
   declare readonly cell?: string;
 
+  /**
+   * Builds the error from the session's failure. The package builds every
+   * `CommandSessionError` it rejects with.
+   *
+   * @param code the session's error code
+   * @param output what the command wrote before the session failed
+   */
   constructor(code: string, output: CommandOutput) {
     super(
       /^[a-z_]+$/u.test(code)

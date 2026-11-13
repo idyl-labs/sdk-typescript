@@ -24,6 +24,12 @@ export interface TrustFloor {
    * otherwise keeps it when it is higher; an equal version changes nothing.
    * Any other rejection means the floor could not be read or written, and
    * a connector refuses the bundle for it.
+   *
+   * @param network the Network the bundle names, as a domain
+   * @param scope the trust scope the bundle governs, kept as given
+   * @param version the bundle's version
+   * @throws {@link SessionTrustError} `version` is lower than the version
+   *   kept
    */
   accept(network: string, scope: string, version: number): Promise<void>;
 }

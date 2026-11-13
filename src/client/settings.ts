@@ -34,7 +34,9 @@ import { clientOf, type CallOptions } from "./common.js";
  * App has no versions to pin.
  */
 export interface SecretAttachment {
+  /** The Secret's name or its ID. */
   readonly secret: string;
+  /** The stored version to pin, from 1; absent to follow the current version. */
   readonly version?: number;
 }
 
@@ -114,16 +116,9 @@ export interface ComputerSettingsOptions {
 }
 
 /**
- * Changes a Computer field by field; a field left out keeps its value.
- * `name` renames it: the old name is free at once and no longer reaches it,
- * while its ID, files, history and running commands are unchanged. `size`
- * replaces the CPU and memory together, and is never stated with either. `cpu`,
- * `memory` and `network` set to `null` return to IDYL's default, and
- * `shell` set to `null` returns to `/bin/bash` when the image has it and
- * `/bin/sh` otherwise. An `env` entry set to `null` removes that variable;
- * the others are set. A change of the execution settings (everything but
- * `name`, `idleTimeout` and the save settings) applies from the Computer's
- * next start.
+ * Updates a Computer field by field; a field left out keeps its value. A
+ * change of the execution settings (everything but `name`, `idleTimeout`
+ * and the save settings) applies from the Computer's next start.
  */
 export interface UpdateComputerOptions extends CallOptions {
   /**
@@ -131,27 +126,46 @@ export interface UpdateComputerOptions extends CallOptions {
    * execution settings in the Computer's history. `sdk` when absent.
    */
   readonly client?: "sdk" | "console" | "cli";
+  /**
+   * Renames the Computer. The old name is free at once and stops reaching
+   * it, while its ID, files, history and running commands stay as they are.
+   */
   readonly name?: string;
+  /** The image, as on create. */
   readonly image?: string;
   /**
    * Moves the Computer to another isolation class, `secure-container` or
    * `vm`, from its next start; its files under `/workspace` carry over.
    * Each image serves one class: without `image`, the Computer takes the
-   * default image of the new class, and an `image` stated beside it must be
-   * one of the new class (`idyl.computers.images({ isolation })`). A class
-   * not offered where the Computer lives is refused with
+   * default image of the class it moves to, and an `image` stated beside
+   * it must be one of that class (`idyl.computers.images({ isolation })`).
+   * A class not offered where the Computer lives is refused with
    * `ERROR_CODE_ISOLATION_CLASS_NOT_ADMITTED`.
    */
   readonly isolation?: "secure-container" | "vm";
+  /**
+   * The size by name, as on create, which replaces the CPU and memory
+   * together; never stated with `cpu` or `memory`.
+   */
   readonly size?: string;
+  /** The CPU limit, such as `500m` or `2`; `null` returns to IDYL's default. */
   readonly cpu?: string | null;
+  /** The memory limit, such as `512Mi` or `4Gi`; `null` returns to IDYL's default. */
   readonly memory?: string | null;
+  /**
+   * The network class, as on create; `null` returns to IDYL's default,
+   * `internet`.
+   */
   readonly network?: string | null;
   /**
    * What a `restricted-egress` network allows, as on create; it is stated
    * with `network: "restricted-egress"` and replaces the whole list.
    */
   readonly allow?: readonly string[];
+  /**
+   * Environment variables to set, by name; an entry set to `null` removes
+   * that variable, and variables left out keep their values.
+   */
   readonly env?: Readonly<Record<string, string | null>>;
   /**
    * Attaches Secrets, as on create, by variable; an entry set to `null`
@@ -160,13 +174,22 @@ export interface UpdateComputerOptions extends CallOptions {
    */
   readonly secrets?: Readonly<Record<string, string | SecretAttachment | null>>;
   /**
-   * The default shell, as on create. Unlike the other execution settings,
-   * a change of it applies from the next terminal and needs no start.
+   * The default shell, as on create; `null` returns to `/bin/bash` when the
+   * image has it and `/bin/sh` otherwise. Unlike the other execution
+   * settings, an update of it applies from the next terminal and needs no
+   * start.
    */
   readonly shell?: string | null;
+  /**
+   * How long the Computer keeps running after its last command or
+   * terminal ends, as on create; it takes effect at once.
+   */
   readonly idleTimeout?: string;
+  /** Whether the Computer saves its files on its own; it takes effect at once. */
   readonly autoSave?: boolean;
+  /** How long writes must be quiet before an automatic save, from `1s` to `10m`. */
   readonly saveQuiet?: string;
+  /** The longest time between saves while writes continue, from `10s` to `1h`. */
   readonly saveMaxInterval?: string;
 }
 

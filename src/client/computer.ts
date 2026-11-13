@@ -103,6 +103,10 @@ export interface ComputerInfo {
    * may be reused once freed; an ID never changes and is never reused.
    */
   readonly id: string;
+  /**
+   * The Computer's name, unique among the live Computers of its Namespace. A
+   * rename changes it; the ID stays.
+   */
   readonly name: string;
   /**
    * `active` in service, or `terminating` from the moment a delete is
@@ -132,13 +136,13 @@ export interface ComputerInfo {
   /**
    * The shells its image held when it last started, as the image's
    * `/etc/shells` lists them, at most 16, for a terminal to offer. Absent
-   * before it first starts. The image may have changed since, so a shell
-   * listed here is offered, not promised.
+   * before it first starts. Its image may hold other shells at its next
+   * start, so a shell listed here is offered, not promised.
    */
   readonly shells?: readonly ImageShell[];
   /**
-   * The largest size it can run at now: the largest size that fits a
-   * machine ready to run it. A create or a change at a larger size is
+   * The largest size it can run at when it was read: the largest size that
+   * fits a machine ready to run it. A create or a change at a larger size is
    * refused with `COMPUTER_DOES_NOT_FIT`; every size up to it is accepted.
    * Absent while no machine is ready to run it, or when IDYL does not report
    * it.
@@ -168,8 +172,8 @@ export interface ComputerInfo {
   /** The Computer and saved version it was forked from. */
   readonly forkOf?: { readonly computerId?: string; readonly version: number };
   /**
-   * The copy a fork makes: `copying`, then `done` or `failed`. Absent
-   * once IDYL no longer reports it.
+   * The copy a fork makes: `copying`, then `done` or `failed`, with how
+   * much of the `total` is `copied`. Absent when IDYL does not report it.
    */
   readonly fork?: {
     readonly state:
@@ -179,7 +183,7 @@ export interface ComputerInfo {
   };
   /** When it was created, as an RFC 3339 instant. */
   readonly createdAt: string;
-  /** When it last changed, as an RFC 3339 instant. */
+  /** When it was last modified, as an RFC 3339 instant. */
   readonly updatedAt: string;
   /** When its delete was recorded; present only while terminating. */
   readonly terminatingAt?: string;
@@ -240,7 +244,10 @@ export interface CreateComputerOptions
 
 /** Forks a Computer. */
 export interface ForkOptions extends CallOptions {
-  /** The new Computer's name. */
+  /**
+   * The fork's name: 3 to 63 characters in IDYL's Computer name format,
+   * unique among the Account's live Computers.
+   */
   readonly name: string;
   /**
    * Where to fork from: a history entry's ID, such as a version's `entry` or
@@ -280,7 +287,7 @@ export interface DeleteComputerOptions extends CallOptions {
   readonly timeoutMs?: number;
 }
 
-/** Saves a Computer's files now. */
+/** Saves a Computer's files. */
 export interface SaveOptions extends CallOptions {
   /**
    * How long to wait for the outcome, in milliseconds; ten minutes when
@@ -297,12 +304,17 @@ export interface SaveOptions extends CallOptions {
   readonly client?: "sdk" | "console" | "cli";
 }
 
-/**
- * A save's outcome: `saved` with the version it published, or `unchanged`
- * when nothing changed, with the current version.
- */
+/** A save's outcome. */
 export interface SaveResult {
+  /**
+   * `saved` when the save published a version, or `unchanged` when the
+   * files held nothing the last saved version lacks.
+   */
   readonly state: "saved" | "unchanged" | (string & Record<never, never>);
+  /**
+   * The version the save published, or with `unchanged` the Computer's
+   * newest saved version.
+   */
   readonly version: number;
 }
 
@@ -334,6 +346,7 @@ export interface WakeOptions extends CallOptions {
 
 /** A finished wake: the Computer is `awake`. */
 export interface WakeResult {
+  /** `awake`. */
   readonly state: "awake" | (string & Record<never, never>);
 }
 
@@ -374,13 +387,15 @@ export interface SleepOptions extends CallOptions {
   readonly onWaiting?: (waitingFor: string | undefined) => void;
 }
 
-/**
- * A finished sleep: the Computer is `asleep`. `version` is the version the
- * sleep's save recorded; it is absent when the Computer was already asleep
- * and nothing was saved.
- */
+/** A finished sleep: the Computer is `asleep`. */
 export interface SleepResult {
+  /** `asleep`. */
   readonly state: "asleep" | (string & Record<never, never>);
+  /**
+   * The version the sleep's save recorded; absent when the Computer was
+   * already asleep, or the sleep discarded unsaved changes, and nothing was
+   * saved.
+   */
   readonly version?: number;
 }
 
@@ -401,9 +416,11 @@ export interface RestoreOptions extends CallOptions {
   readonly client?: "sdk" | "console" | "cli";
 }
 
-/** A published restore: the new version that holds the restored files. */
+/** A published restore. */
 export interface RestoreResult {
+  /** `published`. */
   readonly state: "published" | (string & Record<never, never>);
+  /** The version the restore published, which holds the restored files. */
   readonly version: number;
 }
 
@@ -467,6 +484,17 @@ function settleOptions(
  * addressed by its `id`, opens any other session, such as a live files listing.
  *
  * Get one from `idyl.computers`.
+ *
+ * @example
+ * ```ts
+ * const computer = await idyl.computers.get("research");
+ *
+ * await computer.files.upload("data.csv", "id,score\n1,0.9\n");
+ * const { stdout } = await computer.exec("wc -l data.csv");
+ *
+ * const { version } = await computer.save();
+ * const trial = await computer.fork({ name: "research-trial", from: version });
+ * ```
  */
 export class Computer {
   private constructor() {
@@ -504,14 +532,19 @@ export class Computer {
   }
 
   /**
-   * Changes the Computer field by field and returns a handle with its new
-   * snapshot. Execution settings take effect from its next start, without
-   * disturbing commands already running; `settingsPending` reports the
-   * wait. A new name, the idle timeout and the save settings take effect at
-   * once; this handle keeps its old snapshot, and sessions already running
-   * are unaffected by a rename. Throws a `TypeError` naming
-   * the field before any request when the update states nothing or a field
-   * is invalid.
+   * Updates the Computer field by field and returns a handle with its
+   * updated snapshot. Execution settings take effect from its next start,
+   * without disturbing commands already running; `settingsPending` reports
+   * the wait. A rename, the idle timeout and the save settings take effect
+   * at once; this handle keeps its earlier snapshot, and sessions already
+   * running are unaffected by a rename.
+   *
+   * @throws {@link TypeError} the update states nothing or a field is
+   * invalid, naming the field, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the update, such as for a name
+   * another Computer holds or a size the plan does not include
+   * @throws {@link TransportError} the request does not complete, or the
+   * answer names another Account or Namespace
    */
   async update(options: UpdateComputerOptions): Promise<Computer> {
     const { state, record } = internalsOf(this);
@@ -529,6 +562,13 @@ export class Computer {
    * Deletes the Computer: its files, history and notebooks are released.
    * The delete is accepted at once and completes on its own; `wait` waits
    * until the Computer is gone.
+   *
+   * @throws {@link TypeError} `timeoutMs` is not a non-negative number,
+   * before any request is sent
+   * @throws {@link ApiError} IDYL refuses the delete
+   * @throws {@link TransportError} a request does not complete
+   * @throws DOMException a `TimeoutError`: with `wait`, the Computer is
+   * not gone within `timeoutMs`; the delete goes on
    */
   async delete(options: DeleteComputerOptions = {}): Promise<void> {
     const { state, record } = internalsOf(this);
@@ -546,14 +586,20 @@ export class Computer {
   }
 
   /**
-   * Saves the Computer's files now and waits for the outcome. A save that
-   * finds nothing changed reports `unchanged` with the current version. A
-   * save that fails rejects with an `ApiError` (status 409) whose `detail`
-   * says why. A save refused for size also carries its reason as `code`:
-   * `SAVE_REASON_ACCOUNT_STORAGE_LIMIT`, `SAVE_REASON_COMPUTER_SIZE` or
-   * `SAVE_REASON_NAME_LIMIT`. The Computer then stays awake with its unsaved
-   * files; freeing files, or a sleep that discards unsaved changes, lets it
-   * sleep.
+   * Saves the Computer's files and waits for the outcome. A save that finds
+   * nothing to save reports `unchanged` with the newest saved version. A
+   * save refused for size leaves the Computer awake with its unsaved files;
+   * freeing files, or a sleep that discards unsaved changes, lets it sleep.
+   *
+   * @throws {@link TypeError} `timeoutMs` is not a non-negative number,
+   * before any request is sent
+   * @throws {@link ApiError} IDYL refuses the save, or the save fails: status
+   * 409 with the reason as `detail`, and for a save refused for size the
+   * reason as `code` too, `SAVE_REASON_ACCOUNT_STORAGE_LIMIT`,
+   * `SAVE_REASON_COMPUTER_SIZE` or `SAVE_REASON_NAME_LIMIT`
+   * @throws {@link TransportError} a request does not complete
+   * @throws DOMException a `TimeoutError`: the save does not finish
+   * within `timeoutMs`; the save goes on
    */
   async save(options: SaveOptions = {}): Promise<SaveResult> {
     const { state, record } = internalsOf(this);
@@ -597,11 +643,17 @@ export class Computer {
    * waits until it is awake. A Computer that is already awake is awake at
    * once. Either way it then stays awake for its idle timeout, counted from
    * the wake, and goes to sleep as it does after its last command. Commands
-   * wake a Computer on their own; a wake starts it ahead of them. A wake
-   * that fails rejects with an `ApiError` (status 409) whose `code` and
-   * `detail` are the reason, the code that would fail a command for the
-   * same cause, such as `ERROR_CODE_INSUFFICIENT_CAPACITY` or
-   * `ERROR_CODE_WAKE_TIMEOUT`.
+   * wake a Computer on their own; a wake starts it ahead of them.
+   *
+   * @throws {@link TypeError} `timeoutMs` is not a non-negative number,
+   * before any request is sent
+   * @throws {@link ApiError} IDYL refuses the wake, or the wake fails:
+   * status 409 whose `code` and `detail` are the reason, the code that would
+   * fail a command for the same cause, such as
+   * `ERROR_CODE_INSUFFICIENT_CAPACITY` or `ERROR_CODE_WAKE_TIMEOUT`
+   * @throws {@link TransportError} a request does not complete
+   * @throws DOMException a `TimeoutError`: the Computer is not awake
+   * within `timeoutMs`; the wake goes on
    */
   async wake(options: WakeOptions = {}): Promise<WakeResult> {
     const { state, record } = internalsOf(this);
@@ -644,15 +696,22 @@ export class Computer {
   /**
    * Puts the Computer to sleep and waits until it is asleep. Its files are
    * saved first, as `save` does, unless `discardUnsavedChanges` asks to
-   * discard what changed since its last saved version; then every command,
+   * discard the changes since its last saved version; then every command,
    * terminal and notebook cell still running is ended and its execution is
-   * released, so background processes stop. A Computer that is already asleep is asleep
-   * at once, with nothing saved. The next command wakes it again. A sleep
-   * that fails rejects with an `ApiError` (status 409) whose `code` and
-   * `detail` are the reason: `ERROR_CODE_SAVE_FAILED` when the save failed,
-   * and nothing was ended, or `ERROR_CODE_SLEEP_TIMEOUT` when the Computer
-   * could not be released in time, and it goes to sleep after its idle
-   * timeout instead.
+   * released, so background processes stop. A Computer that is already
+   * asleep is asleep at once, with nothing saved. The next command wakes it
+   * again.
+   *
+   * @throws {@link TypeError} `timeoutMs` is not a non-negative number,
+   * before any request is sent
+   * @throws {@link ApiError} IDYL refuses the sleep, or the sleep fails:
+   * status 409 whose `code` and `detail` are the reason,
+   * `ERROR_CODE_SAVE_FAILED` when the save failed and nothing was ended, or
+   * `ERROR_CODE_SLEEP_TIMEOUT` when the Computer could not be released in
+   * time and goes to sleep after its idle timeout instead
+   * @throws {@link TransportError} a request does not complete
+   * @throws DOMException a `TimeoutError`: the Computer is not asleep
+   * within `timeoutMs`; the sleep goes on
    */
   async sleep(options: SleepOptions = {}): Promise<SleepResult> {
     const { state, record } = internalsOf(this);
@@ -702,12 +761,24 @@ export class Computer {
   /**
    * The Computer's history, newest entry first, page by page. Anyone who
    * may read the Computer may read its whole history.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer, before any
+   * request is sent
+   * @throws {@link ApiError} IDYL refuses a page's request
+   * @throws {@link TransportError} a page's request does not complete
    */
   history(options: ListOptions = {}): AsyncIterable<HistoryEntry> {
     return walk((page) => this.historyPage(page), options);
   }
 
-  /** One page of the Computer's history, newest entry first. */
+  /**
+   * One page of the Computer's history, newest entry first.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer
+   * @throws {@link ApiError} IDYL refuses the request, such as a `continue`
+   * this listing did not issue
+   * @throws {@link TransportError} the request does not complete
+   */
   async historyPage(options: PageOptions = {}): Promise<Page<HistoryEntry>> {
     const { state, record } = internalsOf(this);
     const service = await serviceOf(state, options);
@@ -723,6 +794,9 @@ export class Computer {
    * The Computer's open sessions, oldest first, as anyone who may read the
    * Computer sees them: kind, client, who and when, never content. A Computer
    * that is asleep has none.
+   *
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
    */
   async sessions(options: CallOptions = {}): Promise<readonly OpenSession[]> {
     const { state, record } = internalsOf(this);
@@ -740,6 +814,9 @@ export class Computer {
    * judged against the version the attachment uses, and when it cannot,
    * why. It is read when asked for, from IDYL, and never wakes the
    * Computer. Anyone who may read the Computer may read it.
+   *
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
    */
   async secrets(
     options: CallOptions = {},
@@ -753,12 +830,26 @@ export class Computer {
     return Object.freeze(items.map(secretAttachmentStatusOf));
   }
 
-  /** The Computer's saved versions, newest first, page by page. */
+  /**
+   * The Computer's saved versions, newest first, page by page.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer, before any
+   * request is sent
+   * @throws {@link ApiError} IDYL refuses a page's request
+   * @throws {@link TransportError} a page's request does not complete
+   */
   versions(options: ListOptions = {}): AsyncIterable<Version> {
     return walk((page) => this.versionsPage(page), options);
   }
 
-  /** One page of the Computer's saved versions, newest first. */
+  /**
+   * One page of the Computer's saved versions, newest first.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer
+   * @throws {@link ApiError} IDYL refuses the request, such as a `continue`
+   * this listing did not issue
+   * @throws {@link TransportError} the request does not complete
+   */
   async versionsPage(options: PageOptions = {}): Promise<Page<Version>> {
     const { state, record } = internalsOf(this);
     const service = await serviceOf(state, options);
@@ -770,7 +861,17 @@ export class Computer {
     return pageOf(page.items.map(versionOf), page.continue);
   }
 
-  /** One saved version, by number or by name. */
+  /**
+   * One saved version, by number or by name.
+   *
+   * @param version the version's number, a non-negative integer, or the
+   * name it was given with `nameVersion`
+   * @throws {@link TypeError} `version` is neither a non-negative integer
+   * nor a non-empty name, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the request, such as for a version
+   * the Computer does not have
+   * @throws {@link TransportError} the request does not complete
+   */
   async version(
     version: number | string,
     options: CallOptions = {},
@@ -784,9 +885,12 @@ export class Computer {
   }
 
   /**
-   * The Computer as it is now, as a new handle. This handle's `snapshot` does
-   * not change. A Computer that is gone rejects with an `ApiError` whose
-   * status is 404.
+   * Reads the Computer again and returns a handle with its current
+   * snapshot. This handle's `snapshot` stays as it was.
+   *
+   * @throws {@link ApiError} IDYL refuses the read, such as for a Computer
+   * that is gone (status 404)
+   * @throws {@link TransportError} the request does not complete
    */
   async refresh(options: CallOptions = {}): Promise<Computer> {
     const { state, record } = internalsOf(this);
@@ -802,6 +906,16 @@ export class Computer {
    * until then, so a program closes it, or reads it to its end, before it can
    * exit. A browser page first builds its connector with
    * `idyl.computers.connector`.
+   *
+   * @throws {@link TypeError} the client has no connector to run it on: a
+   * browser page that has not built one with `idyl.computers.connector`,
+   * or a client with no network or trust keys
+   * @throws {@link ApiError} IDYL refuses the session, such as
+   * `ERROR_CODE_INSUFFICIENT_CAPACITY` or `ERROR_CODE_SESSION_BUDGET_EXCEEDED`
+   * @throws {@link ComputerSessionEndedError} the session ended before it
+   * ran, such as when the Computer was put to sleep
+   * @throws {@link SessionTrustError} the network's session trust is refused
+   * @throws {@link TransportError} a request does not complete
    */
   async terminal(
     options: TerminalOptions = {},
@@ -821,15 +935,32 @@ export class Computer {
    * pipes, quotes and variables work; a list runs its program as given. It
    * starts in `/workspace`.
    *
-   * Rejects with an `ExitError` for any exit but 0, a `CommandSaveError` when
-   * its changes could not be saved, and a `CommandSessionError` when its
-   * session failed before its end was known; each carries the output so far.
    * Each stream keeps at most 16 MiB. For more, or for output as it arrives,
    * open a session on a {@link ComputerConnector}.
    *
    * A browser page first builds its connector with `idyl.computers.connector`.
    * Any other program needs nothing more: the client connects on the first
    * command and closes the connection a moment after the last.
+   *
+   * @param command a shell command line, run through `/bin/sh -c`, or a
+   * program and its arguments, run as given
+   * @throws {@link ExitError} the command exits other than with 0; it
+   * carries the exit code and the output
+   * @throws {@link CommandSaveError} the command ended but its changes could
+   * not be saved; it carries the output
+   * @throws {@link CommandSessionError} the session failed before the
+   * command's end was known, or a stream passed 16 MiB; it carries the
+   * output so far
+   * @throws {@link TypeError} `command` is empty, or the client has no
+   * connector to run it on: a
+   * browser page that has not built one with `idyl.computers.connector`,
+   * or a client with no network or trust keys
+   * @throws {@link ApiError} IDYL refuses the session, such as
+   * `ERROR_CODE_INSUFFICIENT_CAPACITY` or `ERROR_CODE_SESSION_BUDGET_EXCEEDED`
+   * @throws {@link ComputerSessionEndedError} the session ended before it
+   * ran, such as when the Computer was put to sleep
+   * @throws {@link SessionTrustError} the network's session trust is refused
+   * @throws {@link TransportError} a request does not complete
    */
   async exec(
     command: string | readonly string[],
@@ -856,8 +987,15 @@ export class Computer {
 
   /**
    * Names a saved version, so `restore` can select it by name; an empty
-   * name removes the name. Throws a `TypeError` when `version` is not a
-   * non-negative integer.
+   * name removes the name.
+   *
+   * @param version the version's number
+   * @param name the name to give it, or `""` to remove its name
+   * @throws {@link TypeError} `version` is not a non-negative integer, or
+   * `name` is not a string, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the request, such as for a version
+   * the Computer does not have
+   * @throws {@link TransportError} the request does not complete
    */
   async nameVersion(
     version: number,
@@ -883,11 +1021,20 @@ export class Computer {
   /**
    * Restores the files and execution settings of a saved version, by
    * number or by name, and waits until the restored files are published as
-   * a new version. History only moves forward: the restore is a new entry
-   * and every earlier one is kept. The settings apply at the next start;
-   * commands already running continue, and the next session sees the
-   * restored files. A restore that fails rejects with an `ApiError`
-   * (status 409) whose `detail` says why.
+   * a further version. History only moves forward: the restore is an entry
+   * of its own and every earlier one is kept. The settings apply at the
+   * next start; commands already running continue, and the next session
+   * sees the restored files.
+   *
+   * @param version the number of the version to restore, or its name
+   * @throws {@link TypeError} `version` is neither a non-negative integer
+   * nor a non-empty name, or `timeoutMs` is invalid, before any request is
+   * sent
+   * @throws {@link ApiError} IDYL refuses the restore, or the restore fails:
+   * status 409 whose `detail` says why
+   * @throws {@link TransportError} a request does not complete
+   * @throws DOMException a `TimeoutError`: the restored files are not
+   * published within `timeoutMs`; the restore goes on
    */
   async restore(
     version: number | string,
@@ -925,13 +1072,22 @@ export class Computer {
   }
 
   /**
-   * Creates a new Computer from a point in this Computer's history, by
-   * default its newest saved version, and waits until its copy has finished.
-   * The new Computer has that point's files and settings and a history of its
-   * own; changes not yet saved are not in it. Check `snapshot.fork?.state` on
-   * the returned handle: `failed` means the copy did not complete. Throws a
-   * `TypeError` when `from` is stated as `undefined`, as for a cell whose save
-   * is off, pending or failed.
+   * Creates a Computer from a point in this Computer's history, by default
+   * its newest saved version, and waits until its copy has finished. The
+   * fork has that point's files and settings and a history of its own;
+   * unsaved changes are not in it. Check `snapshot.fork?.state` on the
+   * returned handle: `failed` means the copy did not complete.
+   *
+   * @throws {@link TypeError} `name` is empty, `from` is stated as
+   * `undefined` (as for a cell whose save is off, pending or failed),
+   * `timeoutMs` is invalid, or the Computer has no saved version to fork
+   * from
+   * @throws {@link ApiError} IDYL refuses the fork, such as for a name
+   * another Computer holds or a version the Computer does not have
+   * @throws {@link TransportError} a request does not complete, or the
+   * answer names another Account or Namespace
+   * @throws DOMException a `TimeoutError`: the copy does not finish
+   * within `timeoutMs`; the fork goes on
    */
   async fork(options: ForkOptions): Promise<Computer> {
     const { name, idempotencyKey, workspaceOnly } = options;
@@ -1143,8 +1299,11 @@ export function computerInfoOf(record: ComputerRecord): ComputerInfo {
 export interface ComputerImage {
   /** The name a create or update states, such as `ubuntu-24.04`. */
   readonly name: string;
+  /** The name to show a person, such as `Ubuntu 24.04`. */
   readonly displayName: string;
+  /** A sentence on what the image holds; absent when the catalogue states none. */
   readonly description?: string;
+  /** The operating system the image runs: its name and its version. */
   readonly os: { readonly name: string; readonly version: string };
   /** Whether the image carries GPU support. */
   readonly gpu: boolean;
@@ -1196,28 +1355,69 @@ export interface ComputerSizeInfo {
   readonly default: boolean;
 }
 
-/** The Account's Computers. */
+/**
+ * The Computers of the client's Namespace: `idyl.computers`.
+ *
+ * @example
+ * ```ts
+ * const computer = await idyl.computers.create({
+ *   name: "research",
+ *   image: "ubuntu-24.04",
+ * });
+ *
+ * const same = await idyl.computers.get("research");
+ *
+ * for await (const each of idyl.computers.list()) {
+ *   console.log(each.name, each.snapshot.execution);
+ * }
+ * ```
+ */
 export interface Computers {
   /**
    * Creates a Computer and returns its handle. Every setting is optional;
    * one left out takes IDYL's default, the image the catalogue's default.
-   * Throws a `TypeError` naming the field before any request when an
-   * option is invalid.
+   *
+   * @throws {@link TypeError} an option is invalid, naming the field, before
+   * any request is sent
+   * @throws {@link ApiError} IDYL refuses the create, such as for a name
+   * another Computer holds, or with `ERROR_CODE_IMAGE_NOT_IN_CATALOG` or
+   * `ERROR_CODE_SIZE_NOT_IN_PLAN`
+   * @throws {@link TransportError} the request does not complete, or the
+   * answer names another Account or Namespace
    */
   create(options: CreateComputerOptions): Promise<Computer>;
   /**
-   * The Computer with this name. A name the Account does not hold
-   * rejects with an `ApiError` whose status is 404.
+   * The Computer with this name.
+   *
+   * @param name the Computer's name
+   * @throws {@link TypeError} `name` is empty, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the read, such as for a name the
+   * Namespace does not hold (status 404)
+   * @throws {@link TransportError} the request does not complete, or the
+   * answer names another Account or Namespace
    */
   get(name: string, options?: CallOptions): Promise<Computer>;
   /**
    * Every Computer of the Account, page by page, as handles. Each holds the
    * snapshot the listing read and acts on its Computer without reading it
-   * again, as a handle from `get` does. A listed Computer of another Account
-   * or Namespace rejects its page with a `TransportError`.
+   * again, as a handle from `get` does.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer
+   * @throws {@link ApiError} IDYL refuses a page's request
+   * @throws {@link TransportError} a page's request does not complete, or a
+   * listed Computer belongs to another Account or Namespace
    */
   list(options?: ListOptions): AsyncIterable<Computer>;
-  /** One page of the Account's Computers, as handles. */
+  /**
+   * One page of the Account's Computers, as handles.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer, or
+   * `continue` is not a position this listing issued, before any request is
+   * sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or a
+   * listed Computer belongs to another Account or Namespace
+   */
   listPage(options?: PageOptions): Promise<Page<Computer>>;
   /**
    * Every attachment of the Secret with this ID across the Namespace's
@@ -1226,8 +1426,13 @@ export interface Computers {
    * it is attached there, and the version it is pinned to, if any. It lists
    * the settings each Computer applies from its next start. It is read at
    * one moment and is not paged, and it reads no Secret: an ID no Computer
-   * you may read attaches reads as none. `secretId` is a Secret's `id`;
-   * any other value is refused with a `TypeError` before any request.
+   * you may read attaches reads as none.
+   *
+   * @param secretId a Secret's `id`, a canonical UUID
+   * @throws {@link TypeError} `secretId` is not a canonical UUID, before any
+   * request is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
    */
   listBySecret(
     secretId: string,
@@ -1237,11 +1442,19 @@ export interface Computers {
    * The image catalogue a Computer can start from, for one isolation class:
    * `secure-container` unless `isolation` names another. Empty for a class
    * that is not offered.
+   *
+   * @throws {@link TypeError} `isolation` names no isolation class, before
+   * any request is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
    */
   images(options?: ImagesOptions): Promise<readonly ComputerImage[]>;
   /**
    * The sizes a Computer can run at, smallest first, as IDYL offers them. The
    * read needs no credential and no Account.
+   *
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
    */
   sizes(options?: CallOptions): Promise<readonly ComputerSizeInfo[]>;
   /**
@@ -1253,6 +1466,9 @@ export interface Computers {
    * Nothing is sent until {@link ComputerConnector.ready} or a session.
    * `Computer.exec` runs on the connector built last, which stays open until
    * it is closed.
+   *
+   * @throws {@link TypeError} neither the options nor the client name a
+   * network, or neither states trust keys
    */
   connector(options: ConnectorOptions): ComputerConnector;
 }

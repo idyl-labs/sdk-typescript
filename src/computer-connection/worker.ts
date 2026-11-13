@@ -12,9 +12,26 @@ import init, {
 } from "../../wasm/pkg/computer_connection.js";
 import type { PageToWorker, WorkerToPage } from "./messages.js";
 
-/** The scope a Worker runs in, as far as this module uses it. */
+/**
+ * The scope a Worker runs in, as far as the connection uses it: a dedicated
+ * Worker's global scope, `self`.
+ */
 export interface WorkerScope {
+  /**
+   * Sends a message to the page, as `postMessage` does in a Worker.
+   *
+   * @param message an event or reply of the connection's own protocol
+   * @param transfer the buffers whose ownership passes to the page
+   */
   postMessage(message: WorkerToPage, transfer?: Transferable[]): void;
+  /**
+   * Calls `listener` with each message the page sends, as
+   * `addEventListener` does in a Worker.
+   *
+   * @param type always `message`
+   * @param listener called with each message, in the order the page sent
+   *   them
+   */
   addEventListener(
     type: "message",
     listener: (event: MessageEvent<PageToWorker>) => void,
