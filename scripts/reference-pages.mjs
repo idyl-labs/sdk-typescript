@@ -307,7 +307,7 @@ function assignPages(exports) {
 
 /**
  * The doc comment of a declaration: its prose and its block tags.
- * @param {ts.Node} node
+ * @param {Parameters<typeof ts.getJSDocCommentsAndTags>[0]} node
  * @returns {Doc}
  */
 function docOf(node) {
