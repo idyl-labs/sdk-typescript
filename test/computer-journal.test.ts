@@ -330,7 +330,7 @@ describe("Computer journal", () => {
         settings: {
           ...settings,
           isolation: "vm",
-          image: { idyl: "ubuntu-24.04-machine" },
+          image: { idyl: "ubuntu-26.04-machine" },
         },
         changed: ["image", "isolation"],
       },
