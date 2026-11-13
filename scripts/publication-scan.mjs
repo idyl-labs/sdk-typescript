@@ -13,7 +13,10 @@
 //   - a product that is not part of the package named in source, tests or
 //     documentation;
 //   - a missing license header on a source, test or script file;
-//   - a commit without a Developer Certificate of Origin sign-off;
+//   - a commit without a Developer Certificate of Origin sign-off, other
+//     than one UNSIGNED_COMMITS lists, and a message file without one,
+//     since a pull request's title and body become its merged commit's
+//     message;
 //   - any term in a maintainer's private term list (--terms <file>, or the
 //     IDYL_PUBLICATION_TERMS environment variable), one case-sensitive
 //     regular expression per line; and
@@ -293,6 +296,23 @@ export function isSignedOff(message) {
 }
 
 /**
+ * Commits on `main` whose message carries no sign-off, by full hash. History
+ * on `main` is never rewritten, so a commit merged without the line is
+ * listed here, and the sign-off rule skips exactly these commits.
+ */
+export const UNSIGNED_COMMITS = new Set([
+  "730ed94f3c513256892761fac706ea0e939579a8",
+]);
+
+/**
+ * Whether the scan holds a commit to the sign-off rule.
+ * @param {string} commit the commit's full hash
+ */
+export function needsSignOff(commit) {
+  return !UNSIGNED_COMMITS.has(commit);
+}
+
+/**
  * Reads a private term list: one regular expression per line, blank lines
  * and lines starting with `#` ignored. A term is matched case-sensitively,
  * so an expression spells out the cases it refuses.
@@ -415,14 +435,20 @@ function main() {
     const message = entry.slice(newline + 1);
     const source = `commit ${commit.slice(0, 12)}`;
     findings.push(...scanText(messageBody(message), source, rules));
-    if (!isSignedOff(message)) {
+    if (needsSignOff(commit) && !isSignedOff(message)) {
       findings.push({ source, line: 1, column: 1, rule: "sign-off" });
     }
   }
 
+  // A message file is the message a commit will carry, such as a pull
+  // request's title and body, which a squash merge takes as its message.
   for (const path of options.messages) {
     const text = readFileSync(path, "utf8");
-    findings.push(...scanText(messageBody(text), `message ${path}`, rules));
+    const source = `message ${path}`;
+    findings.push(...scanText(messageBody(text), source, rules));
+    if (!isSignedOff(text)) {
+      findings.push({ source, line: 1, column: 1, rule: "sign-off" });
+    }
   }
 
   const treeClean = gitleaks(["dir", "."], repository);

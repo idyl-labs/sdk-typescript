@@ -9,6 +9,7 @@ import {
   isPublishableEmail,
   isSignedOff,
   messageBody,
+  needsSignOff,
   needsLicenseHeader,
   parseTerms,
   scanText,
@@ -169,6 +170,16 @@ describe("commit messages", () => {
     ).toBe(true);
     expect(isSignedOff("Subject\n\nBody")).toBe(false);
     expect(isSignedOff("Subject\n\nSigned-off-by: nobody")).toBe(false);
+  });
+
+  // Contract: the sign-off rule skips exactly the listed commits, named by
+  // full hash; any other commit, or a prefix of a listed one, is held to it.
+  it("skips only the listed unsigned commits", () => {
+    expect(needsSignOff("730ed94f3c513256892761fac706ea0e939579a8")).toBe(
+      false,
+    );
+    expect(needsSignOff("730ed94f3c51")).toBe(true);
+    expect(needsSignOff("0000000000000000000000000000000000000000")).toBe(true);
   });
 });
 

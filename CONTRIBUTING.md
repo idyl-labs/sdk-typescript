@@ -161,5 +161,9 @@ Sign off every commit to certify the
 git commit -s
 ```
 
+A pull request's title and description become the message of the commit it
+merges as, so the description ends with the same `Signed-off-by` line, and
+CI refuses a pull request whose description has none.
+
 By contributing, you agree that your contributions are licensed under the
 Apache License 2.0.
