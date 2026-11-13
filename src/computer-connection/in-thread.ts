@@ -29,9 +29,11 @@ let compiled: Promise<WebAssembly.Module> | undefined;
 /**
  * Serves a Computer connection in this thread and compiles the module beside
  * this file. Each call serves a connection of its own, with a key of its own,
- * which lives as long as the thread. A runtime that cannot read the module
- * beside this file rejects with a `TypeError`; there, build a connector from
- * a port and a module of your own.
+ * which lives as long as the thread. On a runtime that cannot read the
+ * module beside this file, build a connector from a port and a module of
+ * your own.
+ *
+ * @throws TypeError the runtime cannot read the module beside this file
  */
 export async function connectInThisThread(): Promise<ThreadConnection> {
   compiled ??= compileConnection().catch((error: unknown) => {

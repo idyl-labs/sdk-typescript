@@ -13,6 +13,10 @@ import { TransportError } from "../errors.js";
  * anything.
  */
 export interface CallOptions {
+  /**
+   * Cancels the call when it aborts: the call rejects with the signal's
+   * reason. `undefined` lets the call run to its end.
+   */
   readonly signal?: AbortSignal;
 }
 
@@ -22,7 +26,12 @@ export interface CallOptions {
  * It is opaque and is valid only for the listing that returned it.
  */
 export interface Page<T> {
+  /** The page's items, in the listing's order; empty when there are none. */
   readonly items: readonly T[];
+  /**
+   * The position of the next page, passed back as the `continue` option;
+   * absent on the last page.
+   */
   readonly continue?: string;
 }
 

@@ -83,11 +83,11 @@ export interface ComputerEnvironmentVariable {
 }
 
 /**
- * The name of a size a Computer runs at: its whole CPU and memory limits and
- * the most disk it can use. The platform owns the sizes and serves them at
- * `GET /v1/computer-sizes`, so a size is an identifier rather than a closed
- * set: {@link validateComputerSize} judges only its form, and whether the
- * platform offers it is the platform's decision.
+ * The name of a size a Computer runs at, such as `small`: its whole CPU and
+ * memory limits and the most disk it can use. The platform owns the sizes,
+ * and `idyl.computers.sizes()` lists them, so a size is an identifier rather
+ * than a closed set: 1 to 32 lowercase letters, digits and hyphens,
+ * beginning with a letter.
  */
 export type ComputerSize = string;
 

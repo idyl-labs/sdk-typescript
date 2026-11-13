@@ -44,8 +44,11 @@ function isPublicId(value: unknown): value is string {
 }
 
 /**
- * Converts a raw string to an {@link AccountId}. Throws a `TypeError` naming
- * the family when `value` is not exactly twelve ASCII digits.
+ * Converts a raw string to an {@link AccountId}.
+ *
+ * @param value An Account's identifier, as twelve ASCII digits.
+ * @throws {@link TypeError} `value` is not exactly twelve ASCII digits; the
+ *   message names the identifier's family
  */
 export function parseAccountId(value: string): AccountId {
   return parsePublicId(value, "account ID") as AccountId;

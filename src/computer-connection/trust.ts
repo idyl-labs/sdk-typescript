@@ -18,7 +18,9 @@ export const NETWORK_TRUST_ROLE = "network-trust";
 
 /** A Network trust key the client pins: its ID and raw Ed25519 public key. */
 export interface TrustKey {
+  /** The key's ID, as the Network publishes it. */
   readonly keyId: string;
+  /** The raw 32-byte Ed25519 public key. */
   readonly publicKey: Uint8Array;
 }
 
@@ -82,6 +84,13 @@ export interface SessionTrustPolicy {
  * naming the rule.
  */
 export class SessionTrustError extends Error {
+  /**
+   * Builds the error. A {@link TrustFloor} of the caller's own rejects with
+   * one to refuse a rollback.
+   *
+   * @param message a fixed sentence naming the rule the bundle breaks
+   * @param options `cause`, the underlying failure, when there is one
+   */
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
     this.name = "SessionTrustError";

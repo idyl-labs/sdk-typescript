@@ -53,9 +53,28 @@ import { SessionTrustError, verifySessionTrust } from "./trust.js";
 import { defaultTrustFloor, type TrustFloor } from "./trust-floor.js";
 import type { SessionTrust, SessionTrustResponse, TrustKey } from "./trust.js";
 
-/** The Worker, as far as the connector uses it. */
+/**
+ * The Worker a connector runs its connections through: a dedicated Worker
+ * whose module called `serveComputerConnections`, or the `worker` that
+ * `connectInThisThread` returns. The messages between them belong to the
+ * connection and are opaque to the caller.
+ */
 export interface WorkerPort {
+  /**
+   * Sends a message to the Worker, as `Worker.postMessage` does.
+   *
+   * @param message a request of the connection's own protocol
+   * @param transfer the buffers whose ownership passes to the Worker
+   */
   postMessage(message: PageToWorker, transfer?: Transferable[]): void;
+  /**
+   * Calls `listener` with each message the Worker sends, as
+   * `Worker.addEventListener` does.
+   *
+   * @param type always `message`
+   * @param listener called with each message, in the order the Worker sent
+   *   them
+   */
   addEventListener(
     type: "message",
     listener: (event: MessageEvent<WorkerToPage>) => void,
@@ -125,7 +144,19 @@ export interface ConnectorApi {
  * fast refusal.
  */
 export interface PlacementMemory {
+  /**
+   * The value `save` last kept for a Computer, or `undefined` when it kept
+   * none.
+   *
+   * @param computer the Computer's ID
+   */
   load(computer: string): string | undefined;
+  /**
+   * Keeps `value` for a Computer, in place of any value kept before.
+   *
+   * @param computer the Computer's ID
+   * @param value the opaque value to keep, exactly as given
+   */
   save(computer: string, value: string): void;
 }
 
@@ -157,18 +188,46 @@ export interface ComputerConnectorOptions {
 
 /** What one session stream runs. */
 export interface SessionOpen {
+  /**
+   * What the stream runs: `shell`, an interactive shell on a terminal;
+   * `exec`, one command; `cell`, a script as a notebook's next cell; or
+   * `records`, the recorded cells of a notebook and their output.
+   */
   readonly mode: "shell" | "exec" | "cell" | "records";
+  /**
+   * The shell a `shell` session runs, as a clean absolute path; when
+   * absent, the Computer chooses.
+   */
   readonly shell?: string;
+  /**
+   * An `exec` session's command and its arguments: 1 to 1024 arguments of
+   * at most 32 KiB together, the first naming the program.
+   */
   readonly command?: readonly string[];
+  /** A `cell` session's script: 1 byte to 32 KiB, without NUL. */
   readonly script?: string;
+  /**
+   * Whether the session runs on a terminal. A `shell` session always does
+   * and a `cell` or `records` stream never does; `false` when absent.
+   */
   readonly tty?: boolean;
+  /** The terminal's size; stated when, and only when, `tty` is `true`. */
   readonly size?: TerminalSize;
+  /**
+   * The terminal type, such as `xterm-256color`; stated when, and only
+   * when, `tty` is `true`.
+   */
   readonly term?: string;
+  /** The terminal's locale, such as `C.UTF-8`; only a terminal session states one. */
   readonly locale?: string;
   /** The notebook a cell runs in or a records stream reads, by name. */
   readonly notebook?: string;
   /** The notebook's ID, which a records stream names. */
   readonly notebookId?: string;
+  /**
+   * Where a `records` stream resumes: it reads the records after the one
+   * of this `order`, a non-negative integer. Absent reads from the first.
+   */
   readonly after?: number;
 }
 
@@ -409,12 +468,25 @@ export interface ComputerConnector {
   /**
    * Starts the Worker, obtains the page's client certificate and the
    * Network's signed trust, and connects. Call it when the page loads: a
-   * session waits for it, and none of it happens when a session opens.
+   * session waits for it, and none of it happens when a session opens. A
+   * call after a failure starts again.
+   *
+   * @throws {@link SessionTrustError} the Network's session trust fails
+   *   verification or is older than the trust floor, or the floor cannot
+   *   be read or written
+   * @throws {@link ApiError} IDYL refuses the client certificate or the
+   *   session trust
+   * @throws {@link TransportError} a request to IDYL does not complete
+   * @throws Error the connection to the Network's edge ends while it is
+   *   made
    */
   ready(): Promise<void>;
   /**
-   * Gets ready to open sessions on the Computer `computer` (its ID) at
-   * once, where it was last placed.
+   * Gets ready to open sessions on a Computer at once, where it was last
+   * placed. It sends nothing for a Computer whose place it does not know,
+   * and a failure only leaves the next session to connect.
+   *
+   * @param computer the Computer's ID
    */
   prepare(computer: string): void;
   /**
@@ -428,6 +500,21 @@ export interface ComputerConnector {
    * does. An open of mode `ssh` or `reattach` rejects with a `TypeError`
    * before anything is sent, so it neither wakes the Computer nor reaches
    * it.
+   *
+   * @param computer the Computer's ID
+   * @throws TypeError `open` is not one the endpoint takes; nothing is sent
+   * @throws {@link ComputerSessionEndedError} the session ended before it
+   *   opened
+   * @throws {@link ApiError} IDYL refuses the session, such as with
+   *   `OUT_OF_USAGE`
+   * @throws {@link TransportError} a request to IDYL does not complete
+   * @throws {@link SessionTrustError} the connector cannot get ready, as
+   *   {@link ComputerConnector.ready} rejects
+   * @throws DOMException a `TimeoutError` when IDYL does not bind the
+   *   session to the Computer by its ready-by time, or an `AbortError` when
+   *   `close` is called first
+   * @throws Error the connection to the Computer or to the Network's edge
+   *   ends before the stream opens
    */
   open(computer: string, open: SessionOpen): Promise<ComputerSessionStream>;
   /**
@@ -438,6 +525,15 @@ export interface ComputerConnector {
    * session with a `ComputerNotAwakeError` and is neither woken nor kept
    * awake: the returned promise rejects with it, or, when the stream was
    * opened before the refusal arrived, the session ends `failed` with it.
+   *
+   * @param computer the Computer's ID
+   * @throws {@link ComputerNotAwakeError} the Computer is not awake
+   * @throws {@link ApiError} IDYL refuses the session for another reason
+   * @throws {@link TransportError} a request to IDYL does not complete
+   * @throws {@link SessionTrustError} the connector cannot get ready, as
+   *   {@link ComputerConnector.ready} rejects
+   * @throws Error the connection to the Computer or to the Network's edge
+   *   ends before the stream opens
    */
   openFiles(
     computer: string,
@@ -1196,25 +1292,29 @@ function sameEndpoint(
  * A session that ended before it opened: its create answered it in a final
  * phase (`ended`, `failed`, or `cancelled`) without the endpoint its stream
  * opens on, so no endpoint served it and nothing ran in it. A session whose
- * Computer was put to sleep before it started is answered `cancelled` with
- * reason `PutToSleep`. `session`, `phase`, and `reason` are the session's
- * as the create answered them: `phase` is one of the three final phases,
- * and `reason` is the session's reason code, such as `PutToSleep`,
- * `ATTACH_TIMEOUT` or `WAKE_TIMEOUT`, carried as the platform sent it, or
- * `undefined` when the session states none. `phase` and `reason` are what a
- * caller branches on; the message is for people. The open rejects with it
- * when it waited for the create's answer, and a stream already sent fails
- * with it as soon as the answer arrives.
+ * Computer was put to sleep before it started is answered `cancelled`.
+ * `phase` and `reason` are what a caller branches on; the message is for
+ * people. The open rejects with it when it waited for the create's answer,
+ * and a stream already sent fails with it the moment the answer arrives.
  */
 export class ComputerSessionEndedError extends Error {
+  /** The session's ID, as the create answered it. */
   readonly session: ComputerSessionId;
+  /** The final phase the session is in: `ended`, `failed` or `cancelled`. */
   readonly phase: EndedPhase;
+  /**
+   * The session's reason code, such as `ATTACH_TIMEOUT` or `WAKE_TIMEOUT`,
+   * as the platform sent it; `undefined` when the session states none.
+   */
   declare readonly reason?: string;
 
   /**
    * The message names the session when its ID is canonical, the phase when
    * it is final, and the reason when this SDK names it; no other text the
    * platform sent is echoed.
+   *
+   * @param options the session's ID, final phase and reason, as the create
+   *   answered them
    */
   constructor(options: {
     readonly session: ComputerSessionId;
@@ -1277,11 +1377,17 @@ export interface ComputerSessionStream {
   readonly id: string | undefined;
   /** The notebook cell a cell session records, once its create has answered. */
   readonly cell: string | undefined;
-  /** Sends input. */
+  /**
+   * Sends input to the process, in order.
+   *
+   * @param data the bytes to send to its standard input
+   */
   write(data: Uint8Array): void;
   /**
-   * Sets the terminal's size, 1 to 10000 cells each way. Throws a
-   * `TypeError`, and sends nothing, for a size outside those bounds.
+   * Sets the terminal's size, 1 to 10000 cells each way.
+   *
+   * @param size the terminal's size in character cells
+   * @throws TypeError `size` is outside those bounds; nothing is sent
    */
   resize(size: TerminalSize): void;
   /** Ends the input; the process sees end of file. */

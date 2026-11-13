@@ -40,7 +40,9 @@ export type SessionMode =
  * numbers from 1 to 10000 each.
  */
 export interface TerminalSize {
+  /** The width, in character cells. */
   readonly cols: number;
+  /** The height, in character cells. */
   readonly rows: number;
 }
 
@@ -84,6 +86,7 @@ export type FolderEntryType =
 export interface FolderEntry {
   /** The entry's name within its folder. */
   readonly name: string;
+  /** What the entry is: a file, a folder, a symlink or another kind. */
   readonly type: FolderEntryType;
   /** The size in bytes; 0 for a folder. */
   readonly size: number;
@@ -247,6 +250,13 @@ export function stdinFrames(data: Uint8Array): Uint8Array[] {
  * frame's bytes.
  */
 export class FrameError extends Error {
+  /**
+   * Builds the error. The package builds every `FrameError` a session's
+   * output errors with.
+   *
+   * @param message a fixed sentence naming the rule the frame breaks
+   * @param options `cause`, the underlying failure, when there is one
+   */
   constructor(message: string, options?: { cause?: unknown }) {
     super(message, options);
     this.name = "FrameError";

@@ -15,13 +15,19 @@ import { requireText, signalOf, type CallOptions } from "./common.js";
  * belongs to an organization.
  */
 export interface Profile {
+  /** The Account's twelve-digit ID. */
   readonly accountId: string;
+  /** The Account's name. */
   readonly accountName: string;
   /** The Account's contact address. */
   readonly accountEmail: string;
+  /** The organization's twelve-digit ID; absent for an Account outside one. */
   readonly orgId?: string;
+  /** The organization's name; absent for an Account outside one. */
   readonly org?: string;
+  /** The profile's ID, a lowercase canonical UUID. */
   readonly profileId: string;
+  /** The profile's name. */
   readonly profileName: string;
 }
 
@@ -61,13 +67,15 @@ export interface SignInOptions extends CallOptions {
  * concurrent exchanges by one holder all succeed.
  */
 export interface RefreshCredential {
+  /** The refresh token, presented as issued and never inspected. */
   readonly refreshToken: string;
+  /** The key pair the token is bound to, which signs each exchange's proof. */
   readonly key: CryptoKeyPair;
 }
 
 /**
  * The result of a verified sign-in code. `refreshToken` is bound to the key
- * the verification proved and is presented with it, as a
+ * whose proof the verification carried and is presented with it, as a
  * {@link RefreshCredential}, by every later exchange; `expiresAt` is its
  * RFC 3339 expiry. `profiles` lists the profiles the person can act as,
  * when the platform included them, and `accessToken` is present, bound to
@@ -78,9 +86,13 @@ export interface RefreshCredential {
  * page keeps that key non-extractable.
  */
 export interface SignIn {
+  /** The refresh token, bound to the verifying key. */
   readonly refreshToken: string;
+  /** When the refresh token expires, as an RFC 3339 instant. */
   readonly expiresAt: string;
+  /** The profiles the person can act as; absent when the platform did not list them. */
   readonly profiles?: readonly Profile[];
+  /** An access token for the default profile; absent when none could be assumed at once. */
   readonly accessToken?: string;
 }
 
@@ -91,9 +103,13 @@ export interface SignIn {
  * platform chooses the person's default profile.
  */
 export interface ProfileSelector {
+  /** The Account's name, as `org/account`. */
   readonly account?: string;
+  /** The Account's twelve-digit ID. */
   readonly accountId?: string;
+  /** The profile's name. */
   readonly profile?: string;
+  /** The profile's ID, a lowercase canonical UUID. */
   readonly profileId?: string;
 }
 
@@ -110,15 +126,25 @@ export interface ProfileSelector {
  * are empty for it.
  */
 export interface AccessToken {
+  /** The access token, bound to the key whose proof obtained it. */
   readonly accessToken: string;
+  /** When the access token expires, as an RFC 3339 instant. */
   readonly expiresAt: string;
+  /** The refresh token the exchange rotated or issued; absent when it did neither. */
   readonly refreshToken?: string;
+  /** When `refreshToken` expires, as an RFC 3339 instant; absent with it. */
   readonly refreshExpiresAt?: string;
+  /** The twelve-digit ID of the Account the token acts in. */
   readonly accountId: string;
+  /** The name of the Account the token acts in. */
   readonly accountName: string;
+  /** The organization's twelve-digit ID; absent for an Account outside one. */
   readonly orgId?: string;
+  /** The organization's name; absent for an Account outside one. */
   readonly org?: string;
+  /** The profile's ID; empty for an access key's token. */
   readonly profileId: string;
+  /** The profile's name; empty for an access key's token. */
   readonly profileName: string;
 }
 
@@ -126,11 +152,12 @@ export interface AccessToken {
 export interface SignUpRequest {
   /** Must be `true`: the person accepts the terms of service. */
   readonly acceptedTerms: boolean;
+  /** The Account's display name; the platform chooses one when absent. */
   readonly displayName?: string;
 }
 
 /**
- * What an Account created now by the signed-in person would start with. The
+ * What an Account the signed-in person creates would start with. The
  * decision is made when the Account is created, and reading this reserves
  * nothing.
  */
@@ -150,7 +177,9 @@ export interface SignUpOffer {
  * assume at once.
  */
 export interface SignUp {
+  /** The Account created: its twelve-digit ID and its display name. */
   readonly account: { readonly id: string; readonly displayName: string };
+  /** The owner profile of the Account, which the person can assume. */
   readonly profile: {
     readonly accountId: string;
     readonly accountName: string;
@@ -167,11 +196,17 @@ export interface SignUp {
  * name the Account and profile by `accountId` and `profileId`.
  */
 export interface BrowserAuthorizationRequest {
+  /** The registered client's ID. */
   readonly clientId: string;
+  /** The redirect URI, exactly as the client registered it. */
   readonly redirectUri: string;
+  /** 32 random bytes as unpadded base64url, which the page checks on return. */
   readonly state: string;
+  /** The RFC 7636 S256 challenge of the verifier the page keeps. */
   readonly codeChallenge: string;
+  /** The RFC 7638 thumbprint of the page's key, as `keyThumbprint` returns it. */
   readonly dpopJkt: string;
+  /** The Account and profile the page acts as, named by `accountId` and `profileId`. */
   readonly profile: ProfileSelector;
 }
 
@@ -182,17 +217,25 @@ export interface BrowserAuthorizationRequest {
  * expiry and `refreshExpiresAt` the successor's.
  */
 export interface BrowserAuthorization {
+  /** The single-use code the page redeems. */
   readonly code: string;
+  /** When the code expires, as an RFC 3339 instant. */
   readonly expiresAt: string;
+  /** The successor of the refresh token the authorization presented. */
   readonly refreshToken: string;
+  /** When the successor expires, as an RFC 3339 instant. */
   readonly refreshExpiresAt: string;
 }
 
 /** Redeems a browser authorization code with its transaction and verifier. */
 export interface BrowserExchangeRequest {
+  /** The code {@link Identity.authorizeBrowser} issued. */
   readonly code: string;
+  /** The client ID the authorization named. */
   readonly clientId: string;
+  /** The redirect URI the authorization named. */
   readonly redirectUri: string;
+  /** The state the authorization named. */
   readonly state: string;
   /** The RFC 7636 verifier whose S256 challenge the authorization carried. */
   readonly codeVerifier: string;
@@ -209,21 +252,56 @@ export interface BrowserExchangeRequest {
  * {@link RefreshCredential} for that one request only. Starting sign-in is
  * anonymous. None of them consults the client's `credential`. No token is
  * kept, inspected or logged, and no message carries one.
+ *
+ * @example
+ * ```ts
+ * const key = await crypto.subtle.generateKey({ name: "Ed25519" }, false, [
+ *   "sign",
+ *   "verify",
+ * ]);
+ * await idyl.identity.startSignIn("ada@example.com");
+ * const { refreshToken } = await idyl.identity.verifyCode(
+ *   "ada@example.com",
+ *   "123456",
+ *   key,
+ * );
+ * const token = await idyl.identity.accessToken({ refreshToken, key });
+ * ```
  */
 export interface Identity {
   /**
    * Sends a six-digit sign-in code to `email`. The answer is the same
-   * whether or not the address belongs to anyone. Throws a `TypeError`
-   * when `email` is blank.
+   * whether or not the address belongs to anyone.
+   *
+   * @param email The address to send the code to.
+   * @throws {@link TypeError} `email` is blank; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
    */
   startSignIn(email: string, options?: SignInOptions): Promise<void>;
-  /** Sends another sign-in code, answering as {@link Identity.startSignIn} does. */
+  /**
+   * Sends another sign-in code, answering as {@link Identity.startSignIn} does.
+   *
+   * @param email The address the sign-in was started for.
+   * @throws {@link TypeError} `email` is blank; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
+   */
   resendCode(email: string, options?: SignInOptions): Promise<void>;
   /**
    * Verifies a sign-in code with a proof by `key`, the client's key, and
-   * returns a refresh token bound to it. Throws a `TypeError` when `email`
-   * or `code` is blank or `key` cannot sign; a wrong or expired code
-   * rejects with an `ApiError`.
+   * returns a refresh token bound to it.
+   *
+   * @param email The address the code was sent to.
+   * @param code The six-digit code from the email.
+   * @param key The Ed25519 or ECDSA P-256 key pair the tokens are bound to;
+   *   its private key may be non-extractable.
+   * @throws {@link TypeError} `email` or `code` is blank, or `key` cannot
+   *   sign; nothing is sent
+   * @throws {@link ApiError} the code is wrong or expired, or IDYL refuses
+   *   the request
+   * @throws {@link TransportError} the request does not complete, or the
+   *   response carries no refresh token or expiry
    */
   verifyCode(
     email: string,
@@ -232,8 +310,14 @@ export interface Identity {
     options?: CallOptions,
   ): Promise<SignIn>;
   /**
-   * Creates the first Account of a signed-in person who has none. Throws a
-   * `TypeError` before any request unless the terms are accepted.
+   * Creates the first Account of a signed-in person who has none.
+   *
+   * @param refresh The person's refresh token and its key.
+   * @param request The acceptance of the terms and the Account's name.
+   * @throws {@link TypeError} `acceptedTerms` is not `true`, or the refresh
+   *   credential cannot be presented; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
    */
   signUp(
     refresh: RefreshCredential,
@@ -241,14 +325,29 @@ export interface Identity {
     options?: CallOptions,
   ): Promise<SignUp>;
   /**
-   * Reads what an Account created now by the signed-in person would start
-   * with. It reserves nothing: `signUp` makes the decision.
+   * Reads what an Account the signed-in person creates would start with.
+   * It reserves nothing: `signUp` makes the decision.
+   *
+   * @param refresh The person's refresh token and its key.
+   * @throws {@link TypeError} the refresh credential is missing, its token is
+   *   empty or its key cannot sign; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
    */
   signUpOffer(
     refresh: RefreshCredential,
     options?: CallOptions,
   ): Promise<SignUpOffer>;
-  /** The profiles a refresh token's person can act as; the token is not rotated. */
+  /**
+   * The profiles a refresh token's person can act as; the token is not
+   * rotated.
+   *
+   * @param refresh The person's refresh token and its key.
+   * @throws {@link TypeError} the refresh credential is missing, its token is
+   *   empty or its key cannot sign; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
+   */
   profiles(
     refresh: RefreshCredential,
     options?: CallOptions,
@@ -258,6 +357,15 @@ export interface Identity {
    * Account and profile, bound to the same key; with no selector, for the
    * default profile. The refresh token is rotated: the result's
    * `refreshToken` is its successor.
+   *
+   * @param refresh The person's refresh token and its key.
+   * @param profile The Account and profile to act as; the default profile
+   *   when absent.
+   * @throws {@link TypeError} `accountId` or `profileId` is malformed, or the
+   *   refresh credential cannot be presented; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or the
+   *   response carries no access token or expiry
    */
   accessToken(
     refresh: RefreshCredential,
@@ -270,6 +378,15 @@ export interface Identity {
    * S256 PKCE challenge and the page's key thumbprint, `dpopJkt`. The page
    * redeems it with {@link Identity.exchangeBrowser} and its key. The
    * refresh token is rotated: the result's `refreshToken` is its successor.
+   *
+   * @param refresh The person's refresh token and its key.
+   * @param request The page's client, transaction and key thumbprint.
+   * @throws {@link TypeError} a field of `request` is blank, `dpopJkt` is not
+   *   a SHA-256 key thumbprint, a profile ID is malformed, or the refresh
+   *   credential cannot be presented; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or the
+   *   response lacks the code, the successor or an expiry
    */
   authorizeBrowser(
     refresh: RefreshCredential,
@@ -279,7 +396,17 @@ export interface Identity {
   /**
    * Redeems a browser authorization code with its verifier and a proof by
    * `key`, the key the authorization named, for an access token and a
-   * refresh token in a new sign-in, both bound to `key`.
+   * refresh token of a sign-in of the page's own, both bound to `key`.
+   *
+   * @param request The code, the transaction it was issued for, and the
+   *   verifier.
+   * @param key The page's key pair, whose thumbprint the authorization named.
+   * @throws {@link TypeError} a field of `request` is blank, or `key` cannot
+   *   sign; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the code, such as one already
+   *   redeemed or expired
+   * @throws {@link TransportError} the request does not complete, or the
+   *   response carries no access token or expiry
    */
   exchangeBrowser(
     request: BrowserExchangeRequest,
@@ -291,8 +418,16 @@ export interface Identity {
    * key pair: the request's proof, signed by it, is the assertion, and the
    * token is bound to the same key. The token acts as the key's principal
    * in the key's Account and expires within an hour, never after the key
-   * does; `accessKeyCredentials` keeps such a token fresh. Throws a
-   * `TypeError` when `accessKeyId` is not a canonical UUID.
+   * does; `accessKeyCredentials` keeps such a token fresh.
+   *
+   * @param accessKeyId The access key's ID, a lowercase canonical UUID.
+   * @param key The access key's key pair.
+   * @throws {@link TypeError} `accessKeyId` is not a lowercase canonical UUID,
+   *   or `key` cannot sign; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the exchange, such as for a revoked
+   *   or expired key
+   * @throws {@link TransportError} the request does not complete, or the
+   *   response carries no access token or expiry
    */
   exchangeAccessKey(
     accessKeyId: string,
@@ -302,6 +437,12 @@ export interface Identity {
   /**
    * Ends the sign-in a refresh token belongs to: it and every token rotated
    * from the same sign-in are refused from then on.
+   *
+   * @param refresh The refresh token of the sign-in to end, and its key.
+   * @throws {@link TypeError} the refresh credential is missing, its token is
+   *   empty or its key cannot sign; nothing is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
    */
   signOut(refresh: RefreshCredential, options?: CallOptions): Promise<void>;
 }

@@ -38,7 +38,9 @@ const NO_GAIN_LIMIT_MS = 15 * 60_000;
 
 /** How far a download has come: bytes handed over, of the content's length. */
 export interface DownloadProgress {
+  /** Bytes handed to the reader so far; for a file, only checked bytes. */
   readonly done: number;
+  /** The content's whole length in bytes. */
   readonly total: number;
 }
 
@@ -50,7 +52,7 @@ export interface DownloadOptions extends CallOptions {
    * The saved version to read, by number or name; the latest when absent.
    * A named version that stops being kept ends the download. The latest,
    * when it stops being kept, is asked for once more: the download goes on
-   * if the content is unchanged, and otherwise ends.
+   * if the content is the same, and otherwise ends.
    */
   readonly version?: number | string;
   /**
@@ -77,8 +79,8 @@ export interface DownloadOptions extends CallOptions {
  * at once on a refusal another try cannot change: an `ApiError` such as
  * status 401, 403 or 404, or `DOWNLOAD_LIMIT_REACHED`. A saved version that
  * stops being kept ends it with `VERSION_NOT_FOUND`, or with a
- * `TransportError` with code `invalid_response` when the answer shows the
- * bytes changed, since bytes already handed over cannot be taken back. The
+ * `TransportError` with code `invalid_response` when the answer shows
+ * different bytes, since bytes already handed over cannot be taken back. The
  * caller's `signal` ends it at any point with the signal's reason.
  *
  * A file's bytes are checked against its tag as they arrive, so none reaches
@@ -94,12 +96,55 @@ export interface FileBody {
   readonly size: number;
   /** Whether the body has been read. */
   readonly bodyUsed: boolean;
+  /**
+   * The content as a stream of bytes, read one piece at a time as the
+   * stream is pulled. Cancelling the stream ends the download. A download
+   * that ends with an error errors the stream with it, as the type
+   * describes.
+   *
+   * @throws {@link TypeError} the body has already been read
+   */
   stream(): ReadableStream<Uint8Array>;
+  /**
+   * The whole content as bytes.
+   *
+   * @throws {@link TypeError} the body has already been read
+   * @throws {@link ApiError} the download ends on a refusal another try
+   *   cannot change, such as `VERSION_NOT_FOUND` or `DOWNLOAD_LIMIT_REACHED`
+   * @throws {@link TransportError} the download gains no byte for 15
+   *   minutes, or the content it reads is replaced
+   */
   bytes(): Promise<Uint8Array>;
-  /** The content decoded as UTF-8. */
+  /**
+   * The content decoded as UTF-8.
+   *
+   * @throws {@link TypeError} the body has already been read
+   * @throws {@link ApiError} the download ends on a refusal another try
+   *   cannot change, such as `VERSION_NOT_FOUND` or `DOWNLOAD_LIMIT_REACHED`
+   * @throws {@link TransportError} the download gains no byte for 15
+   *   minutes, or the content it reads is replaced
+   */
   text(): Promise<string>;
-  /** The content parsed as JSON. */
+  /**
+   * The content parsed as JSON.
+   *
+   * @throws {@link TypeError} the body has already been read
+   * @throws {@link ApiError} the download ends on a refusal another try
+   *   cannot change, such as `VERSION_NOT_FOUND` or `DOWNLOAD_LIMIT_REACHED`
+   * @throws {@link TransportError} the download gains no byte for 15
+   *   minutes, or the content it reads is replaced
+   * @throws SyntaxError the content is not JSON
+   */
   json(): Promise<unknown>;
+  /**
+   * The whole content as a `Blob`.
+   *
+   * @throws {@link TypeError} the body has already been read
+   * @throws {@link ApiError} the download ends on a refusal another try
+   *   cannot change, such as `VERSION_NOT_FOUND` or `DOWNLOAD_LIMIT_REACHED`
+   * @throws {@link TransportError} the download gains no byte for 15
+   *   minutes, or the content it reads is replaced
+   */
   blob(): Promise<Blob>;
 }
 

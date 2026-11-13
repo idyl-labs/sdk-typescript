@@ -82,7 +82,11 @@ export function parseAccessKeyId(value: string): AccessKeyId {
 
 /**
  * Converts a raw string to a {@link ProfileId}, admitting only the canonical
- * UUID form. Throws a `TypeError` naming the family otherwise.
+ * UUID form.
+ *
+ * @param value A profile's identifier, as a lowercase canonical UUID.
+ * @throws {@link TypeError} `value` is not a lowercase canonical UUID; the
+ *   message names the identifier's family
  */
 export function parseProfileId(value: string): ProfileId {
   return parseUuidId(value, "profile ID") as ProfileId;
