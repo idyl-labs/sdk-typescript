@@ -70,6 +70,7 @@
     "size": "node scripts/size.mjs",
     "test": "vitest run --exclude \"test/conformance/**\" --exclude \"test/dist/**\"",
     "test:package": "pnpm build && pnpm pack --pack-destination .package-test && node scripts/package-smoke.mjs && vitest run test/dist",
+    "test:quickstart": "pnpm build && vitest run test/dist/quickstart.test.ts",
     "test:wasm": "wasm/scripts/test-wasm.sh",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json && tsc -p tsconfig.examples.json",

@@ -56,6 +56,26 @@ pnpm size          # the build fits the size budget
 pnpm scan          # the publication scan and gitleaks
 ```
 
+### The quickstart against a Network
+
+`pnpm test:quickstart` builds the package and runs the README quickstart, as
+a program on the built package, against the Network an access key names. The
+program builds its client from the access key alone, creates a Computer,
+uploads a file, runs a command that reads the file, checks its output and
+deletes the Computer. It runs once for each access key given and is skipped
+for each one that is not, so `pnpm check` and CI skip it and make no network
+call.
+
+| Variable                             | Holds                                                                                                                                                                |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IDYL_QUICKSTART_ACCESS_KEY_ED25519` | The contents of an Ed25519 access key file.                                                                                                                          |
+| `IDYL_QUICKSTART_ACCESS_KEY_P256`    | The contents of a P-256 access key file.                                                                                                                             |
+| `IDYL_QUICKSTART_TRUST_KEYS`         | The trust keys of the Network the access keys name, as standard base64 raw Ed25519 public keys separated by commas. `idyl.sh` needs none: the package pins its keys. |
+
+The program's environment holds `PATH` and these values, and nothing else.
+Each run creates its Computer in the default Namespace of the access key's
+Account and deletes it at the end.
+
 Every development dependency is pinned to an exact version, and a change to
 one is its own pull request.
 
@@ -116,7 +136,8 @@ text.
 **Cancellation.** Every operation that waits takes an `AbortSignal` and
 releases everything it holds when it is aborted or fails.
 
-**Tests.** Tests make no network calls. Fixtures use reserved names only,
+**Tests.** Tests make no network calls; the quickstart against a Network
+runs only when it is given an access key. Fixtures use reserved names only,
 such as domains under `example.com`.
 
 **Comments.** Document what an exported name guarantees, not how it came to
