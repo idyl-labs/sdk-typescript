@@ -1,0 +1,41 @@
+{
+  "asItIsNow": {
+    "name": "fork",
+    "subnet": "550000000002",
+    "forkOf": {
+      "source": {
+        "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04"
+      }
+    }
+  },
+  "entry": {
+    "name": "fork",
+    "subnet": "550000000002",
+    "forkOf": {
+      "source": {
+        "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04"
+      },
+      "entry": "01954e20-7540-7ec4-93ec-14f783e6ab31"
+    }
+  },
+  "neverSave": {
+    "name": "fork",
+    "subnet": "550000000002",
+    "forkOf": {
+      "source": {
+        "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04"
+      },
+      "save": false
+    }
+  },
+  "saveFirst": {
+    "name": "fork",
+    "subnet": "550000000002",
+    "forkOf": {
+      "source": {
+        "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04"
+      },
+      "save": true
+    }
+  }
+}

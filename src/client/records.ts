@@ -223,8 +223,8 @@ export interface HistoryEntry {
   readonly rename?: { readonly from: string; readonly to: string };
   /**
    * Why a `sleep` entry's Computer slept: `reason` is `request`, `idle`,
-   * `no-execution`, `settings`, `restore`, `node-drain`, `out-of-usage` or
-   * `plan-size`; `idleTimeout` is the timeout in force on an idle sleep;
+   * `no-execution`, `settings`, `restore`, `node-drain`, `out-of-usage`,
+   * `plan-size` or `powered-off`; `idleTimeout` is the timeout in force on an idle sleep;
    * `discardedUnsavedChanges` is true when the sleep was asked to discard
    * unsaved changes and released the Computer without saving them.
    */
@@ -240,8 +240,8 @@ export interface HistoryEntry {
    */
   readonly wake?: { readonly session: string };
   /**
-   * Why a `restart` entry's execution started again: `reason` is `node-lost`
-   * or `replaced`.
+   * Why a `restart` entry's execution started again: `reason` is `node-lost`,
+   * `failed` or `replaced`.
    */
   readonly restart?: { readonly reason: string };
 }

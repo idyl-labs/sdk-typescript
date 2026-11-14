@@ -40,8 +40,21 @@ export const ERROR_CODE_RESULT_EXPIRED = "RESULT_EXPIRED";
 /** ErrorCodeForkCrossNamespace refuses a fork across Namespace authority boundaries. */
 export const ERROR_CODE_FORK_CROSS_NAMESPACE = "FORK_CROSS_NAMESPACE";
 
-/** ErrorCodeForkNotQuiescent refuses a fork whose source cannot establish the required copy point. */
+/**
+ * Refuses, with HTTP 409, a fork whose source cannot establish the required
+ * copy point. A Computer fork that names no entry is refused with it when
+ * the save it makes first fails; the details then carry that save's reason
+ * under `FORK_NOT_QUIESCENT_DETAIL_SAVE_REASON`, and no Computer is created.
+ */
 export const ERROR_CODE_FORK_NOT_QUIESCENT = "FORK_NOT_QUIESCENT";
+
+/**
+ * The details key of a `FORK_NOT_QUIESCENT` refusal whose save failed. Its
+ * value is a string spelled as the failed save's `reason`, such as
+ * `SAVE_REASON_COMPUTER_SIZE`; the set of reasons may grow, so an unknown
+ * one is carried, not rejected. See `ForkNotQuiescentDetails`.
+ */
+export const FORK_NOT_QUIESCENT_DETAIL_SAVE_REASON = "saveReason";
 
 /** ErrorCodePathInvalid refuses a structurally invalid byte path or a mutation of reserved runtime state. */
 export const ERROR_CODE_PATH_INVALID = "PATH_INVALID";

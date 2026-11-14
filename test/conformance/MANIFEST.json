@@ -1,5 +1,5 @@
 {
-  "revision": "11b2c11011e4bf73adbe3f3ea18f96c03ad87556",
+  "revision": "14c9a07fbaeab1ff38fa5e65b8254507604fbeff",
   "files": {
     "api/testdata/golden/billing-plan-change.applied.json": "da96b96a19647c6b98ccd1a217724bb1a4623efc1cb59dca25d035637b3f4da8",
     "api/testdata/golden/billing-plan-change.create-response.json": "aa1d4e99b24cc892925dbbfb11669689250503e751d890eed33ce02b49747785",
@@ -45,6 +45,7 @@
     "api/testdata/golden/computer-journal.list-last-page.json": "f5c779a47580e99594011575e89732d3dfa8a228c364ef77c80ea699433fa35c",
     "api/testdata/golden/computer-journal.list-page.json": "8a95cf2ea70a515c7e3a6b22446a5d029a4e5a77f0cd9a4a9d1774acf1be4e3f",
     "api/testdata/golden/computer-journal.rename.json": "b539f86162f7218015b38281c3b7525f3692aaa5977b40c8b74bd2401b733c70",
+    "api/testdata/golden/computer-journal.restart-failed.json": "04a5a67f7f9aab9d49b38b6cda952be18b509652a1034f2ce0525004bc651cec",
     "api/testdata/golden/computer-journal.restart.json": "71bf16dbab0d6386fa97c8ef42c8f5e808f0e2679405dbf36aabc6e26d5fe84f",
     "api/testdata/golden/computer-journal.restore-settings.json": "18c539a1f28a26633ba6451b4d1ee821564b2cab1df243d442b702f6c49118b4",
     "api/testdata/golden/computer-journal.save-change.json": "39617f5d0a037e706a28072536218a28bc8a1982b498bcf185886e68dcc86722",
@@ -53,6 +54,7 @@
     "api/testdata/golden/computer-journal.sleep-discard.json": "9409bf7efd6641a1fa204992123bcffd1014dbb5a2ad18b3b393a79e7b03aa14",
     "api/testdata/golden/computer-journal.sleep-forced.json": "4100c86d0200bbc63ddd17fd941c414a365d462596b032681da18c0e7bc2404b",
     "api/testdata/golden/computer-journal.sleep-idle.json": "0f5bc2b5a2271dfd03897f85097d2b7d148ef10ed8fbc806fd041f935d0b80f0",
+    "api/testdata/golden/computer-journal.sleep-powered-off.json": "5fe3ef98dad101f020ba1dd940cd9c4dcf810f2e4af4e39e8754bc81d78a791e",
     "api/testdata/golden/computer-journal.sleep-request-discard.json": "98ca53b7d34cc7aa008afe038ab2631fa768695db308163efd32ab801ea506b6",
     "api/testdata/golden/computer-journal.sleep-settings.json": "2e530b7288682d96492e43bfff2de976e09cd8ebf9aa7f67bb70a6048a26e17a",
     "api/testdata/golden/computer-journal.sleep.json": "af2b45e955016163a272790e4233ce2b39b25ea9743db02f7290dcb152c3311d",
@@ -109,6 +111,7 @@
     "api/testdata/golden/computer.execution-pending.json": "7f36c0f2f42609ac9d70e0421236b3468fa9149978d57f3856178de9beec9487",
     "api/testdata/golden/computer.execution-ref-digest.json": "d3804f3f8341ff7adb49b4ca845c19497fb02741bfb70958b7b94969f862b283",
     "api/testdata/golden/computer.execution-ref-tag.json": "6cccaaec2c7a05ba0a36c276e07e71be6edca11a3fc87714772c1bfb81c33cc9",
+    "api/testdata/golden/computer.fork-requests.json": "cc99b9efd02ad5c36d05910917ab7d074682dcd9ec7a5acdb73b036dcc83e43a",
     "api/testdata/golden/computer.going-to-sleep.json": "48eb591ef798a5ba1b389fecff65c6ed6d85b41d39ad6611cdd02f44b2579dae",
     "api/testdata/golden/computer.image-not-in-catalog-error.json": "397a9ab398bebc15f40b9c28594711920b967052a909c9bb5e4d559c60f542d1",
     "api/testdata/golden/computer.network-class-not-admitted-error.json": "fa74ec49650d32a8603779fc520c4f7b422f3f7dbbfc16670b3325ee3f98707f",

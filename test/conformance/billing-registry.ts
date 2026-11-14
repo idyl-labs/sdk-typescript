@@ -84,7 +84,7 @@ function codec<T>(
  * written back, as a lenient read of any object is; `validate` judges each
  * named document.
  */
-function namedDocuments(
+export function namedDocuments(
   shapes: ReadonlyMap<string, Shape<unknown>>,
   validate: (name: string, value: unknown) => void,
 ): ServedCodec<Record<string, unknown>> {

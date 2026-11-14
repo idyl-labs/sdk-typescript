@@ -13,7 +13,7 @@ import type { PageOptions } from "./storage.js";
 import {
   storageResourceReferenceShape,
   validateForkReference,
-  type ForkReference,
+  type StorageResourceReference,
 } from "../resource/storage.js";
 import {
   parseComputerSessionId,
@@ -259,13 +259,25 @@ export function validateJournalEntrySave(save: JournalEntrySave): void {
 }
 
 /** Original provenance retained by copies of any journal entry kind; it conveys no source-read or execution authority. */
-export interface JournalEntryOrigin extends ForkReference {
+export interface JournalEntryOrigin {
+  /** The recorded source resource. */
+  readonly source: StorageResourceReference;
+  /** The recorded source entry; an origin always names one. */
+  readonly entry: JournalEntryId;
   /** Recorded original Computer session, when known; historical and only on Cell origins. */
   readonly session?: ComputerSessionId;
 }
-/** Checks recorded identities without requiring or authorizing source existence. */
+/**
+ * Checks recorded identities without requiring or authorizing source
+ * existence. An origin always names its entry and never states `save`.
+ */
 export function validateJournalEntryOrigin(origin: JournalEntryOrigin): void {
   validateForkReference(origin);
+  if (origin.entry === "") {
+    prefixed("entry", () => {
+      parseJournalEntryId(origin.entry);
+    });
+  }
   if ((origin.session ?? "") !== "")
     prefixed("session", () => {
       parseComputerSessionId(origin.session ?? "");
@@ -400,8 +412,10 @@ export interface JournalEntry {
  * stopped and nothing was waiting to start it again; `settings`, so that its
  * next start uses new execution settings; `restore`, a restore set earlier
  * execution settings; `node-drain`, the machine it ran on was being drained; `out-of-usage`,
- * the Account ran out of usage; or `plan-size`, its size is above what the
- * Account's plan includes.
+ * the Account ran out of usage; `plan-size`, its size is above what the
+ * Account's plan includes; or `powered-off`, a program in it shut its
+ * machine down, and IDYL saved and released it as on a sleep a caller asks
+ * for.
  *
  * The union is open: a caller shows a sleep of a reason it does not know as a
  * sleep it cannot explain.
@@ -415,6 +429,7 @@ export type JournalSleepReason =
   | "node-drain"
   | "out-of-usage"
   | "plan-size"
+  | "powered-off"
   | (string & Record<never, never>);
 
 /**
@@ -431,6 +446,7 @@ export function validateJournalSleepReason(reason: JournalSleepReason): void {
     case "node-drain":
     case "out-of-usage":
     case "plan-size":
+    case "powered-off":
       return;
     case "":
       throw new TypeError("sleep reason is required");
@@ -441,13 +457,15 @@ export function validateJournalSleepReason(reason: JournalSleepReason): void {
 
 /**
  * Why a Computer's execution started again: `node-lost`, the machine it ran on
- * was lost; or `replaced`, its execution was replaced for any other reason.
+ * was lost; `failed`, its machine or container failed, so its execution ended
+ * on its own, not at a sleep or a release and not by the loss of its
+ * machine; or `replaced`, its execution was replaced for any other reason.
  *
  * The union is open: a caller shows a restart of a reason it does not know as
  * a restart it cannot explain.
  */
 export type JournalRestartReason =
-  "node-lost" | "replaced" | (string & Record<never, never>);
+  "node-lost" | "failed" | "replaced" | (string & Record<never, never>);
 
 /**
  * Judges that the reason is one this SDK names. The empty string is reported
@@ -458,6 +476,7 @@ export function validateJournalRestartReason(
 ): void {
   switch (reason) {
     case "node-lost":
+    case "failed":
     case "replaced":
       return;
     case "":

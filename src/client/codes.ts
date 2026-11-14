@@ -140,7 +140,13 @@ export const ERROR_CODE_SIZE_ABOVE_CAP = "SIZE_ABOVE_CAP";
 /** A saved version, by number or name, the Computer does not have. */
 export const ERROR_CODE_VERSION_NOT_FOUND = "VERSION_NOT_FOUND";
 
-/** A fork whose source could not reach a point to copy from; try again. */
+/**
+ * A fork whose source could not reach a point to copy from (HTTP 409), such
+ * as a fork that names no point whose save first failed. `forkNotQuiescent`
+ * reads its details: the failed save's reason. No Computer is created; the
+ * fork asked again with `save: false` copies the newest point without
+ * saving.
+ */
 export const ERROR_CODE_FORK_NOT_QUIESCENT = "FORK_NOT_QUIESCENT";
 
 /** A path the workspace cannot hold, or one that is reserved. */

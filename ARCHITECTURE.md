@@ -169,7 +169,10 @@ routes, when asked for, and never on a wake, a terminal or a cell.
 
 Operations that settle on the platform, a save, a restore, a wake, a
 sleep, a fork's copy and a delete with `wait`, are read until they settle;
-no request is held open.
+no request is held open. A fork the platform refuses because a save it
+waits on has not settled, status 409 with `Retry-After`, created nothing;
+the fork is asked again after that delay, within the same wait, and the
+repeat waits on the same save.
 
 ## Files
 

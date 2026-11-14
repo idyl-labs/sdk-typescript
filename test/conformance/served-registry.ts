@@ -135,7 +135,7 @@ import {
 import { validateComputerSpec } from "../../src/resource/computer.js";
 import { parseJson } from "../../src/resource/json.js";
 import { storageRegistry } from "./storage-registry.js";
-import { billingRegistry } from "./billing-registry.js";
+import { billingRegistry, namedDocuments } from "./billing-registry.js";
 
 export interface ServedCodec<T> {
   decode(document: unknown): T;
@@ -200,6 +200,28 @@ const createComputerRequest = envelope<CreateComputerRequest>(
   createComputerRequestShape,
   validateCreateComputerRequest,
 );
+
+/**
+ * The four forms of a fork's create request, by name: one that names an
+ * entry, one that copies its source as it is now, and the two that state
+ * `save`. Each is bound through the one strict decoder, as a submission
+ * is, and passes the validation applied before it is sent.
+ */
+const forkRequestShapes: ReadonlyMap<string, Shape<unknown>> = new Map(
+  ["entry", "asItIsNow", "saveFirst", "neverSave"].map((name) => [
+    name,
+    createComputerRequestShape as Shape<unknown>,
+  ]),
+);
+const forkRequests = namedDocuments(forkRequestShapes, (_name, value) => {
+  validateCreateComputerRequest(
+    decodeValue(
+      createComputerRequestShape.encode(value as CreateComputerRequest),
+      createComputerRequestShape,
+      "strict",
+    ),
+  );
+});
 
 const updateComputerRequest = envelope<UpdateComputerRequest>(
   updateComputerRequestShape,
@@ -352,6 +374,7 @@ export const servedRegistry: ReadonlyMap<
   ["computer.create-computer-request", createComputerRequest],
   ["computer.create-size-request", createComputerRequest],
   ["computer.create-request", createComputerRequest],
+  ["computer.fork-requests", forkRequests],
   [
     "computer.image-not-in-catalog-error",
     errorDocument("IMAGE_NOT_IN_CATALOG"),

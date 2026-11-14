@@ -250,12 +250,24 @@ export interface ForkOptions extends CallOptions {
    */
   readonly name: string;
   /**
-   * Where to fork from: a history entry's ID, such as a version's `entry` or
-   * a cell's `save.entry`; a saved version's number or name; or, left out, the
-   * newest saved version. Stating `undefined` is a `TypeError`, so a cell with
-   * no save is never forked from somewhere else.
+   * The point to fork from: a history entry's ID, such as a version's
+   * `entry` or a cell's `save.entry`, or a saved version's number or name.
+   * A fork from a point copies that point and saves nothing. Left out, the
+   * fork copies the Computer as it is now. Stating `undefined` is a
+   * `TypeError`, so a cell with no save is never forked from somewhere
+   * else.
    */
   readonly from?: string | number;
+  /**
+   * Whether IDYL saves the Computer before a fork with no `from`: `true`
+   * saves an awake Computer first, whatever its save setting, and `false`
+   * never saves it, so the fork holds its files as they were last saved.
+   * Left out, the Computer's own save setting (`autoSave`) decides: an
+   * awake Computer that saves automatically is saved first, and one that
+   * saves only when asked is not. An asleep Computer has nothing unsaved and
+   * is never saved. Stating it together with `from` is a `TypeError`.
+   */
+  readonly save?: boolean;
   /** Makes the fork safe to repeat, as a create's key does. */
   readonly idempotencyKey?: string;
   /**
@@ -265,9 +277,12 @@ export interface ForkOptions extends CallOptions {
    */
   readonly workspaceOnly?: boolean;
   /**
-   * How long to wait for the copy, in milliseconds; ten minutes when
-   * absent. A wait that runs out rejects with a `TimeoutError`
-   * `DOMException`; the fork goes on.
+   * How long to wait for the fork, in milliseconds: for a save it waits on,
+   * then for the copy; ten minutes when absent. A wait that runs out once
+   * IDYL has accepted the fork rejects with a `TimeoutError`
+   * `DOMException`, and the fork goes on. One that runs out while the fork
+   * still waits on a save rejects with IDYL's last refusal, an `ApiError`
+   * with status 409 and `retryAfterMs`, and nothing is created.
    */
   readonly timeoutMs?: number;
 }
@@ -1072,18 +1087,42 @@ export class Computer {
   }
 
   /**
-   * Creates a Computer from a point in this Computer's history, by default
-   * its newest saved version, and waits until its copy has finished. The
-   * fork has that point's files and settings and a history of its own;
-   * unsaved changes are not in it. Check `snapshot.fork?.state` on the
-   * returned handle: `failed` means the copy did not complete.
+   * Creates a Computer as a fork of this one and waits until its copy has
+   * finished. The fork has a history of its own; this Computer keeps its
+   * unsaved files whatever the fork states. Check `snapshot.fork?.state` on
+   * the returned handle: `failed` means the copy did not complete.
+   *
+   * A fork from a point (`from`) copies that point's files and settings and
+   * saves nothing.
+   *
+   * A fork with no `from` copies the Computer as it is now: the newest entry
+   * of its history, chosen by IDYL as it creates the fork, so a settings
+   * change made after the last save is in the fork. An awake Computer that
+   * saves automatically is saved first, and the fork holds its files as
+   * that save finds them; files written after the save are not in it. An
+   * awake Computer that saves only when asked is not saved, so the fork
+   * holds its files as they were last saved. `save` states otherwise:
+   * `true` saves an awake Computer first, `false` never saves it. The save
+   * is recorded in this Computer's history like any other. A fork needs
+   * read permission on this Computer; `save: true` on a Computer that saves
+   * only when asked needs the permission a save needs.
+   *
+   * A fork whose save, or the save of the cell it names, has not settled is
+   * refused by IDYL with status 409 and `retryAfterMs`, and nothing is
+   * created; the fork asks again after that delay, for the same save, until
+   * `timeoutMs` runs out.
    *
    * @throws {@link TypeError} `name` is empty, `from` is stated as
-   * `undefined` (as for a cell whose save is off, pending or failed),
-   * `timeoutMs` is invalid, or the Computer has no saved version to fork
-   * from
+   * `undefined` (as for a cell whose save is off, pending or failed), `save`
+   * is not a boolean or is stated with `from`, or `timeoutMs` is invalid
    * @throws {@link ApiError} IDYL refuses the fork, such as for a name
-   * another Computer holds or a version the Computer does not have
+   * another Computer holds, a version the Computer does not have, or
+   * `save: true` from a caller that may only read the Computer (status
+   * 403). A save that fails refuses the fork with
+   * `ERROR_CODE_FORK_NOT_QUIESCENT`, whose reason `forkNotQuiescent` reads;
+   * the fork asked again with `save: false` copies the newest entry without
+   * saving. A save still unsettled when `timeoutMs` runs out leaves the
+   * last refusal, status 409 with `retryAfterMs`
    * @throws {@link TransportError} a request does not complete, or the
    * answer names another Account or Namespace
    * @throws DOMException a `TimeoutError`: the copy does not finish
@@ -1091,67 +1130,136 @@ export class Computer {
    */
   async fork(options: ForkOptions): Promise<Computer> {
     const { name, idempotencyKey, workspaceOnly } = options;
-    const stated = (options as { readonly from?: unknown }).from;
-    if ("from" in options && (stated === undefined || stated === "")) {
+    const stated = options as {
+      readonly from?: unknown;
+      readonly save?: unknown;
+    };
+    const from = stated.from;
+    if ("from" in options && (from === undefined || from === "")) {
       throw new TypeError(
-        "from names no history entry or version; leave it out to fork from the newest saved version",
+        "from names no history entry or version; leave it out to fork the Computer as it is now",
       );
+    }
+    const save = stated.save;
+    if (save !== undefined && typeof save !== "boolean") {
+      throw new TypeError("save must be a boolean");
+    }
+    if (save !== undefined && from !== undefined) {
+      throw new TypeError("save is stated only on a fork with no from");
     }
     const forkName = requireName(name);
     const wait = settleOptions(options);
     const { state, record } = internalsOf(this);
     const service = await serviceOf(state, options);
-    const entry = await forkPoint(service, record.id, options);
-    const { computer } = await service.create(
-      {
-        name: forkName,
-        forkOf: { source: { computer: record.id }, entry },
-        ...(workspaceOnly === undefined ? {} : { workspaceOnly }),
-        ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+    const entry =
+      options.from === undefined
+        ? undefined
+        : await forkPoint(service, record.id, options.from, options);
+    const request = {
+      name: forkName,
+      forkOf: {
+        source: { computer: record.id },
+        ...(entry === undefined ? {} : { entry }),
+        ...(save === undefined ? {} : { save }),
       },
-      signalOf(options),
-    );
-    // The copy is finished once it reports `done` or `failed`. A Computer
-    // that reports no copy at all is read for a short while, in case the
-    // copy appears late, and then taken as copied.
-    const unreported = Date.now() + FORK_GRACE_MS;
-    const settled =
-      (await pollUntil(wait, {
-        initial: computer,
-        read: async (signal) =>
-          (await service.getById(computer.id, { signal })).computer,
+      ...(workspaceOnly === undefined ? {} : { workspaceOnly }),
+      ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+    };
+    // One wait covers the whole fork. Until IDYL accepts the create, each
+    // read asks for it again, after the delay a refusal for an unsettled
+    // save asked for; the create runs under the caller's signal alone, so
+    // running out of time never leaves a create in doubt. Once accepted,
+    // the copy is finished when it reports `done` or `failed`, and a
+    // Computer that reports no copy at all is read for a short while, in
+    // case the copy appears late, and then taken as copied.
+    let created: ComputerRecord | undefined;
+    let refusal: ApiError | undefined;
+    let unreported = 0;
+    let settled: ComputerRecord | ApiError | undefined;
+    try {
+      settled = await pollUntil<ComputerRecord | ApiError>(wait, {
+        read: async (signal) => {
+          if (created !== undefined) {
+            return (await service.getById(created.id, { signal })).computer;
+          }
+          try {
+            created = (await service.create(request, signalOf(options)))
+              .computer;
+          } catch (error) {
+            if (!awaitsSave(error)) throw error;
+            refusal = error;
+            return error;
+          }
+          unreported = Date.now() + FORK_GRACE_MS;
+          return created;
+        },
         met: (current) => {
+          if (current instanceof ApiError) return false;
           const copy = current.status?.fork?.state;
           return copy === undefined
             ? Date.now() >= unreported
             : copy === "done" || copy === "failed";
         },
+        delay: () =>
+          created === undefined
+            ? Math.max(refusal?.retryAfterMs ?? 0, SETTLE_POLL_MS)
+            : SETTLE_POLL_MS,
         timeoutMessage: (ms) => `fork did not finish within ${String(ms)} ms`,
-      })) ?? computer;
+      });
+    } catch (error) {
+      if (
+        created === undefined &&
+        refusal !== undefined &&
+        isTimeout(error) &&
+        options.signal?.aborted !== true
+      ) {
+        throw refusal;
+      }
+      throw error;
+    }
+    // `met` holds only for a created Computer, and `read` never reports one
+    // gone, so the wait ends on the created Computer.
+    if (settled === undefined || settled instanceof ApiError) {
+      throw new TransportError("invalid_response", "fork was not created");
+    }
     return await handleOf(state, settled, options);
   }
 }
 
-/** The history entry a fork of the Computer `id` starts from. */
+/**
+ * Whether `error` is IDYL's refusal of a fork whose save has not settled:
+ * status 409 with a `Retry-After`. Nothing was created, and the same
+ * request asked again waits for the same save.
+ */
+function awaitsSave(error: unknown): error is ApiError {
+  return (
+    error instanceof ApiError &&
+    error.status === 409 &&
+    error.retryAfterMs !== undefined
+  );
+}
+
+/** Whether `error` is the `TimeoutError` an exhausted wait throws. */
+function isTimeout(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "TimeoutError";
+}
+
+/** The history entry named by `from` in the Computer `id`. */
 async function forkPoint(
   service: ComputersService,
   id: string,
-  options: ForkOptions,
+  from: string | number,
+  options: CallOptions,
 ): Promise<JournalEntryId> {
-  const { from } = options;
   if (typeof from === "string" && isJournalEntryId(from)) {
     return parseJournalEntryId(from);
   }
-  const version =
-    from === undefined
-      ? (await service.listVersionsById(id, { limit: 1 }, signalOf(options)))
-          .items[0]
-      : await service.getVersionById(
-          id,
-          versionSelector(from),
-          signalOf(options),
-        );
-  if (version?.entry === undefined) {
+  const version = await service.getVersionById(
+    id,
+    versionSelector(from),
+    signalOf(options),
+  );
+  if (version.entry === undefined) {
     throw new TypeError("the Computer has no saved version to fork from");
   }
   return parseJournalEntryId(version.entry);

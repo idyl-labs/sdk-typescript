@@ -5,11 +5,13 @@ import { describe, expect, it } from "vitest";
 import {
   ApiError,
   Computer,
+  ERROR_CODE_FORK_NOT_QUIESCENT,
   Idyl,
   SAVE_REASON_ACCOUNT_STORAGE_LIMIT,
   SAVE_REASON_COMPUTER_SIZE,
   SAVE_REASON_NAME_LIMIT,
   TransportError,
+  forkNotQuiescent,
   isApiCode,
 } from "../src/index.js";
 import { errorResponse, json } from "./fakes/control-plane.js";
@@ -1535,21 +1537,64 @@ describe("Computer.fork", () => {
     expect(sent()).not.toHaveProperty("workspaceOnly");
   });
 
-  // Contract: a fork with no `from` starts at the newest saved version, by the
-  // history entry that owns it.
-  it("forks from the newest saved version by default", async () => {
-    const { network, sent } = forking(() => ({
-      items: [version(3)],
-      totalCount: 1,
-    }));
+  // Contract: the create a fork sends is the reference contract's fork
+  // request, byte for byte, in each of its four forms: no `from` copies the
+  // Computer as it is now and names no entry, `save` is sent only when
+  // stated, a stated `false` included, and a `from` names its entry. A fork
+  // with no `from` reads nothing before its create.
+  it("sends the four fork requests of the reference contract", async () => {
+    const golden = JSON.parse(
+      readFileSync(
+        new URL(
+          "./conformance/fixtures/api/testdata/golden/computer.fork-requests.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ) as Record<
+      "asItIsNow" | "entry" | "neverSave" | "saveFirst",
+      { readonly forkOf: { readonly entry?: string } }
+    >;
+    const { network, sent } = forking(() => undefined);
     const computer = await network.client().computers.get("api-dev");
-    await computer.fork({ name: "api-dev-2" });
-    expect(sent()).toMatchObject({
-      forkOf: { source: { computer: ID }, entry: ENTRY },
-    });
+    const before = network.computerCalls().length;
+    await computer.fork({ name: "fork" });
+    expect(sent()).toEqual(golden.asItIsNow);
+    await computer.fork({ name: "fork", save: true });
+    expect(sent()).toEqual(golden.saveFirst);
+    await computer.fork({ name: "fork", save: false });
+    expect(sent()).toEqual(golden.neverSave);
     expect(
-      network.computerCalls().filter((call) => call.includes("/versions")),
-    ).toEqual([`GET ${byId}/versions?limit=1`]);
+      network
+        .computerCalls()
+        .slice(before)
+        .filter((call) => !call.startsWith("POST")),
+    ).toEqual([]);
+    await computer.fork({
+      name: "fork",
+      from: golden.entry.forkOf.entry ?? "",
+    });
+    expect(sent()).toEqual(golden.entry);
+  });
+
+  // Contract: `save` is stated only on a fork with no `from`, as the
+  // reference contract refuses it with an entry, and only as a boolean;
+  // either refusal comes before any request.
+  it("refuses save stated with from or as another type", async () => {
+    const { network, sent } = forking(() => version(3));
+    const computer = await network.client().computers.get("api-dev");
+    const calls = network.computerCalls().length;
+    await expect(
+      computer.fork({ name: "x", from: ENTRY, save: false }),
+    ).rejects.toThrow("save is stated only on a fork with no from");
+    await expect(
+      computer.fork({ name: "x", from: 3, save: true }),
+    ).rejects.toThrow(TypeError);
+    await expect(
+      computer.fork({ name: "x", save: "yes" as unknown as boolean }),
+    ).rejects.toThrow("save must be a boolean");
+    expect(network.computerCalls()).toHaveLength(calls);
+    expect(sent()).toBeUndefined();
   });
 
   // Contract: `from` also takes a saved version, by name or by number, as a
@@ -1565,13 +1610,124 @@ describe("Computer.fork", () => {
     ).toEqual([`GET ${byId}/versions/release`, `GET ${byId}/versions/3`]);
   });
 
-  // Contract: a Computer with no saved version has nothing to fork from, and
-  // no Computer is created.
-  it("refuses a fork with no saved version", async () => {
-    const { network, sent } = forking(() => ({ items: [], totalCount: 0 }));
+  /**
+   * A network whose creates are answered in turn by `answers`, then
+   * accepted with a finished copy, recording each create it received.
+   */
+  function refusing(answers: readonly (() => Response)[]): {
+    readonly network: FakeNetwork;
+    readonly creates: unknown[];
+  } {
+    const creates: unknown[] = [];
+    const network = new FakeNetwork((request, body) => {
+      const { pathname } = request.url;
+      if (pathname === `${computersPath}/api-dev`) {
+        return json({ computer: computerRecord() });
+      }
+      if (request.method === "POST" && pathname === computersPath) {
+        const answer = answers[creates.length];
+        creates.push(body);
+        return answer === undefined
+          ? json(
+              {
+                computer: computerRecord({
+                  id: "01954e20-7540-7ec4-93ec-14f783e6ab99",
+                  status: { fork: { state: "done", copied: 2, total: 2 } },
+                }),
+              },
+              201,
+            )
+          : answer();
+      }
+      return undefined;
+    });
+    return { network, creates };
+  }
+
+  /** The refusal of a fork whose save has not settled: 409 and a Retry-After. */
+  const unsettled = (seconds: string) => (): Response =>
+    new Response(
+      JSON.stringify({ error: "save not settled", code: "CONFLICT" }),
+      {
+        status: 409,
+        headers: {
+          "content-type": "application/json",
+          "retry-after": seconds,
+        },
+      },
+    );
+
+  // Contract: a fork refused because a save it waits for has not settled,
+  // the save it makes first or the save a named cell still owes, created
+  // nothing; the fork asks again with the same request, which waits for the
+  // same save, and resolves once IDYL accepts it.
+  for (const [form, options] of [
+    ["as it is now", {}],
+    ["from a cell", { from: ENTRY }],
+  ] as const) {
+    it(`asks again for a fork ${form} whose save has not settled`, async () => {
+      const { network, creates } = refusing([unsettled("0")]);
+      const computer = await network.client().computers.get("api-dev");
+      const fork = await computer.fork({ name: "api-dev-2", ...options });
+      expect(fork.snapshot.fork?.state).toBe("done");
+      expect(creates).toHaveLength(2);
+      expect(creates[1]).toEqual(creates[0]);
+    });
+  }
+
+  // Contract: a fork whose save is still unsettled when its `timeoutMs` runs
+  // out rejects with IDYL's last refusal, status 409 with `retryAfterMs`, so
+  // the caller knows nothing was created; a zero timeout asks once.
+  it("rejects with the refusal when the save outlasts the timeout", async () => {
+    const { network, creates } = refusing([unsettled("1"), unsettled("1")]);
     const computer = await network.client().computers.get("api-dev");
-    await expect(computer.fork({ name: "x" })).rejects.toThrow(TypeError);
-    expect(sent()).toBeUndefined();
+    const once = await rejection(
+      computer.fork({ name: "api-dev-2", timeoutMs: 0 }),
+    );
+    expect(once).toBeInstanceOf(ApiError);
+    expect(once).toMatchObject({ status: 409, retryAfterMs: 1000 });
+    expect(creates).toHaveLength(1);
+    const later = await rejection(
+      computer.fork({ name: "api-dev-2", timeoutMs: 100 }),
+    );
+    expect(later).toMatchObject({ status: 409, retryAfterMs: 1000 });
+    expect(creates).toHaveLength(2);
+  });
+
+  // Contract: a fork whose save failed is refused with FORK_NOT_QUIESCENT
+  // and the save's reason in its details; it is not asked again, and
+  // `forkNotQuiescent` reads the reason, a reason this package does not name
+  // included.
+  it("rejects a fork whose save failed with the save's reason", async () => {
+    for (const reason of [SAVE_REASON_COMPUTER_SIZE, "disk-unreadable"]) {
+      const { network, creates } = refusing([
+        () =>
+          json(
+            {
+              error: "save failed",
+              code: ERROR_CODE_FORK_NOT_QUIESCENT,
+              details: { saveReason: reason },
+            },
+            409,
+          ),
+      ]);
+      const computer = await network.client().computers.get("api-dev");
+      const error = await rejection(computer.fork({ name: "api-dev-2" }));
+      expect(isApiCode(error, ERROR_CODE_FORK_NOT_QUIESCENT)).toBe(true);
+      expect(forkNotQuiescent(error)).toEqual({ saveReason: reason });
+      expect(creates).toHaveLength(1);
+    }
+    expect(forkNotQuiescent(new Error("x"))).toBeUndefined();
+    expect(
+      forkNotQuiescent(
+        new ApiError({
+          status: 409,
+          code: ERROR_CODE_FORK_NOT_QUIESCENT,
+          message: "x",
+          details: { saveReason: 7 },
+        }),
+      ),
+    ).toEqual({ saveReason: "" });
   });
 });
 

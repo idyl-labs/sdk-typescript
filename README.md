@@ -99,6 +99,13 @@ for (const config of ["baseline", "tuned"]) {
 }
 ```
 
+A fork with no `from` copies the Computer as it is now. An awake Computer
+that saves automatically is saved first; one that saves only when asked is
+not, unless the fork states `save: true`, and `save: false` never saves.
+`from` names a point instead, a history entry or a saved version's number
+or name, and that fork saves nothing. A save that fails refuses the fork,
+and `forkNotQuiescent` reads the save's reason.
+
 ### Save and restore
 
 ```ts

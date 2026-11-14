@@ -57,7 +57,11 @@ import {
   SPEND_CAP_REACHED_DETAIL_BOUGHT,
   SPEND_CAP_REACHED_DETAIL_SPEND_CAP,
 } from "./api/billing-errors.js";
-import { ERROR_CODE_SIZE_BELOW_USAGE } from "./api/storage-errors.js";
+import {
+  ERROR_CODE_FORK_NOT_QUIESCENT,
+  ERROR_CODE_SIZE_BELOW_USAGE,
+  FORK_NOT_QUIESCENT_DETAIL_SAVE_REASON,
+} from "./api/storage-errors.js";
 
 /** What a non-2xx response carried. */
 export interface ApiErrorOptions {
@@ -339,6 +343,20 @@ export interface SpendCapReachedDetails {
 }
 
 /**
+ * The details of a `FORK_NOT_QUIESCENT` refusal. A key the refusal does not
+ * carry, or carries in another form, reads as the empty string.
+ */
+export interface ForkNotQuiescentDetails {
+  /**
+   * The reason the save the fork made first failed, spelled as a failed
+   * save's `reason`, such as `SAVE_REASON_COMPUTER_SIZE`; a reason this
+   * package does not name is carried as it is. The empty string when the
+   * refusal is of a fork that made no save.
+   */
+  readonly saveReason: string;
+}
+
+/**
  * Reports whether `error` is the refusal of a Computer's wake or session
  * because its Account has used its month's allowance and its extra usage:
  * an {@link ApiError}, with HTTP 402, carrying `ERROR_CODE_OUT_OF_USAGE`. A
@@ -423,6 +441,28 @@ export function spendCapReached(
       details,
       SPEND_CAP_REACHED_DETAIL_BOUGHT,
       Number.MIN_SAFE_INTEGER,
+    ),
+  });
+}
+
+/**
+ * The details of `error` when it is the refusal of a fork whose source could
+ * not reach a point to copy from, an {@link ApiError} carrying
+ * `ERROR_CODE_FORK_NOT_QUIESCENT`: for a fork that names no point, the
+ * reason the save it made first failed. `undefined` for any other error.
+ * The details are read as {@link sizeNotInPlan} reads its own: a key carried
+ * in another form reads as the empty string.
+ *
+ * @param error any value, as a `catch` receives it
+ */
+export function forkNotQuiescent(
+  error: unknown,
+): ForkNotQuiescentDetails | undefined {
+  if (!isApiCode(error, ERROR_CODE_FORK_NOT_QUIESCENT)) return undefined;
+  return Object.freeze({
+    saveReason: detailString(
+      error.details,
+      FORK_NOT_QUIESCENT_DETAIL_SAVE_REASON,
     ),
   });
 }

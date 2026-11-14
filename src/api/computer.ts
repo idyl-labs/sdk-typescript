@@ -472,7 +472,50 @@ export function decodeComputer(document: unknown): Computer {
  * {@link ERROR_CODE_COMPUTER_DOES_NOT_FIT}; either way nothing is created.
  */
 export interface CreateComputerRequest {
-  /** Exact source history point copied at creation; source authority remains a server decision. */
+  /**
+   * Creates the Computer as a fork of a source Computer in the same
+   * Namespace. A fork needs read permission on the source.
+   *
+   * A fork that names `forkOf.entry` copies that history entry and saves
+   * nothing.
+   *
+   * A fork that names no entry copies the source as it is now. It copies the
+   * newest entry of the source's history, chosen by the platform as it
+   * creates the fork, so an execution-settings change made after the
+   * source's last save is in the fork. Whether the platform saves the
+   * source's files first follows the source's save setting
+   * (`ComputerSpec.autoSave`):
+   *
+   * - an awake source that saves automatically is saved first;
+   * - an awake source that saves only when asked is not saved, so the fork
+   *   holds its files as they were last saved;
+   * - an asleep source has nothing unsaved and is never saved.
+   *
+   * `forkOf.save` states otherwise for an awake source: `true` saves it
+   * first whatever its setting, and `false` never saves it. A caller that
+   * may only read the source is refused with HTTP 403 when it states `true`
+   * for a source that saves only when asked, as an explicit save it may not
+   * make is refused; nothing is saved and no Computer is created. Stating
+   * nothing, or `false`, needs no more than the read a fork needs.
+   *
+   * The save is the save a `CreateCommitRequest` asks for, recorded in the
+   * source's history with the caller who forked. Files written after it are
+   * not in the fork, and the source keeps its unsaved files whatever the
+   * fork states. A save that fails refuses the fork with HTTP 409 and
+   * `ERROR_CODE_FORK_NOT_QUIESCENT`, whose details carry the failed save's
+   * reason under `FORK_NOT_QUIESCENT_DETAIL_SAVE_REASON`, and no Computer is
+   * created. The fork sent again with `save` `false` copies the newest entry
+   * without saving.
+   *
+   * A fork waits a bounded time for the save it depends on: the save a fork
+   * with no entry makes first, or the save still owed by a notebook cell
+   * whose entry the fork names. A save that has not settled by then refuses
+   * the fork with HTTP 409 and a `Retry-After`, and nothing is created. The
+   * same request sent again waits for the same save rather than starting
+   * another.
+   *
+   * `undefined`, the Computer starts from its image.
+   */
   readonly forkOf?: ForkReference;
   /**
    * Asks for a Computer that saves only `/workspace`: its system files

@@ -3,9 +3,11 @@
 import type { Integer } from "./json.js";
 import {
   always,
+  boolean,
   integer,
   object,
   omitEmpty,
+  pointer,
   string,
   type Shape,
 } from "../internal/strictdecode.js";
@@ -38,8 +40,15 @@ export function validateStorageResourceReference(
   parseComputerId(computer);
 }
 /**
- * Fixes the source journal entry a create operation copies. Later changes
- * to the source do not change the new resource's history.
+ * Selects what a create copies from a source Computer: one entry of its
+ * history, or the Computer as it is now.
+ *
+ * A reference that names `entry` copies that entry and saves nothing; later
+ * changes to the source do not reach the new resource. A reference that
+ * names no entry copies the source as it is now: `CreateComputerRequest`'s
+ * `forkOf` states when the platform saves the source first and which entry
+ * the fork then copies. `save` overrides that choice and is stated only on
+ * a reference that names no entry.
  */
 export interface ForkReference {
   readonly source: StorageResourceReference;
@@ -49,23 +58,41 @@ export interface ForkReference {
    * notebook cell starts at the save that covers that cell and receives that
    * one notebook up to and including the cell, continuing from its shell
    * state; forking from a cell requires permission to read the source's
-   * notebooks. Other notebooks are never copied.
+   * notebooks. Other notebooks are never copied. `undefined` or empty, the
+   * fork copies the source as it is now, and none is written.
    */
-  readonly entry: JournalEntryId;
+  readonly entry?: JournalEntryId;
+  /**
+   * Whether the platform saves the source before a fork that names no
+   * entry: `true` saves it first, `false` never does, and `undefined`
+   * follows the source's own save setting. A stated `false` is written.
+   * Refused together with `entry`.
+   */
+  readonly save?: boolean;
 }
-/** The wire shape of an immutable fork point. */
+/** The wire shape of a fork reference. */
 export const forkReferenceShape: Shape<ForkReference> = object<ForkReference>({
   source: always(storageResourceReferenceShape),
-  entry: always(string<JournalEntryId>()),
+  entry: omitEmpty(string<JournalEntryId>()),
+  save: pointer(boolean()),
 });
-/** Checks source and entry identities without reading or authorizing the source. */
+/**
+ * Checks the source identity, the entry identity when one is named, and
+ * that `save` is not stated together with an entry. It neither reads nor
+ * authorizes the source, and does not check that the entry belongs to it.
+ */
 export function validateForkReference(reference: ForkReference): void {
   prefixed("source", () => {
     validateStorageResourceReference(reference.source);
   });
+  const entry = reference.entry ?? "";
+  if (entry === "") return;
   prefixed("entry", () => {
-    parseJournalEntryId(reference.entry);
+    parseJournalEntryId(entry);
   });
+  if (reference.save !== undefined) {
+    throw new TypeError("save is stated only on a fork that names no entry");
+  }
 }
 /** Historical fork provenance; version zero is reported genesis, distinct from a create's entry target. */
 export interface VersionRef extends StorageResourceReference {
