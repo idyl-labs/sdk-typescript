@@ -14,16 +14,16 @@ export const TRUST_ROLLBACK =
 /**
  * Where a client keeps the highest session trust version it has accepted
  * for each Network and trust scope. `scope` is the opaque name the client's
- * placement gives the sessions a bundle governs; a floor keeps it as given
- * and never interprets it.
+ * placement gives the sessions a bundle governs; a floor keeps it as given,
+ * without interpretation.
  */
 export interface TrustFloor {
   /**
    * Accepts `version` for `network` and `scope` as one atomic step: rejects
    * with a `SessionTrustError` when it is lower than the version kept, and
    * otherwise keeps it when it is higher; an equal version changes nothing.
-   * Any other rejection means the floor could not be read or written, and
-   * a connector refuses the bundle for it.
+   * Any other rejection means the floor could not be read or written, and a
+   * connector refuses the bundle for that reason.
    *
    * @param network the Network the bundle names, as a domain
    * @param scope the trust scope the bundle governs, kept as given

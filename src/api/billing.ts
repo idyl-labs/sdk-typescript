@@ -263,8 +263,8 @@ export function validateBillingStanding(standing: BillingStanding): void {
  *
  * - `ok`: a renewal that was paid, or an Account on `trial` or `none`, whose periods need
  *   no payment.
- * - `failed`: a renewal whose payment failed while Stripe retries it. The
- *   period's allowance is granted only once it is paid. If the retries end
+ * - `failed`: a renewal whose payment failed and is being retried by Stripe.
+ *   The period's allowance is granted only once it is paid. If the retries end
  *   unpaid, the plan ends and the Account is on `none`.
  *
  * The union is open: a token the platform reports that this SDK does not
@@ -482,7 +482,8 @@ function validateSizeRates(rates: readonly BillingSizeRate[]): void {
  * downgrade, or a cancellation, which is a change to `none`. When it takes
  * effect, the Account's awake Computers larger than `largestSize` are asked
  * to sleep, and each needs a size no larger than it, or an upgrade, before
- * it can wake again. A plan change to the plan in force undoes it.
+ * it can wake again. A plan change to the plan in force undoes the pending
+ * change.
  */
 export interface BillingScheduledChange {
   /** The plan the Account changes to. Always written. */
@@ -1189,11 +1190,11 @@ export function validateBillingActionKind(kind: BillingActionKind): void {
 }
 
 /**
- * A payment the user completes on a page Stripe hosts, for an operation
- * that waits for it. A client opens `url` in the user's browser; Stripe
- * returns the user to IDYL when the payment is done or abandoned. The
- * operation finishes once Stripe confirms the payment, and fails with
- * `ACTION_EXPIRED` if the action expires first.
+ * A payment the user completes on a page Stripe hosts, for an operation that
+ * waits for that payment. A client opens `url` in the user's browser; Stripe
+ * returns the user to IDYL when the payment is done or abandoned. The operation
+ * finishes once Stripe confirms the payment, and fails with `ACTION_EXPIRED` if
+ * the action expires first.
  */
 export interface BillingAction {
   /** What the page asks of the user. Always written. */

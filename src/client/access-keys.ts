@@ -20,7 +20,10 @@ import { requireText, signalOf, type CallOptions } from "./common.js";
  * public key IDYL keeps.
  */
 export interface AccessKey {
-  /** The key's ID, a lowercase canonical UUID; {@link AccessKeys.revoke} takes it. */
+  /**
+   * The key's ID, a lowercase canonical UUID, which {@link AccessKeys.revoke}
+   * takes.
+   */
   readonly id: string;
   /** The key's name, as it was created. */
   readonly name: string;
@@ -46,7 +49,7 @@ export interface AccessKey {
  * `accessKeyCredentials`, its private key held non-extractable.
  */
 export interface CreatedAccessKey {
-  /** The key's record, as IDYL registered it. */
+  /** The key's record, as registered by IDYL. */
   readonly accessKey: AccessKey;
   /** The access key file's text, which holds the private key. */
   readonly keyFile: string;

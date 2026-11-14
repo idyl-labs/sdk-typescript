@@ -42,7 +42,7 @@ export interface ExecutionSettings {
   readonly size?: string;
   /**
    * The name a person reads for `size`, such as `Small`, so a list row can show
-   * it with no second request. Only the effective settings hold it.
+   * it with no second request. Only the effective settings hold this field.
    */
   readonly sizeLabel?: string;
   /** The CPU limit, such as `500m` or `2`. */
@@ -50,14 +50,14 @@ export interface ExecutionSettings {
   /** The memory limit, such as `512Mi` or `4Gi`. */
   readonly memory?: string;
   /**
-   * The most the Computer can store, such as `20Gi`, as IDYL reports it. Only
-   * the effective settings hold it.
+   * The most the Computer can store, such as `20Gi`, as reported by IDYL. Only
+   * the effective settings hold this field.
    */
   readonly disk?: string;
   /**
    * The network class: `internet` (the open internet, local networks
-   * blocked), `restricted-egress` or `none`. A class this package does not
-   * name is carried as IDYL reported it.
+   * blocked), `restricted-egress` or `none`. A class this package does not name
+   * is carried unchanged from IDYL's report.
    */
   readonly network?: string;
   /**
@@ -70,8 +70,8 @@ export interface ExecutionSettings {
   /**
    * The Secrets attached, by the environment variable each is attached
    * under: `secret` is the Secret's ID, and `version` the version an
-   * attachment pins, absent when it follows the current one. Only the
-   * settings as stated hold it.
+   * attachment pins, absent when it follows the current one. Only the settings
+   * as stated hold this field.
    */
   readonly secrets?: Readonly<
     Record<string, { readonly secret: string; readonly version?: number }>
@@ -125,20 +125,22 @@ export interface CellProcess {
  * `error` says why. `command` is the command as recorded, its arguments
  * joined by spaces, and `commandTruncated` says the record holds only its
  * start. A cell run through a connector records its script on the Computer
- * alone, so its `command` is empty; a `records` session reads it.
+ * alone, so its `command` is empty; a `records` session reads the script.
  */
 export interface Cell {
   /** The cell's ID, which a fork can start from. */
   readonly id: string;
-  /** The name of the notebook that recorded it. */
+  /** The name of the notebook that recorded the cell. */
   readonly notebook?: string;
-  /** The ID of the session that ran it. */
+  /** The ID of the session that ran the cell. */
   readonly session?: string;
   /** The command as recorded, its arguments joined by spaces; empty for a script. */
   readonly command: string;
   /** Whether `command` holds only the start of the command. */
   readonly commandTruncated: boolean;
-  /** `running`, then `ended`; or `error` when its session never ran it. */
+  /**
+   * `running`, then `ended`; or `error` when its session never ran the cell.
+   */
   readonly state:
     "running" | "ended" | "error" | (string & Record<never, never>);
   /** Why a cell in state `error` never ran, as a stable code. */
@@ -161,7 +163,7 @@ export interface Cell {
   };
   /** The save that covers it, once one does. */
   readonly save?: Save;
-  /** Who ran it. */
+  /** Who ran the cell. */
   readonly creator: string;
   /** The kind of client that ran it, such as `sdk` or `console`. */
   readonly client: string;
@@ -251,8 +253,8 @@ export interface AwakeHold {
   /**
    * What it is: `session`, `keep-awake`, `starting-session`,
    * `settings-restart`, or a kind this package does not name. A
-   * `settings-restart` keeps nothing awake: the Computer sleeps once no
-   * session holds it.
+   * `settings-restart` keeps nothing awake: the Computer sleeps once no session
+   * holds it awake.
    */
   readonly kind: string;
   /** How many sessions it names; zero on a hold that names none. */
@@ -260,11 +262,10 @@ export interface AwakeHold {
 }
 
 /**
- * Why a Computer is awake and when it sleeps, at the read that reported
- * it. A Computer counting down states `sleepsAt` and `sleepsIn`;
- * count down from `sleepsIn`, which needs no agreement between this machine's
- * clock and IDYL's, and read the Computer again to follow a change made
- * elsewhere.
+ * Why a Computer is awake and when it sleeps, at the time of the read. A
+ * Computer counting down states `sleepsAt` and `sleepsIn`; count down from
+ * `sleepsIn`, which needs no agreement between this machine's clock and IDYL's,
+ * and read the Computer again to follow a change made elsewhere.
  */
 export interface Awake {
   /** When its current execution started, as an RFC 3339 instant. */
@@ -273,13 +274,16 @@ export interface Awake {
   readonly holds: readonly AwakeHold[];
   /** When it sleeps by IDYL's clock, as an RFC 3339 instant. */
   readonly sleepsAt?: string;
-  /** Whole seconds until `sleepsAt`, from the read; zero once past it. */
+  /**
+   * Whole seconds until `sleepsAt`, from the read; zero once that time has
+   * passed.
+   */
   readonly sleepsIn?: number;
 }
 
 /**
- * One open session of a Computer, as anyone who may read the Computer sees
- * it. It carries no command, output or credential, and it grants nothing.
+ * One open session of a Computer, as seen by anyone who may read the Computer.
+ * It carries no command, output or credential, and it grants nothing.
  */
 export interface OpenSession {
   /** The session's ID. */
@@ -293,11 +297,11 @@ export interface OpenSession {
   readonly notebook?: string;
   /** The kind of client that opened it, or `unknown`. It is informative. */
   readonly client: string;
-  /** The identity that opened it. */
+  /** The identity that opened the session. */
   readonly openedBy: string;
   /** When it was accepted, as an RFC 3339 instant. */
   readonly openedAt: string;
-  /** Whether the caller who read the list opened it. */
+  /** Whether the caller who read the list opened the session. */
   readonly yours: boolean;
 }
 
@@ -311,7 +315,7 @@ export interface Version {
   readonly createdAt: string;
   /** What made it: `genesis`, `commit`, `upload`, `restore` or `fork-point`. */
   readonly origin: string;
-  /** The history entry that owns it. */
+  /** The history entry that owns this version. */
   readonly entry?: string;
   /** The version it was made from. */
   readonly parent?: number;

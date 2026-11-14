@@ -65,7 +65,7 @@ export interface IdylOptions {
    * application's own. Without it, the client signs people in through
    * {@link Idyl.identity}, lists the sizes a Computer can run at through
    * `computers.sizes()`, and refuses every other call with a `TypeError`
-   * before anything is sent. Neither consults it.
+   * before anything is sent. Neither one consults `credential`.
    */
   readonly credential?: CredentialSource;
   /**
@@ -95,8 +95,8 @@ export interface IdylOptions {
   readonly endpoints?: Endpoints;
   /**
    * Performs every request, called with no receiver exactly as
-   * `fetch(url, init)` is. TLS, proxy and dialing behaviour belong to it.
-   * Defaults to the runtime's `fetch`.
+   * `fetch(url, init)` is. TLS, proxy and dialing behaviour belong to that
+   * function. Defaults to the runtime's `fetch`.
    */
   readonly fetch?: typeof globalThis.fetch;
   /**
@@ -106,7 +106,7 @@ export interface IdylOptions {
   readonly allowHttp?: boolean;
   /**
    * Appended to the package's own `User-Agent`, to name the application.
-   * In a browser page the browser owns that header and may ignore it.
+   * In a browser page the browser owns that header and may ignore the value.
    */
   readonly userAgent?: string;
 }
@@ -129,8 +129,8 @@ export interface DeleteAccountResult {
 
 /**
  * The IDYL client. It holds what every product shares: the credential
- * source, the Account it acts as, and the connection. Each product is a
- * property of it.
+ * source, the Account it acts as, and the connection. Each product is one of
+ * its properties.
  *
  * The Account is the one the credential acts as, read once, on first use,
  * and kept for the life of the client; another Account takes another

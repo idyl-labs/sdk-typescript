@@ -141,7 +141,8 @@ export interface BillingSizeRate {
  * downgrade, or a cancellation, which is a change to `none`. When it takes
  * effect, the Account's awake Computers larger than `largestSize` are asked
  * to sleep, and each needs a size no larger than it, or an upgrade, before
- * it can wake again. A plan change to the plan in force undoes it.
+ * it can wake again. A plan change to the plan in force undoes the pending
+ * change.
  */
 export interface BillingScheduledChange {
   /** The plan the Account changes to. */
@@ -174,7 +175,7 @@ export interface BillingSizePlan {
 
 /** A plan as it is offered. */
 export interface BillingPlanOffer {
-  /** The plan's identifier, as a plan change names it. */
+  /** The plan's identifier, in the form a plan change uses. */
   readonly plan: BillingPlan;
   /** The plan's name for display, such as `Max 5x`. */
   readonly name: string;
@@ -206,9 +207,9 @@ export interface BillingPlanOffer {
 }
 
 /**
- * An Account's billing as IDYL reports it. Usage is counted the moment it
- * is recorded, before it is settled, so the amounts are the ones the
- * Account's standing is judged on. Instants are RFC 3339 strings.
+ * An Account's billing, as reported by IDYL. Usage is counted the moment it is
+ * recorded, before it is settled, so the amounts are the ones the Account's
+ * standing is judged on. Instants are RFC 3339 strings.
  */
 export interface AccountBillingStatus {
   /** The plan in force. */
@@ -358,11 +359,11 @@ export interface AccountBilling {
 }
 
 /**
- * A payment the user completes on a page Stripe hosts, for an operation
- * that waits for it. Open `url` in the user's browser; Stripe returns the
- * user to IDYL when the payment is done or abandoned. The operation
- * finishes once Stripe confirms the payment, and fails with
- * `ERROR_CODE_ACTION_EXPIRED` if the action expires first.
+ * A payment the user completes on a page Stripe hosts, for an operation that
+ * waits for that payment. Open `url` in the user's browser; Stripe returns the
+ * user to IDYL when the payment is done or abandoned. The operation finishes
+ * once Stripe confirms the payment, and fails with `ERROR_CODE_ACTION_EXPIRED`
+ * if the action expires first.
  */
 export interface BillingAction {
   /**
@@ -473,9 +474,8 @@ export interface BillingPurchase {
  */
 export interface BillingPortalSession {
   /**
-   * The session's page, an absolute https URL. It signs whoever opens it in
-   * to the Account's billing details, so show it only to the user who asked
-   * for it.
+   * The session's page, an absolute https URL. It signs whoever opens it in to
+   * the Account's billing details, so show it only to the user who asked.
    */
   readonly url: string;
 }
@@ -494,7 +494,7 @@ export interface UpdateBillingOptions extends CallOptions {
   readonly autoRefill?: BillingAutoRefill;
   /**
    * Replaces the spend cap, which must not be negative, in micro-dollars;
-   * `null` removes it.
+   * `null` removes the cap.
    */
   readonly spendCapMicros?: number | null;
 }
@@ -611,8 +611,8 @@ export interface Billing {
    */
   get(options?: CallOptions): Promise<AccountBilling>;
   /**
-   * Changes the Account's billing settings and returns the billing as the
-   * update left it.
+   * Changes the Account's billing settings and returns the billing that
+   * results.
    *
    * @throws {@link TypeError} the update states no field, or a field is
    *   invalid, before any request is sent

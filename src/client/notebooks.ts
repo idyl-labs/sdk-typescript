@@ -24,7 +24,7 @@ export interface NotebookInfo {
   readonly name: string;
   /** When it was created, as an RFC 3339 instant. */
   readonly createdAt: string;
-  /** Who created it. */
+  /** Who created the notebook. */
   readonly creator: string;
   /** How many cells it holds. */
   readonly cells: number;
@@ -41,7 +41,7 @@ export interface UpdateNotebookOptions extends CallOptions {
    * is 409.
    */
   readonly name?: string;
-  /** Pins the notebook, or with `false` unpins it. */
+  /** Pins the notebook, or unpins with `false`. */
   readonly pinned?: boolean;
 }
 
@@ -105,9 +105,9 @@ export interface Notebook {
   /**
    * Updates the notebook and returns a handle with its updated snapshot;
    * this handle keeps its earlier one, and after a rename it addresses the
-   * old name, which is gone. A pin is the notebook's: everyone who reads the
-   * Computer's notebooks sees it. A rename keeps the ID and the cells, and
-   * sessions already created keep recording into the notebook.
+   * old name, which is gone. A pin is the notebook's: the pin shows for
+   * everyone who reads the Computer's notebooks. A rename keeps the ID and the
+   * cells, and sessions already created keep recording into the notebook.
    *
    * @throws {@link TypeError} the update states nothing or names an invalid
    * name, before any request is sent

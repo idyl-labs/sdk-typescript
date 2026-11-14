@@ -10,9 +10,9 @@ import type { IdentityService } from "../services/identity.js";
 import { requireText, signalOf, type CallOptions } from "./common.js";
 
 /**
- * A profile a person can act as: one Account and the permissions the
- * profile grants in it. `orgId` and `org` are present when the Account
- * belongs to an organization.
+ * A profile a person can act as: one Account and the permissions the profile
+ * grants there. `orgId` and `org` are present when the Account belongs to an
+ * organization.
  */
 export interface Profile {
   /** The Account's twelve-digit ID. */
@@ -51,8 +51,8 @@ export interface SignInOptions extends CallOptions {
   /**
    * The `User-Agent` of the browser asking for the code, set by a server
    * that starts a sign-in on a browser's behalf, so the email can say which
-   * browser asked. The server reads a known browser and operating system
-   * from it, shows nothing else of it, and does not keep it.
+   * browser asked. The server reads a known browser and operating system from
+   * it and shows nothing else. The value is not kept.
    */
   readonly userAgent?: string;
 }
@@ -122,17 +122,20 @@ export interface ProfileSelector {
  * successor of the refresh token {@link Identity.accessToken} presented,
  * which replaces it, or the refresh token {@link Identity.exchangeBrowser}
  * issues bound to the browser's key. `refreshExpiresAt` is its expiry. An
- * access key's exchange names no profile, so `profileId` and `profileName`
- * are empty for it.
+ * access key's exchange names no profile, so its `profileId` and `profileName`
+ * are empty.
  */
 export interface AccessToken {
-  /** The access token, bound to the key whose proof obtained it. */
+  /** The access token, bound to the key whose proof obtained the token. */
   readonly accessToken: string;
   /** When the access token expires, as an RFC 3339 instant. */
   readonly expiresAt: string;
   /** The refresh token the exchange rotated or issued; absent when it did neither. */
   readonly refreshToken?: string;
-  /** When `refreshToken` expires, as an RFC 3339 instant; absent with it. */
+  /**
+   * When `refreshToken` expires, as an RFC 3339 instant; absent when
+   * `refreshToken` is absent.
+   */
   readonly refreshExpiresAt?: string;
   /** The twelve-digit ID of the Account the token acts in. */
   readonly accountId: string;
@@ -198,13 +201,15 @@ export interface SignUp {
 export interface BrowserAuthorizationRequest {
   /** The registered client's ID. */
   readonly clientId: string;
-  /** The redirect URI, exactly as the client registered it. */
+  /** The redirect URI, exactly as registered by the client. */
   readonly redirectUri: string;
   /** 32 random bytes as unpadded base64url, which the page checks on return. */
   readonly state: string;
   /** The RFC 7636 S256 challenge of the verifier the page keeps. */
   readonly codeChallenge: string;
-  /** The RFC 7638 thumbprint of the page's key, as `keyThumbprint` returns it. */
+  /**
+   * The RFC 7638 thumbprint of the page's key, as returned by `keyThumbprint`.
+   */
   readonly dpopJkt: string;
   /** The Account and profile the page acts as, named by `accountId` and `profileId`. */
   readonly profile: ProfileSelector;
@@ -213,8 +218,8 @@ export interface BrowserAuthorizationRequest {
 /**
  * A short-lived, single-use code, redeemable only with a proof by the key
  * the authorization named, and the successor of the refresh token the
- * authorization presented, which replaces it. `expiresAt` is the code's
- * expiry and `refreshExpiresAt` the successor's.
+ * authorization presented, which the successor replaces. `expiresAt` is the
+ * code's expiry and `refreshExpiresAt` the successor's.
  */
 export interface BrowserAuthorization {
   /** The single-use code the page redeems. */
@@ -290,7 +295,7 @@ export interface Identity {
   resendCode(email: string, options?: SignInOptions): Promise<void>;
   /**
    * Verifies a sign-in code with a proof by `key`, the client's key, and
-   * returns a refresh token bound to it.
+   * returns a refresh token bound to that key.
    *
    * @param email The address the code was sent to.
    * @param code The six-digit code from the email.

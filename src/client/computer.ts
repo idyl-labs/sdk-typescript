@@ -109,8 +109,8 @@ export interface ComputerInfo {
    */
   readonly name: string;
   /**
-   * `active` in service, or `terminating` from the moment a delete is
-   * accepted until IDYL finishes releasing it.
+   * `active` in service, or `terminating` from the moment a delete is accepted
+   * until IDYL has released the Computer.
    */
   readonly phase: "active" | "terminating" | (string & Record<never, never>);
   /**
@@ -141,11 +141,11 @@ export interface ComputerInfo {
    */
   readonly shells?: readonly ImageShell[];
   /**
-   * The largest size it can run at when it was read: the largest size that
-   * fits a machine ready to run it. A create or a change at a larger size is
+   * The largest size it can run at when it was read: the largest size that fits
+   * a machine ready for the Computer. A create or a change at a larger size is
    * refused with `COMPUTER_DOES_NOT_FIT`; every size up to it is accepted.
-   * Absent while no machine is ready to run it, or when IDYL does not report
-   * it.
+   * Absent while no machine is ready for the Computer, or when IDYL reports no
+   * value.
    */
   readonly largestSize?: ComputerSize;
   /**
@@ -173,7 +173,7 @@ export interface ComputerInfo {
   readonly forkOf?: { readonly computerId?: string; readonly version: number };
   /**
    * The copy a fork makes: `copying`, then `done` or `failed`, with how
-   * much of the `total` is `copied`. Absent when IDYL does not report it.
+   * much of the `total` is `copied`. Absent when IDYL reports no value.
    */
   readonly fork?: {
     readonly state:
@@ -203,7 +203,7 @@ export interface ComputerInfo {
    * Whether it is on its way to sleep while it still runs: a sleep was asked
    * for, or its idle time has run out, and it may still be saving. A read of
    * one Computer and a list both report it; absent means it is not. A session
-   * opened before an idle sleep is released clears it.
+   * opened before an idle sleep is released clears `goingToSleep`.
    */
   readonly goingToSleep?: boolean;
 }
@@ -813,7 +813,7 @@ export class Computer {
    * its settings in force: whether the attached Secret's value can be sent,
    * judged against the version the attachment uses, and when it cannot,
    * why. It is read when asked for, from IDYL, and never wakes the
-   * Computer. Anyone who may read the Computer may read it.
+   * Computer. Anyone who may read the Computer may also read this state.
    *
    * @throws {@link ApiError} IDYL refuses the request
    * @throws {@link TransportError} the request does not complete
@@ -1073,10 +1073,10 @@ export class Computer {
 
   /**
    * Creates a Computer from a point in this Computer's history, by default
-   * its newest saved version, and waits until its copy has finished. The
-   * fork has that point's files and settings and a history of its own;
-   * unsaved changes are not in it. Check `snapshot.fork?.state` on the
-   * returned handle: `failed` means the copy did not complete.
+   * its newest saved version, and waits until its copy has finished. The fork
+   * has that point's files and settings and a history of its own; unsaved
+   * changes are left out. Check `snapshot.fork?.state` on the returned handle:
+   * `failed` means the copy did not complete.
    *
    * @throws {@link TypeError} `name` is empty, `from` is stated as
    * `undefined` (as for a cell whose save is off, pending or failed),
@@ -1311,12 +1311,12 @@ export interface ComputerImage {
   readonly patch: string;
   /**
    * Whether a create in the image's isolation class that states no image
-   * receives it.
+   * receives this image.
    */
   readonly default: boolean;
   /**
    * The isolation class the image serves, `secure-container` or `vm`: only a
-   * Computer in that class runs it.
+   * Computer in that class runs the image.
    */
   readonly isolation:
     "secure-container" | "vm" | (string & Record<never, never>);
@@ -1333,7 +1333,7 @@ export interface ImagesOptions extends CallOptions {
   readonly isolation?: "secure-container" | "vm";
 }
 
-/** One size a Computer can run at, as IDYL offers it. */
+/** One size a Computer can run at, as offered by IDYL. */
 export interface ComputerSizeInfo {
   /** The name `create` and `update` state, such as `small`. */
   readonly name: ComputerSize;

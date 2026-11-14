@@ -13,8 +13,8 @@ import init, {
 import type { PageToWorker, WorkerToPage } from "./messages.js";
 
 /**
- * The scope a Worker runs in, as far as the connection uses it: a dedicated
- * Worker's global scope, `self`.
+ * The scope a Worker runs in, limited to the parts the connection uses: a
+ * dedicated Worker's global scope, `self`.
  */
 export interface WorkerScope {
   /**

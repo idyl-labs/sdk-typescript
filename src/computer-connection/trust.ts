@@ -18,7 +18,7 @@ export const NETWORK_TRUST_ROLE = "network-trust";
 
 /** A Network trust key the client pins: its ID and raw Ed25519 public key. */
 export interface TrustKey {
-  /** The key's ID, as the Network publishes it. */
+  /** The key's ID, as published by the Network. */
   readonly keyId: string;
   /** The raw 32-byte Ed25519 public key. */
   readonly publicKey: Uint8Array;
@@ -79,9 +79,9 @@ export interface SessionTrustPolicy {
  * validity or lacks a part a connection needs; its version is lower than
  * the highest the client has accepted for that Network and scope, a
  * rollback; or the trust floor that keeps that version could not be read
- * or written, which `cause` carries. The connector's `ready`, and every
- * session waiting on it, reject with it. The message is a fixed sentence
- * naming the rule.
+ * or written, which `cause` carries. The connector's `ready` rejects with this
+ * error, and so does every session waiting on `ready`. The message is a fixed
+ * sentence naming the rule.
  */
 export class SessionTrustError extends Error {
   /**

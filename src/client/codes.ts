@@ -167,7 +167,9 @@ export const ERROR_CODE_UPLOAD_EXPIRED = "UPLOAD_EXPIRED";
 /** A files change that was cancelled, so it cannot publish. */
 export const ERROR_CODE_UPLOAD_CANCELLED = "UPLOAD_CANCELLED";
 
-/** A `continue` position the listing did not issue; list again without it. */
+/**
+ * A `continue` position the listing did not issue; list again with no position.
+ */
 export const ERROR_CODE_INVALID_CONTINUE = "INVALID_CONTINUE";
 
 /**
@@ -175,16 +177,16 @@ export const ERROR_CODE_INVALID_CONTINUE = "INVALID_CONTINUE";
  * auto-refill cannot buy more (HTTP 402). It refuses a session at once,
  * and a wake or a session that fails later for the same cause carries it as
  * its reason. A purchase, an upgrade or the start of the Account's next
- * period lets its Computers wake again; `isOutOfUsage` classifies it.
+ * period lets its Computers wake again; `isOutOfUsage` recognises this error.
  */
 export const ERROR_CODE_OUT_OF_USAGE = "OUT_OF_USAGE";
 
 /**
  * A wake, or a change of a Computer's CPU and memory to a larger size,
- * names a size larger than the Account's plan includes (HTTP 402). A change
- * to a size no larger than the Computer's own is never refused with it.
- * `sizeNotInPlan` reads its details: the size refused, the plan's largest
- * size, and the smallest plan that includes the size.
+ * names a size larger than the Account's plan includes (HTTP 402). A change to
+ * a size no larger than the Computer's own is never refused with this error.
+ * `sizeNotInPlan` reads its details: the size refused, the plan's largest size,
+ * and the smallest plan that includes the size.
  */
 export const ERROR_CODE_SIZE_NOT_IN_PLAN = "SIZE_NOT_IN_PLAN";
 
@@ -224,8 +226,8 @@ export const ERROR_CODE_PAYMENT_DISPUTED = "PAYMENT_DISPUTED";
 export const ERROR_CODE_ACTION_EXPIRED = "ACTION_EXPIRED";
 
 /**
- * Why a pending plan change failed: a later plan change of the Account
- * replaced it. Nothing was charged for it.
+ * Why a pending plan change failed: it was replaced by a later plan change of
+ * the Account. No charge was made.
  */
 export const ERROR_CODE_PLAN_CHANGE_SUPERSEDED = "PLAN_CHANGE_SUPERSEDED";
 

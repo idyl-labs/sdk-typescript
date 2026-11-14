@@ -49,7 +49,7 @@ export interface FilesSessionHandlers {
 /**
  * How a `files` session ended:
  *
- * - `closed`: the caller closed it.
+ * - `closed`: closed by the caller.
  * - `ended`: the endpoint ended the stream, as when the session's grant
  *   ends or the Computer stops.
  * - `broken`: the connection to the Computer was lost.
@@ -76,14 +76,13 @@ export interface ComputerFilesSession {
   /** Resolves once, with how the session ended. It never rejects. */
   readonly ended: Promise<FilesSessionEnding>;
   /**
-   * Watches the folder at `path`, relative to `/workspace` (`""` is the
-   * root), and asks for a pass of it. Watching a folder already watched
-   * asks for a fresh pass. A session watches at most 32 folders; a further
-   * watch is answered with the problem `too_many`. A path the endpoint
-   * takes is segments joined by `/`,
-   * no leading or trailing `/`, no empty, `.` or `..` segment, well-formed
-   * text, at most 4096 bytes in UTF-8 and at most 255 bytes per segment.
-   * Does nothing once the session has ended.
+   * Watches the folder at `path`, relative to `/workspace` (`""` is the root),
+   * and asks for a pass of that folder. Watching a folder already watched asks
+   * for a fresh pass. A session watches at most 32 folders; a further watch is
+   * answered with the problem `too_many`. A path the endpoint takes is segments
+   * joined by `/`, no leading or trailing `/`, no empty, `.` or `..` segment,
+   * well-formed text, at most 4096 bytes in UTF-8 and at most 255 bytes per
+   * segment. Does nothing once the session has ended.
    *
    * @param path the folder, relative to `/workspace`
    * @throws TypeError `path` is not one the endpoint takes; nothing is sent
