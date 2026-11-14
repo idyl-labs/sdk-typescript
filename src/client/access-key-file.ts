@@ -95,11 +95,12 @@ interface FileDocument {
  * Decodes an access key file strictly, at most 4096 bytes: one JSON object
  * with exactly the members of the format, of type `idyl-access-key`,
  * naming a network domain, a canonical access key ID and a twelve-digit
- * Account ID, and an Ed25519 or P-256 private key whose public members
- * match it. The private key is imported non-extractable unless
- * `options.extractable` is set.
+ * Account ID, and an Ed25519 or P-256 private key with matching public members.
+ * The private key is imported non-extractable unless `options.extractable` is
+ * set.
  *
- * @param text The access key file's text, as {@link CreatedAccessKey.keyFile} gave it.
+ * @param text The access key file's text, exactly as given by
+ *   {@link CreatedAccessKey.keyFile}.
  * @throws {@link TypeError} the text is not a valid access key file; the
  *   message names the problem and no key material
  */
@@ -360,7 +361,7 @@ interface HeldToken {
  * has expired, a failed exchange rejects the requests that waited for it
  * and is tried again by the next.
  *
- * @param file The access key, as {@link parseAccessKeyFile} returns it.
+ * @param file The access key, in the form {@link parseAccessKeyFile} returns.
  * @param identity The identity of a client for the key's network, which
  *   performs the exchanges.
  * @throws {@link TypeError} `file` is missing, names a malformed access key

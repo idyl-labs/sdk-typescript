@@ -105,9 +105,9 @@ export interface SecretKey {
   readonly sizeBytes: number;
 }
 
-/** A Secret, as every read reports it. */
+/** A Secret, as reported by every read. */
 export interface Secret {
-  /** The Secret's ID, a canonical UUID; a Computer's attachment holds it. */
+  /** The Secret's ID, a canonical UUID, held by a Computer's attachment. */
   readonly id: string;
   /** The Secret's name, unique within its Namespace. */
   readonly name: string;
@@ -134,8 +134,8 @@ export interface Secret {
    */
   readonly resourceVersion: number;
   /**
-   * `active`, or `tombstone` once deleted. A state this package does not
-   * name is carried as IDYL reported it.
+   * `active`, or `tombstone` once deleted. A state this package does not name
+   * is carried unchanged from IDYL's report.
    */
   readonly state: string;
   /**
@@ -182,9 +182,9 @@ export interface SecretContentOptions extends CallOptions {
    * `https://<host>`, such as `https://api.example.com`, on port 443: an
    * origin may write `:443`, and any other port is refused with `origin must
    * use port 443`, because the value is added only to requests on port 443.
-   * A wildcard is the whole leftmost label, `https://*.example.com`, and
-   * covers every name below it. The value goes to no other origin, and each
-   * origin can read it, so name only the API hosts that need it.
+   * A wildcard is the whole leftmost label, `https://*.example.com`, and covers
+   * every name below that label. The value goes to no other origin, and each
+   * origin can read it, so name only the API hosts that need the value.
    */
   readonly origins: readonly string[];
   /** The place in a request the value fills. */
@@ -288,12 +288,12 @@ export interface SecretVersion {
  */
 export interface Secrets {
   /**
-   * Creates a Secret and returns it as a read reports it. Creating the same
-   * Secret again returns it; other content under a name in use is refused
-   * with `VAULT_RESOURCE_VERSION_CONFLICT`. Creating a Secret under the name
-   * of one deleted within seven days restores that Secret, with its ID, and
-   * the Computers attached to it resume. No error message ever contains
-   * the value or the key.
+   * Creates a Secret and returns it in the form a read reports. Creating the
+   * same Secret again returns it; other content under a name in use is refused
+   * with `VAULT_RESOURCE_VERSION_CONFLICT`. Creating a Secret under the name of
+   * one deleted within seven days restores that Secret, with its ID, and the
+   * Computers attached to it resume. No error message ever contains the value
+   * or the key.
    *
    * @throws {@link TypeError} an option is invalid, naming the field,
    *   before any request is sent
@@ -753,8 +753,8 @@ export interface SecretAttachmentStatus {
   readonly secret: string;
   /**
    * `healthy`; `expiring`, within seven days of the value's expiry; or
-   * `broken`, when the value is not sent. A health this package does not
-   * name is carried as IDYL reported it.
+   * `broken`, when the value is not sent. A health this package does not name
+   * is carried unchanged from IDYL's report.
    */
   readonly health: string;
   /**
@@ -774,8 +774,8 @@ export interface SecretAttachmentStatus {
 }
 
 /**
- * One attachment of a Secret in one Computer's settings, as
- * `computers.listBySecret` reads it.
+ * One attachment of a Secret in one Computer's settings, as read by
+ * `computers.listBySecret`.
  */
 export interface ComputerSecretUse {
   /** The ID of the Computer that holds the attachment. */
@@ -793,7 +793,7 @@ export interface ComputerSecretUse {
   readonly attached: boolean;
   /**
    * The version the attachment is pinned to; absent when it follows the
-   * Secret's current version, so a rotation reaches it.
+   * Secret's current version, and so receives each rotation.
    */
   readonly version?: number;
 }

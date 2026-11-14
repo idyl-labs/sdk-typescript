@@ -23,15 +23,15 @@ export const ERROR_CODE_OUT_OF_USAGE = "OUT_OF_USAGE";
  * Returned with HTTP 402 when a wake, or a change of a Computer's CPU and
  * memory to a larger size, names a size larger than the Account's plan
  * includes. A change to a size no larger than the Computer's own is never
- * refused with it. It refuses a resize at once, and fails a wake, a pending
- * session (reason `SIZE_NOT_IN_PLAN`) and a notebook cell (error reason
+ * refused with this error. It refuses a resize at once, and fails a wake, a
+ * pending session (reason `SIZE_NOT_IN_PLAN`) and a notebook cell (error reason
  * `size-not-in-plan`). The details carry the keys
  * {@link SIZE_NOT_IN_PLAN_DETAIL_SIZE},
  * {@link SIZE_NOT_IN_PLAN_DETAIL_LARGEST_SIZE},
  * {@link SIZE_NOT_IN_PLAN_DETAIL_PLAN} and
- * {@link SIZE_NOT_IN_PLAN_DETAIL_PLAN_NAME}; see `SizeNotInPlanDetails`.
- * A resize to a size the plan includes, or an
- * upgrade to the plan named, lets the Computer wake.
+ * {@link SIZE_NOT_IN_PLAN_DETAIL_PLAN_NAME}; see `SizeNotInPlanDetails`. A
+ * resize to a size the plan includes, or an upgrade to the plan named, lets the
+ * Computer wake.
  */
 export const ERROR_CODE_SIZE_NOT_IN_PLAN = "SIZE_NOT_IN_PLAN";
 
@@ -81,7 +81,7 @@ export const ERROR_CODE_ACTION_EXPIRED = "ACTION_EXPIRED";
 
 /**
  * The reason a pending plan change failed because a later plan change of
- * the Account replaced it. Nothing was charged for it.
+ * the Account replaced it. No charge was made.
  */
 export const ERROR_CODE_PLAN_CHANGE_SUPERSEDED = "PLAN_CHANGE_SUPERSEDED";
 

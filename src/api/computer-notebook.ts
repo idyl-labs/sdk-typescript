@@ -177,7 +177,7 @@ export interface UpdateComputerNotebookRequest {
    * describes.
    */
   readonly name?: string;
-  /** Pins the notebook, or with `false` unpins it. */
+  /** Pins the notebook, or unpins with `false`. */
   readonly pinned?: boolean;
 }
 

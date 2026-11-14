@@ -287,7 +287,9 @@ export interface FileStoreWait {
   readonly fillTotal: number;
 }
 
-/** What an upload published, and how the running Computer received it. */
+/**
+ * What an upload published, and how the running Computer received the upload.
+ */
 export interface Uploaded {
   /** The saved version the upload published. */
   readonly version: number;
@@ -341,12 +343,12 @@ export interface ReplacedPath {
  * absolute path, or one that would leave the workspace, is refused with a
  * `TypeError` before any request. Each `upload`, `move` or `remove`
  * publishes one saved version however many files it touches and resolves
- * with that version; `upload` also says how the running Computer received
- * it. `download` reads a saved version. On a running Computer, a name a
- * program creates, moves or removes reaches `list` and `watch` at once with
- * the status `syncing`, and reads `synced` once it is saved, about ten
- * seconds after writes go quiet, at the end of a command, or on
- * `computer.save()`; its content follows with that save.
+ * with that version; `upload` also says how the running Computer received the
+ * files. `download` reads a saved version. On a running Computer, a name a
+ * program creates, moves or removes reaches `list` and `watch` at once with the
+ * status `syncing`, and reads `synced` once it is saved, about ten seconds
+ * after writes go quiet, at the end of a command, or on `computer.save()`; its
+ * content follows with that save.
  *
  * A change that ends without publishing, because another change to the same
  * files was published first or it expired, rejects with an `ApiError`
@@ -379,7 +381,8 @@ export interface Files {
    *   `mode` is stated with `archive`, before any request is sent
    * @throws {@link ApiError} IDYL refuses the upload or one of its parts, or
    *   the upload ends without publishing (status 409, with the outcome's
-   *   code, such as `UPLOAD_CONFLICT`, or the size reason that stopped it)
+   *   code, such as `UPLOAD_CONFLICT`, or the size reason that stopped the
+   *   upload)
    * @throws {@link TransportError} a request does not complete
    */
   upload(
@@ -397,7 +400,8 @@ export interface Files {
    *   is sent
    * @throws {@link ApiError} IDYL refuses the upload or one of its parts, or
    *   the upload ends without publishing (status 409, with the outcome's
-   *   code, such as `UPLOAD_CONFLICT`, or the size reason that stopped it)
+   *   code, such as `UPLOAD_CONFLICT`, or the size reason that stopped the
+   *   upload)
    * @throws {@link TransportError} a request does not complete
    */
   upload(

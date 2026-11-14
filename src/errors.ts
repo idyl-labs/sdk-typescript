@@ -102,8 +102,8 @@ export class ApiError extends Error {
    */
   declare readonly detail?: string;
   /**
-   * Structured context, where the code documents it: {@link sizeNotInPlan},
-   * {@link sizeBelowUsage} and {@link spendCapReached} read it.
+   * Structured context, where the code documents one; {@link sizeNotInPlan},
+   * {@link sizeBelowUsage} and {@link spendCapReached} are its readers.
    */
   declare readonly details?: JsonObject;
   /** The server's request identifier, when it returned one. */
@@ -220,11 +220,11 @@ export type TransportErrorCode =
 
 /**
  * A request that did not complete: no answer arrived from the platform, or
- * the answer could not be used. `code` classifies it. The
- * message is a fixed sentence built from the code and, where one helps, a
- * fixed detail naming the rule that failed: it never carries a token, a
- * command, its output, or text a peer sent. `cause` carries the underlying
- * failure when there is one.
+ * the answer could not be used. `code` classifies the error. The message is a
+ * fixed sentence built from the code and, where one helps, a fixed detail
+ * naming the rule that failed: it never carries a token, a command, its output,
+ * or text a peer sent. `cause` carries the underlying failure when there is
+ * one.
  *
  * A request that failed this way may or may not have reached the platform,
  * so the package never retries it, with one exception: the reads of
@@ -268,7 +268,7 @@ export function isApiStatus(error: unknown, status: number): error is ApiError {
 /**
  * Reports whether `error` is an {@link ApiError} carrying the given stable code.
  *
- * @param error any value, as a `catch` receives it
+ * @param error any value a `catch` receives
  * @param code the stable code to match, such as an `ERROR_CODE_*` constant
  */
 export function isApiCode(error: unknown, code: string): error is ApiError {
@@ -299,7 +299,7 @@ export interface SizeNotInPlanDetails {
   readonly largestSize: ComputerSize;
   /**
    * The smallest plan that includes `size`; the empty string when no plan
-   * includes it.
+   * includes that size.
    */
   readonly plan: BillingPlan;
   /** That plan's name for display; the empty string when no plan includes `size`. */
@@ -345,7 +345,7 @@ export interface SpendCapReachedDetails {
  * wake or a session that fails later for the same cause carries the code as
  * its reason instead.
  *
- * @param error any value, as a `catch` receives it
+ * @param error any value a `catch` receives
  */
 export function isOutOfUsage(error: unknown): error is ApiError {
   return isApiCode(error, ERROR_CODE_OUT_OF_USAGE);
@@ -360,7 +360,7 @@ export function isOutOfUsage(error: unknown): error is ApiError {
  * name is ignored, and a key the error does not carry, or carries in
  * another form, reads as the empty string.
  *
- * @param error any value, as a `catch` receives it
+ * @param error any value a `catch` receives
  */
 export function sizeNotInPlan(
   error: unknown,
@@ -384,7 +384,7 @@ export function sizeNotInPlan(
  * own: a key carried in another form, a byte count below zero or past
  * `Number.MAX_SAFE_INTEGER` included, reads as zero or the empty string.
  *
- * @param error any value, as a `catch` receives it
+ * @param error any value a `catch` receives
  */
 export function sizeBelowUsage(
   error: unknown,
@@ -406,7 +406,7 @@ export function sizeBelowUsage(
  * are read as {@link sizeNotInPlan} reads its own: a key carried in another
  * form, an amount past the safe-integer range included, reads as zero.
  *
- * @param error any value, as a `catch` receives it
+ * @param error any value a `catch` receives
  */
 export function spendCapReached(
   error: unknown,

@@ -23,7 +23,7 @@ export interface CallOptions {
 /**
  * One page of a listing. `continue` is present on every page but the last:
  * pass it back unchanged as the `continue` option to read the next page.
- * It is opaque and is valid only for the listing that returned it.
+ * It is opaque and is valid only for its own listing.
  */
 export interface Page<T> {
   /** The page's items, in the listing's order; empty when there are none. */

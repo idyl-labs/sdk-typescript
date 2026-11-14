@@ -498,8 +498,7 @@ export interface ComputerConnector {
    * session's renewals, leaving it to its lease. An `ssh` session's stream carries raw SSH bytes
    * after `opened`, not frames, so the connector never opens one: OpenSSH
    * does. An open of mode `ssh` or `reattach` rejects with a `TypeError`
-   * before anything is sent, so it neither wakes the Computer nor reaches
-   * it.
+   * before anything is sent, so it neither wakes nor reaches the Computer.
    *
    * @param computer the Computer's ID
    * @throws TypeError `open` is not one the endpoint takes; nothing is sent
@@ -523,8 +522,9 @@ export interface ComputerConnector {
    * `handlers`. Resolves once its stream is open; it watches nothing until
    * the caller calls `watch`. A Computer that is not awake refuses the
    * session with a `ComputerNotAwakeError` and is neither woken nor kept
-   * awake: the returned promise rejects with it, or, when the stream was
-   * opened before the refusal arrived, the session ends `failed` with it.
+   * awake: the returned promise rejects with that error, or, when the stream
+   * was opened before the refusal arrived, the session ends `failed` with the
+   * same error.
    *
    * @param computer the Computer's ID
    * @throws {@link ComputerNotAwakeError} the Computer is not awake
@@ -1291,14 +1291,14 @@ function sameEndpoint(
 /**
  * A session that ended before it opened: its create answered it in a final
  * phase (`ended`, `failed`, or `cancelled`) without the endpoint its stream
- * opens on, so no endpoint served it and nothing ran in it. A session whose
- * Computer was put to sleep before it started is answered `cancelled`.
- * `phase` and `reason` are what a caller branches on; the message is for
- * people. The open rejects with it when it waited for the create's answer,
- * and a stream already sent fails with it the moment the answer arrives.
+ * opens on, so no endpoint served the session and nothing ran. A session whose
+ * Computer was put to sleep before it started is answered `cancelled`. `phase`
+ * and `reason` are what a caller branches on; the message is for people. The
+ * open rejects with it when it waited for the create's answer, and a stream
+ * already sent fails with it the moment the answer arrives.
  */
 export class ComputerSessionEndedError extends Error {
-  /** The session's ID, as the create answered it. */
+  /** The session's ID, as answered by the create. */
   readonly session: ComputerSessionId;
   /** The final phase the session is in: `ended`, `failed` or `cancelled`. */
   readonly phase: EndedPhase;

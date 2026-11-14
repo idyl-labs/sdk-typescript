@@ -244,10 +244,10 @@ export function stdinFrames(data: Uint8Array): Uint8Array[] {
 
 /**
  * A session frame that cannot be read: one longer than the frame bound, not
- * UTF-8 JSON, not an object, or with a field of the wrong form. The stream
- * it arrived on ends, and the session's `output` errors with it. The
- * message is a fixed sentence naming the rule; it never carries the
- * frame's bytes.
+ * UTF-8 JSON, not an object, or with a field of the wrong form. The stream it
+ * arrived on ends, and the session's `output` fails with the same error. The
+ * message is a fixed sentence naming the rule; it never carries the frame's
+ * bytes.
  */
 export class FrameError extends Error {
   /**

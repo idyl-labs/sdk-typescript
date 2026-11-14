@@ -326,8 +326,8 @@ export interface ComputersService
    * The state of each Secret attachment of the Computer addressed by name:
    * one item per attachment in its execution settings in force, in their
    * order, saying whether the attached Secret's value can be sent and, when
-   * it cannot, why. Anyone who may read the Computer may read it. Throws a
-   * `TypeError` when `name` is blank.
+   * it cannot, why. Anyone who may read the Computer may also read this state.
+   * Throws a `TypeError` when `name` is blank.
    */
   listSecrets(
     name: string,

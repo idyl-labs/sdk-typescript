@@ -37,8 +37,8 @@ export interface CredentialContext {
  * the client.
  *
  * Every token is opaque to the package: it is presented with a proof and
- * never inspected, logged, or stored beyond the request that used it. A
- * source may be consulted concurrently by requests in flight at once.
+ * never inspected, logged, or stored beyond its own request. A source may be
+ * consulted concurrently by requests in flight at once.
  */
 export interface CredentialSource {
   /**
@@ -86,7 +86,7 @@ export function staticCredential(
  * for every authenticated request with the request's
  * {@link CredentialContext}.
  *
- * @param source Returns the credential for one request, or a promise of it.
+ * @param source Returns the credential for one request, or a promise of one.
  * @throws {@link TypeError} `source` is not a function
  */
 export function credentialSourceFunc(

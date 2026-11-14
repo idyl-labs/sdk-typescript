@@ -68,9 +68,9 @@ export interface DownloadOptions extends CallOptions {
  * A downloaded file or archive, read the way a `fetch` response is read:
  * once, by one of `stream`, `bytes`, `text`, `json` or `blob`. It is
  * streamed one piece at a time, never buffered beyond the piece in progress,
- * at most 4 MiB, until a reader asks for the whole of it. Nothing is
- * connected until the first read, so a body never read needs no cleanup; a
- * stream abandoned partway should be cancelled with `cancel()`.
+ * at most 4 MiB, until a reader asks for the whole body. Nothing is connected
+ * until the first read, so a body never read needs no cleanup; a stream
+ * abandoned partway should be cancelled with `cancel()`.
  *
  * The stream survives breaks. A cut, a silent connection (30 s) or a server
  * error is retried from the byte the stream reached, waiting 1 s doubling to
