@@ -21,10 +21,9 @@
  * `ERROR_CODE_VCPU_LIMIT_REACHED`, so nothing has to be checked first.
  *
  * Every amount of money is in US dollars, as a whole number of
- * micro-dollars (`MICROS_PER_DOLLAR` to the dollar), so usage priced by the
- * minute is exact and sums without rounding. Amounts are never negative,
- * and every amount field is always written, since zero is a reading.
- * Amounts are 64-bit integers on the wire: a value within
+ * micro-dollars (`MICROS_PER_DOLLAR` to the dollar), so amounts sum without
+ * rounding. Amounts are never negative, and every amount field is always
+ * written, since zero is a reading. Amounts are 64-bit integers on the wire: a value within
  * `Number.MAX_SAFE_INTEGER` reads as a number, a larger one as a bigint.
  */
 import {
@@ -386,8 +385,8 @@ export interface BillingSizeRate {
   readonly size: ComputerSize;
   /**
    * The price of one hour the Computer is awake at `size`, in
-   * micro-dollars; a Computer is charged for the seconds it is awake. Zero
-   * is a rate. Always written.
+   * micro-dollars. A Computer is billed for the time it is awake at this
+   * rate: half an hour costs half the rate. Zero is a rate. Always written.
    */
   readonly perHourMicros: Integer;
   /** The name a person reads for the size this rate prices, such as `Small`. */

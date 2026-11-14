@@ -120,8 +120,9 @@ export interface BillingSizeRate {
   /** The size this rate prices. */
   readonly size: ComputerSize;
   /**
-   * The price of one hour a Computer is awake at `size`, in micro-dollars;
-   * a Computer is charged for the seconds it is awake. Zero is a rate.
+   * The price of one hour a Computer is awake at `size`, in micro-dollars.
+   * A Computer is billed for the time it is awake at this rate: half an
+   * hour costs half the rate. Zero is a rate.
    */
   readonly perHourMicros: number;
   /** The name to show a person for the size, such as `Small`. */
@@ -348,8 +349,8 @@ export interface AccountBillingStatus {
  * A plan change, not `spec`, moves the Account to another plan.
  *
  * Every amount of money is in US dollars, as a whole number of
- * micro-dollars (`MICROS_PER_DOLLAR` to the dollar), so usage priced by the
- * minute is exact and sums without rounding. Amounts are never negative.
+ * micro-dollars (`MICROS_PER_DOLLAR` to the dollar), so amounts sum without
+ * rounding. Amounts are never negative.
  */
 export interface AccountBilling {
   /** What the Account's owner sets: auto-refill and the spend cap. */
