@@ -395,7 +395,7 @@ export interface Secrets {
   /**
    * Every time IDYL opened a value of the Secret with this name, newest
    * first, page by page: when, which version, the Computer or Pod it was
-   * opened for, the outcome and who reported it. The record names
+   * opened for, the outcome and who reported the decryption. The record names
    * the Secret by name, so it holds decryptions made before the Secret was
    * deleted and created again. No entry carries a value. It is read only
    * when asked for, never on a Computer's wake, terminal or cell.

@@ -9,10 +9,12 @@ import type { VaultDecryption } from "../api/vault.js";
 import { numberOf } from "./records.js";
 
 /**
- * One time IDYL opened a Secret's stored value, as the record reports it.
+ * One time IDYL opened a Secret's stored value, as the record reports the
+ * decryption.
  * Vault, which keeps the sealed values, and the key service that seals them
  * each report every decryption, so the record holds a decryption whether or
- * not Vault's code reported it. IDYL keeps each entry for 90 days.
+ * not Vault's code reported the decryption. IDYL keeps each entry for 90
+ * days.
  *
  * A Computer's start opens the values it attaches, and a later use can
  * open a value again.
