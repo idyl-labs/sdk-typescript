@@ -829,12 +829,12 @@ export class Computer {
   /**
    * Every Secret value IDYL opened for the Computer, newest first, page by
    * page: when, which Secret and version, the start it was opened for, the
-   * outcome and who reported it. The record names the Computer by its ID,
-   * so a Computer of the same name created after a delete has a record of
-   * its own. A decryption only the key service reported names no Computer
-   * and is in the Secret's record alone, `idyl.secrets.decryptions`. No
-   * entry carries a value. The record is read only when asked for: a
-   * Computer read, a listing and a wake never carry it.
+   * outcome and who reported the decryption. The record names the Computer
+   * by its ID, so a Computer of the same name created after a delete has a
+   * record of its own. A decryption only the key service reported names no
+   * Computer and is in the Secret's record alone, `idyl.secrets.decryptions`.
+   * No entry carries a value. The record is read only when asked for: a
+   * Computer read, a listing and a wake never carry the record.
    *
    * @throws {@link TypeError} `limit` is not a positive integer, before any
    * request is sent
