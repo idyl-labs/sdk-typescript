@@ -863,9 +863,7 @@ export class Computer {
    * @throws {@link TransportError} the request does not complete, or its
    * answer is not a valid decryption
    */
-  async decryptionsPage(
-    options: PageOptions = {},
-  ): Promise<Page<Decryption>> {
+  async decryptionsPage(options: PageOptions = {}): Promise<Page<Decryption>> {
     const { state, record } = internalsOf(this);
     const limit = requireLimit(options.limit);
     const offset = offsetOf(options.continue);

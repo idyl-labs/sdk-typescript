@@ -454,9 +454,7 @@ export function validateVaultDecryption(record: VaultDecryption): void {
     );
   }
   if (!isResourceId(record.resourceId)) {
-    throw new TypeError(
-      "vault decryption resourceId must be a canonical UUID",
-    );
+    throw new TypeError("vault decryption resourceId must be a canonical UUID");
   }
   if (record.name === "") {
     throw new TypeError("vault decryption name is required");
@@ -473,9 +471,7 @@ export function validateVaultDecryption(record: VaultDecryption): void {
     throw new TypeError("vault decryption names a Computer and a Pod");
   }
   if (computerId !== "" && !isComputerId(computerId)) {
-    throw new TypeError(
-      "vault decryption computerId must be a canonical UUID",
-    );
+    throw new TypeError("vault decryption computerId must be a canonical UUID");
   }
   if (podId !== "" && !isUuidId(podId)) {
     throw new TypeError("vault decryption podId must be a canonical UUID");

@@ -5,10 +5,7 @@
  * stored value. The public type is built from the served record field by
  * field; no entry carries a value.
  */
-import {
-  validateVaultDecryption,
-  type VaultDecryption,
-} from "../api/vault.js";
+import { validateVaultDecryption, type VaultDecryption } from "../api/vault.js";
 import { TransportError } from "../errors.js";
 import { errorMessage } from "../resource/validation.js";
 import { numberOf } from "./records.js";
@@ -61,20 +58,14 @@ export interface Decryption {
    * this package does not name is carried unchanged from IDYL's report.
    */
   readonly outcome:
-    | "opened"
-    | "refused"
-    | "failed"
-    | (string & Record<never, never>);
+    "opened" | "refused" | "failed" | (string & Record<never, never>);
   /**
    * Who reported the decryption: `vault`, `kms` for the key service alone,
    * which means Vault's code did not report it, or `both`. A reporter this
    * package does not name is carried unchanged from IDYL's report.
    */
   readonly reportedBy:
-    | "vault"
-    | "kms"
-    | "both"
-    | (string & Record<never, never>);
+    "vault" | "kms" | "both" | (string & Record<never, never>);
   /**
    * The key service's ID of the request, which names the same decryption in
    * the key service's own log. Absent only when Vault's request received no

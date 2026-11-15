@@ -69,8 +69,7 @@ describe("idyl.secrets.decryptions", () => {
   // Computer.
   it("reads a Secret's record page by page", async () => {
     const network = new FakeNetwork((request) =>
-      request.method === "GET" &&
-      request.url.pathname === secretDecryptionsPath
+      request.method === "GET" && request.url.pathname === secretDecryptionsPath
         ? json(goldenPage())
         : undefined,
     );
