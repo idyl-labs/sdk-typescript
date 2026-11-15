@@ -119,7 +119,7 @@ export const PAGES = [
     slug: "secrets",
     title: "idyl.secrets",
     subject: "Secrets",
-    sources: ["client/secrets.ts"],
+    sources: ["client/secrets.ts", "client/decryptions.ts"],
   },
   {
     slug: "billing",
