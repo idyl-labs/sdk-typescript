@@ -23,7 +23,7 @@ export interface Decryption {
   /** When the value was opened, as an RFC 3339 instant. */
   readonly at: string;
   /**
-   * The kind of the opened resource: `Secret`, or `TLSCertificate` for a
+   * The kind of the opened resource: `Secret`, or "TLSCertificate" for a TLS
    * certificate a Pod mounts.
    */
   readonly kind: string;
