@@ -34,9 +34,7 @@ import { parseTimestamp } from "../resource/shapes.js";
 import { errorMessage } from "../resource/validation.js";
 import { vaultSecretsService } from "../services/vault-secrets.js";
 import {
-  offsetContinue,
-  offsetOf,
-  pageOf,
+  offsetPage,
   requireLimit,
   requireText,
   signalOf,
@@ -446,43 +444,22 @@ export function secrets(
 ): Secrets {
   const service = async (options: CallOptions | undefined) =>
     vaultSecretsService(await context(signalOf(options)));
-  const listPage = async (options: PageOptions = {}): Promise<Page<Secret>> => {
-    const limit = requireLimit(options.limit);
-    const offset = offsetOf(options.continue) ?? 0;
-    const page = await (
-      await service(options)
-    ).list(
-      {
-        ...(limit === undefined ? {} : { limit }),
-        ...(offset === 0 ? {} : { offset }),
-      },
-      signalOf(options),
+  const listPage = async (options: PageOptions = {}): Promise<Page<Secret>> =>
+    await offsetPage(
+      options,
+      async (page, call) => await (await service(options)).list(page, call),
+      secretOf,
     );
-    return pageOf(
-      page.items.map(secretOf),
-      offsetContinue(offset, page.items.length, page.totalCount),
-    );
-  };
   const decryptionsPage = async (
     name: string,
     options: PageOptions = {},
   ): Promise<Page<Decryption>> => {
     const secretName = requireText(name, "secret name");
-    const limit = requireLimit(options.limit);
-    const offset = offsetOf(options.continue) ?? 0;
-    const page = await (
-      await service(options)
-    ).listDecryptions(
-      secretName,
-      {
-        ...(limit === undefined ? {} : { limit }),
-        ...(offset === 0 ? {} : { offset }),
-      },
-      signalOf(options),
-    );
-    return pageOf(
-      page.items.map(decryptionOf),
-      offsetContinue(offset, page.items.length, page.totalCount),
+    return await offsetPage(
+      options,
+      async (page, call) =>
+        await (await service(options)).listDecryptions(secretName, page, call),
+      decryptionOf,
     );
   };
   return Object.freeze({

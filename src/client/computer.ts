@@ -35,7 +35,7 @@ import {
 } from "../wait.js";
 import {
   clientOf,
-  offsetContinue,
+  offsetPage,
   pageOf,
   pageRequest,
   requireLimit,
@@ -866,21 +866,13 @@ export class Computer {
    */
   async decryptionsPage(options: PageOptions = {}): Promise<Page<Decryption>> {
     const { state, record } = internalsOf(this);
-    const limit = requireLimit(options.limit);
-    const offset = offsetOf(options.continue);
-    const page = await vaultSecretsService(
-      await state.context(signalOf(options)),
-    ).listComputerDecryptions(
-      record.id,
-      {
-        ...(limit === undefined ? {} : { limit }),
-        ...(offset === 0 ? {} : { offset }),
-      },
-      signalOf(options),
-    );
-    return pageOf(
-      page.items.map(decryptionOf),
-      offsetContinue(offset, page.items.length, page.totalCount),
+    return await offsetPage(
+      options,
+      async (page, call) =>
+        await vaultSecretsService(
+          await state.context(call),
+        ).listComputerDecryptions(record.id, page, call),
+      decryptionOf,
     );
   }
 
