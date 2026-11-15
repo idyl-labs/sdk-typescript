@@ -113,7 +113,7 @@ export const COMPUTER_SESSION_RENEW_INTERVAL_MS = 60_000;
  * command, never an interactive shell. A records stream reads the
  * notebook's cell records, their output included, from the Computer itself.
  * The notebook must exist in the Computer; a session naming one that does
- * not is refused with HTTP 404 and `ERROR_CODE_NOTEBOOK_NOT_FOUND`. A
+ * not is refused with HTTP 404 and `NOTEBOOK_NOT_FOUND`. A
  * notebook runs one cell at a time: a cell created while another cell of
  * the same notebook runs waits in phase `pending` with reason
  * `NotebookBusy` until that cell ends.

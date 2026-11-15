@@ -27,7 +27,6 @@ import { validateWorkloadSessionTerminalProfile } from "../api/workload-session.
 import { ApiError, TransportError } from "../errors.js";
 import {
   isComputerSessionId,
-  parseComputerNotebookId,
   type ComputerSessionId,
 } from "../resource/uuid-id.js";
 import { pollUntil } from "../wait.js";
@@ -189,11 +188,10 @@ export interface ComputerConnectorOptions {
 /** What one session stream runs. */
 export interface SessionOpen {
   /**
-   * What the stream runs: `shell`, an interactive shell on a terminal;
-   * `exec`, one command; `cell`, a script as a notebook's next cell; or
-   * `records`, the recorded cells of a notebook and their output.
+   * What the stream runs: `shell`, an interactive shell on a terminal; or
+   * `exec`, one command.
    */
-  readonly mode: "shell" | "exec" | "cell" | "records";
+  readonly mode: "shell" | "exec";
   /**
    * The shell a `shell` session runs, as a clean absolute path; when
    * absent, the Computer chooses.
@@ -204,11 +202,9 @@ export interface SessionOpen {
    * at most 32 KiB together, the first naming the program.
    */
   readonly command?: readonly string[];
-  /** A `cell` session's script: 1 byte to 32 KiB, without NUL. */
-  readonly script?: string;
   /**
-   * Whether the session runs on a terminal. A `shell` session always does
-   * and a `cell` or `records` stream never does; `false` when absent.
+   * Whether the session runs on a terminal. A `shell` session always does;
+   * `false` when absent.
    */
   readonly tty?: boolean;
   /** The terminal's size; stated when, and only when, `tty` is `true`. */
@@ -220,15 +216,6 @@ export interface SessionOpen {
   readonly term?: string;
   /** The terminal's locale, such as `C.UTF-8`; only a terminal session states one. */
   readonly locale?: string;
-  /** The notebook a cell runs in or a records stream reads, by name. */
-  readonly notebook?: string;
-  /** The notebook's ID, which a records stream names. */
-  readonly notebookId?: string;
-  /**
-   * Where a `records` stream resumes: it reads the records after the one
-   * of this `order`, a non-negative integer. Absent reads from the first.
-   */
-  readonly after?: number;
 }
 
 /** What any session stream the connector opens runs. */
@@ -238,7 +225,7 @@ type StreamOpen = Omit<SessionOpen, "mode"> & {
 
 /** The most arguments an exec's command holds. */
 const MAX_COMMAND_ARGS = 1024;
-/** The most bytes an exec's command or a cell's script holds. */
+/** The most bytes an exec's command holds. */
 const MAX_COMMAND_BYTES = 32 << 10;
 
 /** The largest terminal dimension, in character cells. */
@@ -249,14 +236,11 @@ const MAX_TERMINAL_DIMENSION = 10_000;
  * endpoint judges its open frame: a terminal states its size, 1 to 10000
  * cells each way, and a type and locale
  * `validateWorkloadSessionTerminalProfile` admits, and only a terminal
- * does; a shell runs on a terminal, names no
- * command or script, and names its shell, when it does, by a clean
- * absolute path; an exec names its command alone, 1 to 1024 arguments of
- * at most 32 KiB together, the first naming its program; a cell runs a
- * script of 1 byte to 32 KiB without a terminal; and a records stream
- * names its notebook's ID and, when it resumes, a non-negative `after`. An
- * `ssh` stream is refused: it carries raw bytes after `opened` and opens
- * with OpenSSH. Throws a `TypeError`.
+ * does; a shell runs on a terminal, names no command, and names its shell,
+ * when it does, by a clean absolute path; and an exec names its command
+ * alone, 1 to 1024 arguments of at most 32 KiB together, the first naming
+ * its program. An `ssh` stream is refused: it carries raw bytes after
+ * `opened` and opens with OpenSSH. Throws a `TypeError`.
  */
 export function validateSessionOpen(open: StreamOpen): void {
   const mode: string = open.mode;
@@ -267,7 +251,6 @@ export function validateSessionOpen(open: StreamOpen): void {
   }
   const tty = open.tty ?? false;
   const command = open.command ?? [];
-  const script = open.script ?? "";
   const shell = open.shell ?? "";
   if (tty !== (open.size !== undefined)) {
     throw new TypeError(
@@ -289,17 +272,11 @@ export function validateSessionOpen(open: StreamOpen): void {
       ...(open.locale === undefined ? {} : { locale: open.locale }),
     });
   }
-  if (
-    open.mode !== "records" &&
-    (open.notebookId !== undefined || open.after !== undefined)
-  ) {
-    throw new TypeError("only a records stream names a notebook");
-  }
   switch (open.mode) {
     case "shell":
-      if (!tty || command.length > 0 || script !== "") {
+      if (!tty || command.length > 0) {
         throw new TypeError(
-          "a shell session runs on a terminal and names no command or script",
+          "a shell session runs on a terminal and names no command",
         );
       }
       if (shell !== "" && !isCleanAbsolutePath(shell)) {
@@ -309,43 +286,13 @@ export function validateSessionOpen(open: StreamOpen): void {
       }
       break;
     case "exec":
-      if (shell !== "" || script !== "") {
+      if (shell !== "") {
         throw new TypeError("an exec names its command alone");
       }
       validateCommand(command);
       break;
-    case "cell":
-      if (tty || shell !== "" || command.length > 0) {
-        throw new TypeError(
-          "a cell runs its script without a terminal and names nothing else",
-        );
-      }
-      if (
-        script === "" ||
-        utf8.encode(script).length > MAX_COMMAND_BYTES ||
-        script.includes("\0")
-      ) {
-        throw new TypeError(
-          `a cell's script must be 1 to ${String(MAX_COMMAND_BYTES)} bytes without NUL`,
-        );
-      }
-      break;
-    case "records":
-      if (tty || shell !== "" || command.length > 0 || script !== "") {
-        throw new TypeError("a records stream names its notebook alone");
-      }
-      parseComputerNotebookId(open.notebookId ?? "");
-      if (open.after !== undefined) {
-        if (!Number.isSafeInteger(open.after)) {
-          throw new TypeError("after must be an integer");
-        }
-        if (open.after < 0) {
-          throw new TypeError("after must not be negative");
-        }
-      }
-      break;
     case "files":
-      if (tty || shell !== "" || command.length > 0 || script !== "") {
+      if (tty || shell !== "" || command.length > 0) {
         throw new TypeError("a files stream names nothing else");
       }
       break;
@@ -405,8 +352,7 @@ function validateCommand(command: readonly string[]): void {
 /**
  * The features an open asks for, by mode: an exec asks for its save result
  * after exit. The endpoint refuses a feature its mode does not take: a shell
- * takes no save result, and a cell, a records stream or a files stream
- * takes no feature.
+ * takes no save result, and a files stream takes no feature.
  */
 function featuresFor(mode: StreamOpen["mode"]): readonly SessionFeature[] {
   return mode === "exec" ? ["save-result"] : [];
@@ -663,7 +609,6 @@ class Connector implements ComputerConnector {
       endpoint: { mode: open.mode },
       idempotencyKey: requestID,
       client: this.#o.client ?? "sdk",
-      ...(open.notebook === undefined ? {} : { notebook: open.notebook }),
     };
     validateCreateComputerSessionRequest(request);
     await this.ready();
@@ -717,7 +662,7 @@ class Connector implements ComputerConnector {
     const session = await this.#stream(computer, connection, requestID, open);
     created.then(
       (served) => {
-        session.served(served.id, served.status.cell);
+        session.served(served.id);
       },
       (error: unknown) => {
         session.fail(error);
@@ -994,7 +939,7 @@ class Connector implements ComputerConnector {
    * Renews every session the page holds. A session the platform does not
    * know or holds as final is never renewed again; its stream is left to
    * the endpoint, which ends it when its permit runs out, so output still
-   * on the way, such as a cell's exit and save result, is not cut off. A
+   * on the way, such as a command's exit and save result, is not cut off. A
    * session whose renewal failed for any other reason is renewed at the
    * next interval.
    */
@@ -1173,14 +1118,9 @@ class Connector implements ComputerConnector {
       features: featuresFor(open.mode),
       ...(open.shell === undefined ? {} : { shell: open.shell }),
       ...(open.command === undefined ? {} : { command: open.command }),
-      ...(open.script === undefined ? {} : { script: open.script }),
       ...(open.size === undefined ? {} : { size: open.size }),
       ...(open.term === undefined ? {} : { term: open.term }),
       ...(open.locale === undefined ? {} : { locale: open.locale }),
-      ...(open.notebookId === undefined || open.mode !== "records"
-        ? {}
-        : { notebook: open.notebookId }),
-      ...(open.after === undefined ? {} : { after: open.after }),
     };
     send(encodeFrame({ type: "open", ...frame }));
     return session;
@@ -1375,8 +1315,6 @@ export interface ComputerSessionStream {
   readonly output: ReadableStream<SessionOutput>;
   /** The session's ID, once its create has answered. */
   readonly id: string | undefined;
-  /** The notebook cell a cell session records, once its create has answered. */
-  readonly cell: string | undefined;
   /**
    * Sends input to the process, in order.
    *
@@ -1416,7 +1354,6 @@ class SessionStream implements ComputerSessionStream {
   /** The mode the stream's open names, which its `opened` must answer. */
   readonly #mode: SessionMode;
   #id: string | undefined;
-  #cell: string | undefined;
   readonly #send: (bytes: Uint8Array) => void;
   readonly #finish: () => void;
   readonly #forget: () => void;
@@ -1509,15 +1446,9 @@ class SessionStream implements ComputerSessionStream {
     this.#finish();
   }
 
-  /** The notebook cell a cell session records, once its create has answered. */
-  get cell(): string | undefined {
-    return this.#cell;
-  }
-
   /** @internal The session's create answered. */
-  served(id: string, cell: string | undefined): void {
+  served(id: string): void {
     this.#id = id;
-    this.#cell = cell;
     // A session closed before its create answered is not renewed.
     if (this.#closed) this.#forget();
     this.#abandonUnstarted();

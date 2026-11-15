@@ -6,4 +6,12 @@
  * served registry; the suite fails if the two disagree with the fixtures on
  * disk.
  */
-export const pendingServedFiles: readonly string[] = [];
+export const pendingServedFiles: readonly string[] = [
+  "computer-notebook.cells-page.json",
+  "computer-notebook.create-request.json",
+  "computer-notebook.empty.json",
+  "computer-notebook.full.json",
+  "computer-notebook.list-page.json",
+  "computer-notebook.rename-request.json",
+  "computer-notebook.update-request.json",
+];

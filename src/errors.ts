@@ -9,8 +9,8 @@
  *   before any request is sent.
  * - A request IDYL refuses rejects with an {@link ApiError}. Its `code` is
  *   stable: classify it with {@link isApiCode} and the `ERROR_CODE_*`
- *   constants, never by its message. {@link NotebookNotFoundError} and
- *   {@link ComputerNotAwakeError} are the codes with classes of their own.
+ *   constants, never by its message. {@link ComputerNotAwakeError} is the
+ *   code with a class of its own.
  * - A request that does not complete rejects with a
  *   {@link TransportError}, classified by its `code`.
  * - A command that ends other than with exit code 0 rejects with an
@@ -145,25 +145,6 @@ function describeApiError(options: ApiErrorOptions): string {
 }
 
 /**
- * The platform's refusal of a call that names a notebook the Computer does
- * not have, carrying `NOTEBOOK_NOT_FOUND`. A notebook comes into being only
- * through `computer.notebooks.create(name)`, which is repeat-safe, so a
- * caller that may meet a Computer without the notebook creates it before
- * its first run.
- */
-export class NotebookNotFoundError extends ApiError {
-  /** Builds the error from what the refusal carried. */
-  constructor(options: ApiErrorOptions) {
-    super(options);
-    this.name = "NotebookNotFoundError";
-    this.message = `${this.message} (create the notebook with computer.notebooks.create(name) before running a cell in it)`;
-  }
-}
-
-/** The code on {@link NotebookNotFoundError}. */
-const NOTEBOOK_NOT_FOUND = "NOTEBOOK_NOT_FOUND";
-
-/**
  * The platform's refusal of a `files` session on a Computer that is not
  * awake, carrying `COMPUTER_NOT_AWAKE` with HTTP 409. The refusal neither
  * wakes the Computer nor keeps it awake; a caller lists the Computer's
@@ -182,14 +163,11 @@ const COMPUTER_NOT_AWAKE = "COMPUTER_NOT_AWAKE";
 
 /**
  * Builds the error a non-2xx response becomes: a
- * {@link NotebookNotFoundError} for `NOTEBOOK_NOT_FOUND`, a
  * {@link ComputerNotAwakeError} for `COMPUTER_NOT_AWAKE`, an
  * {@link ApiError} otherwise.
  */
 export function apiError(options: ApiErrorOptions): ApiError {
   switch (options.code) {
-    case NOTEBOOK_NOT_FOUND:
-      return new NotebookNotFoundError(options);
     case COMPUTER_NOT_AWAKE:
       return new ComputerNotAwakeError(options);
     default:
@@ -553,8 +531,6 @@ export interface CommandOutput {
   readonly stdout: string;
   /** Its standard error, decoded as UTF-8. */
   readonly stderr: string;
-  /** The notebook cell that recorded it, when it ran in a notebook. */
-  readonly cell?: string;
 }
 
 /**
@@ -570,8 +546,6 @@ export class ExitError extends Error implements CommandOutput {
   readonly stdout: string;
   /** Its standard error, decoded as UTF-8. */
   readonly stderr: string;
-  /** The notebook cell that recorded it, when it ran in a notebook. */
-  declare readonly cell?: string;
 
   /**
    * Builds the error from how the command ended. The package builds every
@@ -597,7 +571,6 @@ export class ExitError extends Error implements CommandOutput {
     if (signal !== undefined) this.signal = signal;
     this.stdout = output.stdout;
     this.stderr = output.stderr;
-    if (output.cell !== undefined) this.cell = output.cell;
   }
 }
 
@@ -617,8 +590,6 @@ export class CommandSaveError extends Error implements CommandOutput {
   readonly stdout: string;
   /** Its standard error, decoded as UTF-8. */
   readonly stderr: string;
-  /** The notebook cell that recorded it, when it ran in a notebook. */
-  declare readonly cell?: string;
 
   /**
    * Builds the error from the save's outcome. The package builds every
@@ -641,7 +612,6 @@ export class CommandSaveError extends Error implements CommandOutput {
     if (exitCode !== undefined) this.exitCode = exitCode;
     this.stdout = output.stdout;
     this.stderr = output.stderr;
-    if (output.cell !== undefined) this.cell = output.cell;
   }
 }
 
@@ -661,8 +631,6 @@ export class CommandSessionError extends Error implements CommandOutput {
   readonly stdout: string;
   /** Its standard error so far, decoded as UTF-8. */
   readonly stderr: string;
-  /** The notebook cell that recorded it, when it ran in a notebook. */
-  declare readonly cell?: string;
 
   /**
    * Builds the error from the session's failure. The package builds every
@@ -681,7 +649,6 @@ export class CommandSessionError extends Error implements CommandOutput {
     this.code = code;
     this.stdout = output.stdout;
     this.stderr = output.stderr;
-    if (output.cell !== undefined) this.cell = output.cell;
   }
 }
 

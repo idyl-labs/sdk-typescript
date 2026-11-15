@@ -165,7 +165,7 @@ it expects as a strong ETag in `If-Match` and the caller's key in
 `Idempotency-Key`, and a purge states its confirmation in its body; both
 guards are judged before anything is sent. A Computer's attachment states
 and the Computers that attach one Secret are read on the Computers' own
-routes, when asked for, and never on a wake, a terminal or a cell.
+routes, when asked for, and never on a wake, a terminal or a command.
 
 The record of decryptions, every time IDYL opened a Secret's value, is read
 on the Namespace's Vault routes: a Secret's by its name and a Computer's by
@@ -232,15 +232,15 @@ measured only while a reader is waiting. A refusal ends it at once.
 
 ## Computer sessions
 
-Every command, terminal, notebook cell and live files listing runs as a
+Every command, terminal and live files listing runs as a
 session on the Computer's own session endpoint, through a
 `ComputerConnector` from `idyl.computers.connector`, end-to-end encrypted
 between the client and the Computer. It is the one session path. In a browser
 page the connection runs in a dedicated Worker, which keeps its key and its TLS
 connections away from the page; a program with no page runs the same code in
 its own thread (`src/computer-connection/in-thread.ts`), loaded on its first
-command so the client's own build carries none of it. `Computer.exec` and
-`Notebook.run` (`src/client/exec.ts`) are one session read to its end, and
+command so the client's own build carries none of it. `Computer.exec`
+(`src/client/exec.ts`) is one session read to its end, and
 `Computer.terminal` (`src/client/terminal.ts`) holds the connection until its
 shell ends; every other operation runs on every runtime.
 
@@ -339,7 +339,7 @@ together on one placement resolution, off the path of any session's open.
 A session whose renewal the platform answers with HTTP 404, with HTTP 409
 and `SESSION_FINAL`, or in a final phase is never renewed again; its
 stream is left to the endpoint, which ends it when its permit runs out, so
-output still on the way, such as a cell's exit and save result, is not cut
+output still on the way, such as a command's exit and save result, is not cut
 off. Any other failed renewal, such as a network failure, HTTP 429 or a
 server error, is sent again at the next minute. A session left unrenewed
 ends about three minutes after its last renewal. A `files` session lists folders from a Computer that is awake and
@@ -352,8 +352,7 @@ on one placement resolution. A create's answer must carry a canonical
 session ID and Computer ID, and a read or a renewal that names another
 session is refused. A session create is judged before it is sent: the shell
 operation, the endpoint attachment and its arm, no shell for an `ssh`
-session, a notebook exactly for a cell or a records stream, and the
-idempotency key its stream names.
+session, and the idempotency key its stream names.
 
 ## Errors
 
@@ -364,7 +363,6 @@ class and code:
 | --------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `TypeError`                 | Invalid input, before any request, named by field.                                                     |
 | `ApiError`                  | The platform refused: `status`, `code`, `detail`, `requestId`.                                         |
-| `NotebookNotFoundError`     | An `ApiError` carrying `NOTEBOOK_NOT_FOUND`.                                                           |
 | `ComputerNotAwakeError`     | An `ApiError` carrying `COMPUTER_NOT_AWAKE`: a `files` session on a Computer that is not awake.        |
 | `TransportError`            | The request did not complete, or its answer could not be used; `code` is a closed vocabulary.          |
 | `SessionTrustError`         | The Network's signed session trust was refused; the connector's `ready` rejects with it.               |

@@ -2,7 +2,7 @@
 
 /*
  * The public views of the records a Computer serves: its settings, its
- * cells and their saves, its history and its saved versions. Each is built
+ * history and its saved versions. Each is built
  * field by field from the served record, so a field the product does not
  * offer never reaches a caller.
  */
@@ -10,8 +10,6 @@ import type {
   ComputerAwake,
   ComputerSessionSummary,
 } from "../api/computer-awake.js";
-import type { ComputerCellSave } from "../api/computer-cell-save.js";
-import type { ComputerCell } from "../api/computer-cell.js";
 import type { JournalEntry } from "../api/journal.js";
 import type { Version as VersionRecord } from "../api/storage.js";
 import type { ComputerEffectiveExecutionSettings } from "../api/computer.js";
@@ -85,97 +83,8 @@ export interface ExecutionSettings {
 }
 
 /**
- * The save that covers a command: `saved` with the version it published,
- * `unchanged` when there was nothing to save, `failed` with its reason,
- * `off` when the Computer does not save on its own, or `pending` or
- * `retrying` while it is under way. A state this package does not name is
- * carried as reported.
- */
-export interface Save {
-  /** Where the save stands, as the description of {@link Save} lists. */
-  readonly state:
-    | "pending"
-    | "retrying"
-    | "saved"
-    | "unchanged"
-    | "failed"
-    | "off"
-    | (string & Record<never, never>);
-  /** The version a `saved` save published. */
-  readonly version?: number;
-  /** The history entry that owns the published version, which a fork can start from. */
-  readonly entry?: string;
-  /** Why a `failed` save failed, as a stable code. */
-  readonly reason?: string;
-}
-
-/** How a cell's process ended, when it is known. */
-export interface CellProcess {
-  /** `exited`, `signaled`, `unknown` or `start-unknown`. */
-  readonly outcome: string;
-  /** The exit code of an `exited` process, when it was observed; zero is a reading. */
-  readonly exitCode?: number;
-  /** The signal that ended a `signaled` process, as the machine reports it, when it was observed. */
-  readonly signal?: string;
-}
-
-/**
- * One command a notebook recorded. `state` is `running` until its process
- * is over and then `ended`, or `error` when its session never ran it;
- * `error` says why. `command` is the command as recorded, its arguments
- * joined by spaces, and `commandTruncated` says the record holds only its
- * start. A cell run through a connector records its script on the Computer
- * alone, so its `command` is empty; a `records` session reads the script.
- */
-export interface Cell {
-  /** The cell's ID, which a fork can start from. */
-  readonly id: string;
-  /** The name of the notebook that recorded the cell. */
-  readonly notebook?: string;
-  /** The ID of the session that ran the cell. */
-  readonly session?: string;
-  /** The command as recorded, its arguments joined by spaces; empty for a script. */
-  readonly command: string;
-  /** Whether `command` holds only the start of the command. */
-  readonly commandTruncated: boolean;
-  /**
-   * `running`, then `ended`; or `error` when its session never ran the cell.
-   */
-  readonly state:
-    "running" | "ended" | "error" | (string & Record<never, never>);
-  /** Why a cell in state `error` never ran, as a stable code. */
-  readonly error?: { readonly reason: string };
-  /** How its process ended, once that is known. */
-  readonly process?: CellProcess;
-  /**
-   * What ended the cell's session, once it has ended: `exited` when its
-   * command ended, `client-disconnected` when the client that ran it closed
-   * the session (the command is then ended with it), `deadline`,
-   * `put-to-sleep`, `forked`, `interrupted`, `runtime-error`,
-   * `node-restarted`, `unknown`, or a reason this package does not name,
-   * carried as reported.
-   */
-  readonly termination?: string;
-  /** How much output the cell produced, in bytes. */
-  readonly output: {
-    readonly stdoutBytes?: number;
-    readonly stderrBytes?: number;
-  };
-  /** The save that covers it, once one does. */
-  readonly save?: Save;
-  /** Who ran the cell. */
-  readonly creator: string;
-  /** The kind of client that ran it, such as `sdk` or `console`. */
-  readonly client: string;
-  /** When its process started, as an RFC 3339 instant, once that is reported. */
-  readonly startedAt?: string;
-  /** When it ended, as an RFC 3339 instant; absent while it runs. */
-  readonly endedAt?: string;
-}
-
-/**
  * One entry of a Computer's history, newest first. `kind` is `genesis`,
- * `cell`, `execution-settings`, `upload`, `edit`, `restore`, `save`,
+ * `execution-settings`, `upload`, `edit`, `restore`, `save`,
  * `fork-point`, `rename`, `wake` or `sleep`, or one this package does not
  * name. `version` is
  * the saved version the entry owns, when it owns one. `creator` names who
@@ -199,14 +108,8 @@ export interface HistoryEntry {
    * informative and grants nothing.
    */
   readonly client?: string;
-  /** The cell a `cell` entry records. */
-  readonly cell?: Cell;
-  /** What caused a `save` entry, and the notebook cell it covers when it covers one. */
-  readonly save?: {
-    readonly trigger: string;
-    readonly notebook?: string;
-    readonly cell?: string;
-  };
+  /** What caused a `save` entry. */
+  readonly save?: { readonly trigger: string };
   /** The settings after an `execution-settings` or `restore` entry. */
   readonly settings?: ExecutionSettings;
   /**
@@ -238,8 +141,8 @@ export interface HistoryEntry {
   };
   /**
    * What started a `wake` entry's Computer: `session` is the kind of session,
-   * `terminal`, `command`, `notebook-cell` or `ssh`. Absent on a wake
-   * request.
+   * `terminal`, `command` or `ssh`, or a kind this package does not name.
+   * Absent on a wake request.
    */
   readonly wake?: { readonly session: string };
   /**
@@ -290,12 +193,10 @@ export interface OpenSession {
   /** The session's ID. */
   readonly id: string;
   /**
-   * `terminal`, `command`, `notebook-cell`, `ssh` (an SSH connection), or a
-   * kind newer than this SDK.
+   * `terminal`, `command`, `ssh` (an SSH connection), or a kind this
+   * package does not name.
    */
   readonly kind: string;
-  /** The notebook a `notebook-cell` runs in. */
-  readonly notebook?: string;
   /** The kind of client that opened it, or `unknown`. It is informative. */
   readonly client: string;
   /** The identity that opened the session. */
@@ -440,62 +341,6 @@ export function settingsOf(
   });
 }
 
-/** The public view of a save. */
-export function saveOf(save: ComputerCellSave | undefined): Save | undefined {
-  if (save === undefined) return undefined;
-  return Object.freeze({
-    state: save.state,
-    ...present("version", optionalNumber(save.version)),
-    ...present("entry", save.entry),
-    ...present("reason", save.reason),
-  });
-}
-
-/** The public view of a cell. */
-export function cellOf(cell: ComputerCell): Cell {
-  const { text, truncated } = commandOf(cell);
-  return Object.freeze({
-    id: cell.id,
-    ...present("notebook", cell.notebook),
-    ...present("session", cell.session),
-    command: text,
-    commandTruncated: truncated,
-    state: cell.state,
-    ...present(
-      "error",
-      cell.error === undefined
-        ? undefined
-        : Object.freeze({ reason: cell.error.reason }),
-    ),
-    ...present(
-      "process",
-      cell.process === undefined
-        ? undefined
-        : Object.freeze({
-            outcome: cell.process.outcome,
-            ...present("exitCode", optionalNumber(cell.process.exitCode)),
-            ...present("signal", cell.process.signal),
-          }),
-    ),
-    ...present("termination", cell.termination),
-    output: Object.freeze({
-      ...present("stdoutBytes", optionalNumber(cell.output.stdoutBytes)),
-      ...present("stderrBytes", optionalNumber(cell.output.stderrBytes)),
-    }),
-    ...present("save", saveOf(cell.save)),
-    creator: cell.creator,
-    client: cell.client,
-    ...present("startedAt", cell.startedAt),
-    ...present("endedAt", cell.endedAt),
-  });
-}
-
-function commandOf(cell: ComputerCell): { text: string; truncated: boolean } {
-  const { exec } = cell.command;
-  if (exec === undefined) return { text: "", truncated: false };
-  return { text: exec.argv.join(" "), truncated: exec.truncated === true };
-}
-
 /** The public view of a history entry. */
 export function historyEntryOf(entry: JournalEntry): HistoryEntry {
   return Object.freeze({
@@ -509,18 +354,10 @@ export function historyEntryOf(entry: JournalEntry): HistoryEntry {
       entry.client ?? entry.cell?.client ?? entry.executionSettings?.client,
     ),
     ...present(
-      "cell",
-      entry.cell === undefined ? undefined : cellOf(entry.cell),
-    ),
-    ...present(
       "save",
       entry.save === undefined
         ? undefined
-        : Object.freeze({
-            trigger: entry.save.trigger,
-            ...present("notebook", entry.save.notebook),
-            ...present("cell", entry.save.cell),
-          }),
+        : Object.freeze({ trigger: entry.save.trigger }),
     ),
     ...present(
       "settings",
@@ -589,7 +426,6 @@ export function openSessionOf(session: ComputerSessionSummary): OpenSession {
   return Object.freeze({
     id: session.id,
     kind: session.kind,
-    ...present("notebook", session.notebook),
     client: session.client,
     openedBy: session.openedBy,
     openedAt: session.openedAt,

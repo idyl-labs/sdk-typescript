@@ -100,12 +100,9 @@ export type { TrustFloor } from "./computer-connection/trust-floor.js";
 export type {
   Awake,
   AwakeHold,
-  Cell,
-  CellProcess,
   ExecutionSettings,
   HistoryEntry,
   OpenSession,
-  Save,
   Version,
 } from "./client/records.js";
 export type {
@@ -132,12 +129,6 @@ export type {
   UploadOptions,
   UploadProgress,
 } from "./client/files.js";
-export type {
-  Notebook,
-  NotebookInfo,
-  Notebooks,
-  UpdateNotebookOptions,
-} from "./client/notebooks.js";
 export type {
   ComputerSettingsOptions,
   SecretAttachment,
@@ -221,7 +212,6 @@ export {
   type CommandOutput,
   ApiError,
   ComputerNotAwakeError,
-  NotebookNotFoundError,
   TransportError,
   isApiCode,
   isOutOfUsage,

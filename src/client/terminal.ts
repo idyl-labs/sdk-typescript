@@ -93,9 +93,6 @@ export async function openTerminal(
     get id() {
       return session.id;
     },
-    get cell() {
-      return session.cell;
-    },
     write: (data: Uint8Array) => {
       session.write(data);
     },

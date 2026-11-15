@@ -66,7 +66,6 @@ import {
   type UpdateComputerRequest,
   type UpdateComputerResponse,
 } from "../../src/api/computer.js";
-import { validateComputerCell } from "../../src/api/computer-cell.js";
 import {
   decodeComputerImage,
   decodeListComputerImagesResponse,
@@ -77,24 +76,6 @@ import {
   type ComputerImage,
   type ListComputerImagesResponse,
 } from "../../src/api/computer-image.js";
-import {
-  createComputerNotebookRequestShape,
-  decodeComputerNotebook,
-  decodeListComputerNotebookCellsResponse,
-  decodeListComputerNotebooksResponse,
-  encodeComputerNotebook,
-  encodeListComputerNotebookCellsResponse,
-  encodeListComputerNotebooksResponse,
-  updateComputerNotebookRequestShape,
-  validateComputerNotebook,
-  validateCreateComputerNotebookRequest,
-  validateUpdateComputerNotebookRequest,
-  type ComputerNotebook,
-  type CreateComputerNotebookRequest,
-  type ListComputerNotebookCellsResponse,
-  type ListComputerNotebooksResponse,
-  type UpdateComputerNotebookRequest,
-} from "../../src/api/computer-notebook.js";
 import {
   createComputerSessionRequestShape,
   decodeComputerSession,
@@ -233,39 +214,6 @@ const computerSession: ServedCodec<ComputerSession> = {
   encode: encodeComputerSession,
   validate: validateComputerSession,
 };
-
-const computerNotebook: ServedCodec<ComputerNotebook> = {
-  decode: decodeComputerNotebook,
-  encode: encodeComputerNotebook,
-  validate: validateComputerNotebook,
-};
-
-const computerNotebookPage: ServedCodec<ListComputerNotebooksResponse> = {
-  decode: decodeListComputerNotebooksResponse,
-  encode: encodeListComputerNotebooksResponse,
-  validate: (page) => {
-    for (const notebook of page.items) validateComputerNotebook(notebook);
-  },
-};
-
-const computerNotebookCellsPage: ServedCodec<ListComputerNotebookCellsResponse> =
-  {
-    decode: decodeListComputerNotebookCellsResponse,
-    encode: encodeListComputerNotebookCellsResponse,
-    validate: (page) => {
-      for (const cell of page.items) validateComputerCell(cell);
-    },
-  };
-
-const createComputerNotebookRequest = envelope<CreateComputerNotebookRequest>(
-  createComputerNotebookRequestShape,
-  validateCreateComputerNotebookRequest,
-);
-
-const updateComputerNotebookRequest = envelope<UpdateComputerNotebookRequest>(
-  updateComputerNotebookRequestShape,
-  validateUpdateComputerNotebookRequest,
-);
 
 const computerJournalEntry: ServedCodec<JournalEntry> = {
   decode: decodeJournalEntry,
@@ -411,12 +359,6 @@ export const servedRegistry: ReadonlyMap<
     "computer-session.endpoint-create-request-ssh",
     createComputerSessionRequest,
   ],
-  ["computer-notebook", computerNotebook],
-  ["computer-notebook.list-page", computerNotebookPage],
-  ["computer-notebook.cells-page", computerNotebookCellsPage],
-  ["computer-notebook.create-request", createComputerNotebookRequest],
-  ["computer-notebook.update-request", updateComputerNotebookRequest],
-  ["computer-notebook.rename-request", updateComputerNotebookRequest],
   ["vault-decryption", vaultDecryption],
   ["vault-decryptions", vaultDecryptions],
 ]);

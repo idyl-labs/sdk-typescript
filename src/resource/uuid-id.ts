@@ -32,12 +32,6 @@ export type ComputerId = Branded<"ComputerId">;
 export type ComputerSessionId = Branded<"ComputerSessionId">;
 
 /**
- * Identifies a notebook of a Computer. It is assigned when the notebook is
- * created and never changes, while the notebook's name may.
- */
-export type ComputerNotebookId = Branded<"ComputerNotebookId">;
-
-/**
  * Identifies a requested change of an Account's plan and its retained
  * result.
  */
@@ -149,14 +143,6 @@ export function isComputerSessionId(
   value: unknown,
 ): value is ComputerSessionId {
   return isUuidId(value);
-}
-
-/**
- * Converts a raw string to a {@link ComputerNotebookId}, admitting only the
- * canonical UUID form. Throws a `TypeError` naming the family otherwise.
- */
-export function parseComputerNotebookId(value: string): ComputerNotebookId {
-  return parseUuidId(value, "computer notebook ID") as ComputerNotebookId;
 }
 
 /**

@@ -12,9 +12,8 @@
 /**
  * Returned with HTTP 402 when a Computer's Account has used its month's
  * allowance and its extra usage, and auto-refill cannot buy more (standing
- * `out`). It refuses a session at once, and fails a wake, a pending session
- * (reason `OUT_OF_USAGE`) and a notebook cell (error reason
- * `out-of-usage`). It carries no details. A purchase, an upgrade or the
+ * `out`). It refuses a session at once, and fails a wake and a pending
+ * session (reason `OUT_OF_USAGE`). It carries no details. A purchase, an upgrade or the
  * start of the Account's next period lets its Computers wake again.
  */
 export const ERROR_CODE_OUT_OF_USAGE = "OUT_OF_USAGE";
@@ -23,9 +22,8 @@ export const ERROR_CODE_OUT_OF_USAGE = "OUT_OF_USAGE";
  * Returned with HTTP 402 when a wake, or a change of a Computer's CPU and
  * memory to a larger size, names a size larger than the Account's plan
  * includes. A change to a size no larger than the Computer's own is never
- * refused with this error. It refuses a resize at once, and fails a wake, a
- * pending session (reason `SIZE_NOT_IN_PLAN`) and a notebook cell (error reason
- * `size-not-in-plan`). The details carry the keys
+ * refused with this error. It refuses a resize at once, and fails a wake and
+ * a pending session (reason `SIZE_NOT_IN_PLAN`). The details carry the keys
  * {@link SIZE_NOT_IN_PLAN_DETAIL_SIZE},
  * {@link SIZE_NOT_IN_PLAN_DETAIL_LARGEST_SIZE},
  * {@link SIZE_NOT_IN_PLAN_DETAIL_PLAN} and
@@ -37,9 +35,8 @@ export const ERROR_CODE_SIZE_NOT_IN_PLAN = "SIZE_NOT_IN_PLAN";
 
 /**
  * The reason a wake fails when it would take the vCPU of the Account's awake
- * Computers past what its plan allows at once. It fails a wake, a pending
- * session (reason `VCPU_LIMIT_REACHED`) and a notebook cell (error reason
- * `vcpu-limit-reached`). It carries no details. Computers already awake keep
+ * Computers past what its plan allows at once. It fails a wake and a
+ * pending session (reason `VCPU_LIMIT_REACHED`). It carries no details. Computers already awake keep
  * running. Putting another Computer to sleep, or upgrading to a plan with a
  * higher limit, lets the Computer wake. The count can briefly lag a change, so
  * a wake just after a sleep can fail with it and succeed when asked again.

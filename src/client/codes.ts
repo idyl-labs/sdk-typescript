@@ -12,12 +12,6 @@ import {
 } from "../api/storage.js";
 
 /**
- * A call that names a notebook the Computer does not have (HTTP 404). It is
- * always a `NotebookNotFoundError`.
- */
-export const ERROR_CODE_NOTEBOOK_NOT_FOUND = "NOTEBOOK_NOT_FOUND";
-
-/**
  * Execution is not turned on for the Computer, so it runs no command. A
  * command runs once execution is turned on.
  */
@@ -279,7 +273,6 @@ export {
  * codes, which arrive as their own strings.
  */
 export type ApiErrorCode =
-  | typeof ERROR_CODE_NOTEBOOK_NOT_FOUND
   | typeof ERROR_CODE_EXECUTION_NOT_ENABLED
   | typeof ERROR_CODE_COMPUTER_TERMINATING
   | typeof ERROR_CODE_PROFILE_FITS_NO_HOST

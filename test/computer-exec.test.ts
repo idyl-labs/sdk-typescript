@@ -44,7 +44,6 @@ function fake(
   const stream: ComputerSessionStream = {
     requestId: "request",
     id: undefined,
-    cell: undefined,
     output: new ReadableStream<SessionOutput>({
       start(controller) {
         for (const frame of frames) controller.enqueue(frame);
@@ -310,35 +309,6 @@ describe("runCommand", () => {
     );
     expect(reads).toEqual([SESSION, SESSION, SESSION]);
     expect(result).toMatchObject({ save: "published", version: 9 });
-  });
-
-  // Contract: a cell's run names its cell, from the session's read when the
-  // create had not named it, on a result and on an error alike.
-  it("names the cell of a notebook run", async () => {
-    const read = () =>
-      Promise.resolve({
-        status: { cell: "cell-1", save: { state: "unchanged" } },
-      } as never);
-    const open = { mode: "cell", script: "true", notebook: "notes" } as const;
-    const ran = await runCommand(
-      fake([opened, exit0]).connector,
-      COMPUTER,
-      open,
-      read,
-      undefined,
-    );
-    expect(ran.cell).toBe("cell-1");
-    const error = await rejection(
-      runCommand(
-        fake([opened, { type: "exit", code: 4 }]).connector,
-        COMPUTER,
-        open,
-        read,
-        undefined,
-      ),
-    );
-    expect(error).toBeInstanceOf(ExitError);
-    expect((error as ExitError).cell).toBe("cell-1");
   });
 
   // Contract: a Computer that does not save reports so, and is not an error.

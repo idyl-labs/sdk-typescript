@@ -44,12 +44,7 @@ export function validateStorageResourceReference(
 export interface ForkReference {
   readonly source: StorageResourceReference;
   /**
-   * The source entry the fork starts at: an entry of the source's journal,
-   * or a cell of one of the source Computer's notebooks. A fork from a
-   * notebook cell starts at the save that covers that cell and receives that
-   * one notebook up to and including the cell, continuing from its shell
-   * state; forking from a cell requires permission to read the source's
-   * notebooks. Other notebooks are never copied.
+   * The source entry the fork starts at: an entry of the source's journal.
    */
   readonly entry: JournalEntryId;
 }

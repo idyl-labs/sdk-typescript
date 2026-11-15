@@ -2,12 +2,10 @@
 
 /*
  * A Computer's journal is its history. A private session records no
- * entry, and a notebook
- * session's Cell is listed through its notebook. Anyone who may read the
- * Computer may read its whole journal, including entries other identities
- * caused. Every journal call addresses the Computer by
- * name or by its stable identity, as the session calls do, on the Subnet the
- * client's placement resolves to.
+ * entry. Anyone who may read the Computer may read its whole journal,
+ * including entries other identities caused. Every journal call addresses
+ * the Computer by name or by its stable identity, as the session calls do,
+ * on the Subnet the client's placement resolves to.
  */
 import { TransportError } from "../errors.js";
 import type { NamespaceScope } from "../api/types.js";
