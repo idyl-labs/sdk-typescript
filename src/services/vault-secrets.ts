@@ -12,6 +12,7 @@
  */
 import { TransportError } from "../errors.js";
 import {
+  decodeVaultDecryption,
   decodeVaultVersionMetadata,
   encodePurgeVaultResourceRequest,
   encodeRotateVaultSecretRequest,
@@ -20,6 +21,7 @@ import {
   validateVaultRotateOptions,
   VAULT_HEADER_IDEMPOTENCY_KEY,
   VAULT_HEADER_IF_MATCH,
+  type ListVaultDecryptionsResponse,
   type ListVaultSecretsResponse,
   type ListVaultVersionsResponse,
   type PurgeVaultResourceRequest,
@@ -108,6 +110,18 @@ export interface VaultSecretsService {
     options?: ListOptions,
     request?: RequestOptions,
   ): Promise<ListVaultVersionsResponse>;
+  /**
+   * One page of the record of every decryption of the named Secret's
+   * values, newest first. The record names the Secret by name, so it holds
+   * decryptions made before the Secret was deleted and created again.
+   * `limit` and `offset` page it; a record of another Subnet in the page is
+   * refused with a `TransportError`.
+   */
+  listDecryptions(
+    name: string,
+    options?: ListOptions,
+    request?: RequestOptions,
+  ): Promise<ListVaultDecryptionsResponse>;
   /**
    * Deletes the named Secret. It can be restored for seven days by writing
    * to its name, and the Computers attached to it resume when it is.
@@ -270,6 +284,19 @@ export function vaultSecretsService(
       );
       return readList(response, "secret versions", decodeVaultVersionMetadata);
     },
+    async listDecryptions(name, options = {}, request = {}) {
+      const secretName = requireNonBlank(name, "secret name");
+      const query = listQuery(options);
+      const { resolved, response } = await send(
+        "GET",
+        secretPath(secretName, `/decryptions${query}`),
+        request,
+      );
+      return addressedDecryptions(
+        readList(response, "decryptions", decodeVaultDecryption),
+        resolved,
+      );
+    },
     async delete(name, options = {}) {
       const { response } = await send(
         "DELETE",
@@ -287,6 +314,23 @@ export function vaultSecretsService(
       };
     },
   };
+}
+
+/**
+ * Refuses a page of decryption records that names a Subnet other than the
+ * addressed one, which the routes never serve.
+ */
+export function addressedDecryptions(
+  page: ListVaultDecryptionsResponse,
+  resolved: ResolvedPlacement,
+): ListVaultDecryptionsResponse {
+  if (!page.items.every((record) => record.subnet === resolved.subnet)) {
+    throw new TransportError(
+      "invalid_response",
+      "decryption list names a record outside the addressed subnet",
+    );
+  }
+  return page;
 }
 
 /**

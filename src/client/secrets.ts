@@ -46,6 +46,7 @@ import {
   type Page,
   type PageOptions,
 } from "./common.js";
+import { decryptionOf, type Decryption } from "./decryptions.js";
 import { numberOf } from "./records.js";
 
 /**
@@ -394,6 +395,38 @@ export interface Secrets {
     options?: SecretVersionsOptions,
   ): Promise<readonly SecretVersion[]>;
   /**
+   * Every time IDYL opened a value of the Secret with this name, newest
+   * first, page by page: when, which version, the Computer or Pod it was
+   * opened for, the outcome and who reported it. The record names
+   * the Secret by name, so it holds decryptions made before the Secret was
+   * deleted and created again. No entry carries a value. It is read only
+   * when asked for, never on a Computer's wake, terminal or cell.
+   *
+   * @param name - The Secret's name.
+   * @throws {@link TypeError} `name` is empty, or `limit` is not a positive
+   *   integer, before any request is sent
+   * @throws {@link ApiError} IDYL refuses a page's request
+   * @throws {@link TransportError} a page's request does not complete, or
+   *   its answer is not a valid decryption
+   */
+  decryptions(name: string, options?: ListOptions): AsyncIterable<Decryption>;
+  /**
+   * One page of the record of every time IDYL opened a value of the Secret
+   * with this name, newest first.
+   *
+   * @param name - The Secret's name.
+   * @throws {@link TypeError} `name` is empty, `limit` is not a positive
+   *   integer, or `continue` is not one a page of this listing returned,
+   *   before any request is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or its
+   *   answer is not a valid decryption
+   */
+  decryptionsPage(
+    name: string,
+    options?: PageOptions,
+  ): Promise<Page<Decryption>>;
+  /**
    * Deletes the Secret with this name. For seven days, creating a Secret of
    * its name restores it, with its ID. To stop one Computer using a Secret,
    * detach it from that Computer instead.
@@ -427,6 +460,28 @@ export function secrets(
     );
     return pageOf(
       page.items.map(secretOf),
+      offsetContinue(offset, page.items.length, page.totalCount),
+    );
+  };
+  const decryptionsPage = async (
+    name: string,
+    options: PageOptions = {},
+  ): Promise<Page<Decryption>> => {
+    const secretName = requireText(name, "secret name");
+    const limit = requireLimit(options.limit);
+    const offset = offsetOf(options.continue) ?? 0;
+    const page = await (
+      await service(options)
+    ).listDecryptions(
+      secretName,
+      {
+        ...(limit === undefined ? {} : { limit }),
+        ...(offset === 0 ? {} : { offset }),
+      },
+      signalOf(options),
+    );
+    return pageOf(
+      page.items.map(decryptionOf),
       offsetContinue(offset, page.items.length, page.totalCount),
     );
   };
@@ -514,6 +569,11 @@ export function secrets(
       ).get(secretName, signalOf(options));
       return secretOf(served);
     },
+    decryptions: (name: string, options: ListOptions = {}) => {
+      const secretName = requireText(name, "secret name");
+      return walk((page) => decryptionsPage(secretName, page), options);
+    },
+    decryptionsPage,
     async delete(name: string, options: CallOptions = {}) {
       const secretName = requireText(name, "secret name");
       await (await service(options)).delete(secretName, signalOf(options));

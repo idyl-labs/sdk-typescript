@@ -32,6 +32,16 @@ import {
   type ListComputersBySecretResponse,
 } from "../../src/api/computer-secrets.js";
 import {
+  decodeListVaultDecryptionsResponse,
+  decodeVaultDecryption,
+  encodeListVaultDecryptionsResponse,
+  encodeVaultDecryption,
+  validateListVaultDecryptionsResponse,
+  validateVaultDecryption,
+  type ListVaultDecryptionsResponse,
+  type VaultDecryption,
+} from "../../src/api/vault.js";
+import {
   computerAwakeShape,
   decodeComputerAwake,
   decodeListComputerSessionsResponse,
@@ -334,6 +344,18 @@ const computerImage: ServedCodec<ComputerImage> = {
   validate: validateComputerImage,
 };
 
+const vaultDecryption: ServedCodec<VaultDecryption> = {
+  decode: decodeVaultDecryption,
+  encode: encodeVaultDecryption,
+  validate: validateVaultDecryption,
+};
+
+const vaultDecryptions: ServedCodec<ListVaultDecryptionsResponse> = {
+  decode: decodeListVaultDecryptionsResponse,
+  encode: encodeListVaultDecryptionsResponse,
+  validate: validateListVaultDecryptionsResponse,
+};
+
 /** Every served-object codec, keyed as the harness keys its golden. */
 export const servedRegistry: ReadonlyMap<
   string,
@@ -395,6 +417,8 @@ export const servedRegistry: ReadonlyMap<
   ["computer-notebook.create-request", createComputerNotebookRequest],
   ["computer-notebook.update-request", updateComputerNotebookRequest],
   ["computer-notebook.rename-request", updateComputerNotebookRequest],
+  ["vault-decryption", vaultDecryption],
+  ["vault-decryptions", vaultDecryptions],
 ]);
 
 /**

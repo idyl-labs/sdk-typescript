@@ -43,6 +43,7 @@ export const SELECTED = [
   /^api\/testdata\/golden\/namespace\.[a-z0-9-]+\.json$/u,
   /^api\/testdata\/golden\/network\.[a-z0-9-]+\.json$/u,
   /^api\/testdata\/golden\/signup-offer\.[a-z0-9-]+\.json$/u,
+  /^api\/testdata\/golden\/vault-decryptions?\.[a-z0-9-]+\.json$/u,
   /^resource\/testdata\/golden\/(?:computer\.execution|micropod\.network)-refusals\.json$/u,
   /^resource\/testdata\/golden\/(?:redacted)?secret\.[a-z0-9-]+\.json$/u,
 ];
@@ -54,6 +55,7 @@ export const SELECTED = [
 export const EXCLUDED = [
   /\/commit\.retrying\.json$/u,
   /\/computer\.actor-owned\.json$/u,
+  /\/computer\.fork-requests\.json$/u,
   /\/computer\.storage-(?:full|zero)\.json$/u,
   /\/computer-journal\.(?:newer-values|refusals)\.json$/u,
   /\/computer-session\.interrupt-request\.json$/u,

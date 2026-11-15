@@ -99,6 +99,7 @@ const PUBLIC_SURFACE = [
   "Credential",
   "CredentialContext",
   "CredentialSource",
+  "Decryption",
   "DeleteAccountResult",
   "DeleteComputerOptions",
   "Delivery",

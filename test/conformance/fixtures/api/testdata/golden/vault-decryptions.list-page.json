@@ -1,0 +1,31 @@
+{
+  "items": [
+    {
+      "at": "2026-01-02T03:04:07Z",
+      "kind": "Secret",
+      "resourceId": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "name": "database",
+      "version": 3,
+      "subnet": "550000000002",
+      "activation": "01954e20-7540-7ec4-93ec-14f783e6ab21.2",
+      "outcome": "opened",
+      "reportedBy": "kms",
+      "kmsRequestId": "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d"
+    },
+    {
+      "at": "2026-01-02T03:04:05Z",
+      "kind": "Secret",
+      "resourceId": "01954e20-7540-7ec4-93ec-14f783e6ab20",
+      "name": "database",
+      "version": 3,
+      "subnet": "550000000002",
+      "computerId": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+      "activation": "01954e20-7540-7ec4-93ec-14f783e6ab21.2",
+      "nodeId": "ERERERERERERERERERERERERERERERERERERERERERE",
+      "outcome": "opened",
+      "reportedBy": "both",
+      "kmsRequestId": "6f0a4e47-1c55-4f4e-8f5a-0c6f2c8f2a11"
+    }
+  ],
+  "totalCount": 12
+}
