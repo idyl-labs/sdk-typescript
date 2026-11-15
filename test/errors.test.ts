@@ -3,7 +3,6 @@
 import { describe, expect, it } from "vitest";
 import * as computer from "../src/api/computer.js";
 import * as image from "../src/api/computer-image.js";
-import * as notebook from "../src/api/computer-notebook.js";
 import * as session from "../src/api/computer-session.js";
 import * as journal from "../src/api/journal.js";
 import * as storage from "../src/api/storage-errors.js";
@@ -76,9 +75,6 @@ describe("ApiError", () => {
 describe("public error classes", () => {
   // Contract: the public code constants spell the contract's codes.
   it("spells every public code as the contract does", () => {
-    expect(codes.ERROR_CODE_NOTEBOOK_NOT_FOUND).toBe(
-      notebook.ERROR_CODE_NOTEBOOK_NOT_FOUND,
-    );
     for (const name of [
       "ERROR_CODE_EXECUTION_NOT_ENABLED",
       "ERROR_CODE_COMPUTER_TERMINATING",

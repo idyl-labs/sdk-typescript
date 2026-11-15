@@ -122,10 +122,9 @@ export interface CreateComputerSleepRequest {
  * are then discarded and the sleep records no version. A save that fails is
  * asked for again until one publishes, and the Computer stays awake with its
  * changes meanwhile; IDYL never discards them because saving failed. It then
- * ends every open session and running notebook cell, then releases its
- * execution as its idle timeout does: background processes stop. An ended session reads the
- * reason `PutToSleep`; a notebook cell reads the error reason or the
- * termination `put-to-sleep`. While a sleep is pending, a new session waits
+ * ends every open session, then releases its execution as its idle timeout
+ * does: background processes stop. An ended session reads the reason
+ * `PutToSleep`. While a sleep is pending, a new session waits
  * for it and then wakes the Computer again.
  *
  * `version` is the version the sleep's save recorded, present once the save

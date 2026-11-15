@@ -95,16 +95,6 @@ describe("client frames", () => {
         },
       ],
       [
-        "open-cell",
-        {
-          type: "open",
-          requestID: "req-3",
-          mode: "cell",
-          script: "make test",
-          tty: false,
-        },
-      ],
-      [
         "open-reattach",
         {
           type: "open",
@@ -124,17 +114,6 @@ describe("client frames", () => {
           mode: "files",
           tty: false,
           features: [],
-        },
-      ],
-      [
-        "open-records",
-        {
-          type: "open",
-          requestID: "req-6",
-          mode: "records",
-          tty: false,
-          notebook: "01954e20-7540-7ec4-93ec-14f783e6ab60",
-          after: 3,
         },
       ],
       [
@@ -223,22 +202,6 @@ describe("endpoint frames", () => {
       code: "not_granted",
       message: "no grant was installed for the request",
     });
-    expect(readFrame(g("record"))).toEqual({
-      type: "record",
-      cell: "01954e20-7540-7ec4-93ec-14f783e6ab61",
-      order: 4,
-      meta: { command: "make test", exitCode: 0 },
-    });
-    expect(readFrame(g("record-output"))).toEqual({
-      type: "record_output",
-      cell: "01954e20-7540-7ec4-93ec-14f783e6ab61",
-      stream: "stdout",
-      data: enc.encode("ok\n"),
-    });
-    expect(readFrame(g("records-end"))).toEqual({
-      type: "records_end",
-      count: 1,
-    });
     expect(readFrame(g("listing"))).toEqual({
       type: "listing",
       path: "src",
@@ -325,8 +288,9 @@ describe("endpoint frames", () => {
     ).toThrow(FrameError);
   });
 
-  // Contract: reads are lenient: unknown members are ignored and an
-  // unknown frame type is reported for the caller to judge.
+  // Contract: reads are lenient: unknown members are ignored and a frame of
+  // a type the package does not model, such as a published record frame, is
+  // reported as unknown for the caller to judge.
   it("read leniently", () => {
     expect(readFrame('{"type":"exit","code":3,"extra":true}')).toEqual({
       type: "exit",
@@ -336,6 +300,13 @@ describe("endpoint frames", () => {
       type: "unknown",
       frameType: "later",
     });
+    for (const [name, frameType] of [
+      ["record", "record"],
+      ["record-output", "record_output"],
+      ["records-end", "records_end"],
+    ] as const) {
+      expect(readFrame(g(name))).toEqual({ type: "unknown", frameType });
+    }
   });
 
   // Contract: a frame that is not a JSON object, or whose data is not
@@ -390,14 +361,7 @@ describe("endpoint frames", () => {
     expect(() => {
       validateOpenedFor(ssh, "ssh");
     }).not.toThrow();
-    for (const mode of [
-      "shell",
-      "exec",
-      "cell",
-      "reattach",
-      "records",
-      "files",
-    ] as const) {
+    for (const mode of ["shell", "exec", "reattach", "files"] as const) {
       expect(() => {
         validateOpenedFor(ssh, mode);
       }).toThrow(

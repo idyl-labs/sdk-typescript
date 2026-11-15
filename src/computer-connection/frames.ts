@@ -32,8 +32,7 @@ export type SessionFeature = "save-result" | "reattach" | "raw-after-opened";
  * its `opened` frame is the last frame in either direction, and from the
  * byte after it both directions carry raw SSH bytes.
  */
-export type SessionMode =
-  "shell" | "exec" | "cell" | "reattach" | "records" | "files" | "ssh";
+export type SessionMode = "shell" | "exec" | "reattach" | "files" | "ssh";
 
 /**
  * A terminal's size in character cells: `cols` and `rows` are whole
@@ -52,15 +51,12 @@ export interface OpenFrame {
   readonly mode: SessionMode;
   readonly shell?: string;
   readonly command?: readonly string[];
-  readonly script?: string;
   readonly tty: boolean;
   readonly size?: TerminalSize;
   readonly term?: string;
   readonly locale?: string;
   readonly session?: string;
   readonly cursor?: number;
-  readonly notebook?: string;
-  readonly after?: number;
   readonly features?: readonly SessionFeature[];
 }
 
@@ -138,19 +134,6 @@ export type EndpointFrame =
     }
   | { readonly type: "error"; readonly code: string; readonly message?: string }
   | {
-      readonly type: "record";
-      readonly cell: string;
-      readonly order: number;
-      readonly meta: unknown;
-    }
-  | {
-      readonly type: "record_output";
-      readonly cell: string;
-      readonly stream: string;
-      readonly data: Uint8Array;
-    }
-  | { readonly type: "records_end"; readonly count: number }
-  | {
       readonly type: "listing";
       /** The folder, relative to `/workspace`; `""` is the root. */
       readonly path: string;
@@ -181,7 +164,6 @@ export function frameJson(frame: ClientFrame): string {
       if (frame.command !== undefined && frame.command.length > 0) {
         o["command"] = frame.command;
       }
-      if (frame.script !== undefined) o["script"] = frame.script;
       o["tty"] = frame.tty;
       if (frame.size !== undefined) {
         o["size"] = { cols: frame.size.cols, rows: frame.size.rows };
@@ -190,8 +172,6 @@ export function frameJson(frame: ClientFrame): string {
       if (frame.locale !== undefined) o["locale"] = frame.locale;
       if (frame.session !== undefined) o["session"] = frame.session;
       if (frame.cursor !== undefined) o["cursor"] = frame.cursor;
-      if (frame.notebook !== undefined) o["notebook"] = frame.notebook;
-      if (frame.after !== undefined) o["after"] = frame.after;
       if (frame.features !== undefined && frame.features.length > 0) {
         o["features"] = frame.features;
       }
@@ -413,22 +393,6 @@ export function readFrame(json: string): EndpointFrame {
         ...(message === undefined ? {} : { message }),
       };
     }
-    case "record":
-      return {
-        type,
-        cell: text(f["cell"]) ?? "",
-        order: integer(f["order"]) ?? 0,
-        meta: f["meta"],
-      };
-    case "record_output":
-      return {
-        type,
-        cell: text(f["cell"]) ?? "",
-        stream: text(f["stream"]) ?? "",
-        data: bytes(f["data"]),
-      };
-    case "records_end":
-      return { type, count: integer(f["count"]) ?? 0 };
     case "listing": {
       const problem = text(f["problem"]);
       return {

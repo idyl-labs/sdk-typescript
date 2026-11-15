@@ -5,9 +5,9 @@
  * module of a dedicated Worker and call {@link serveComputerConnections}
  * on its global scope. The page then builds a `ComputerConnector` from the
  * client (`idyl.computers.connector`) with that Worker and the compiled
- * `@idyl-sh/sdk/computer-connection.wasm`. Every command, terminal,
- * notebook cell and live files listing runs through the connector, each
- * session end-to-end encrypted between the page and the Computer.
+ * `@idyl-sh/sdk/computer-connection.wasm`. Every command, terminal and
+ * live files listing runs through the connector, each session end-to-end
+ * encrypted between the page and the Computer.
  *
  * A program with no page, such as one on Node.js, calls
  * {@link connectInThisThread} instead and builds the connector from the

@@ -19,7 +19,6 @@ function fake(frames: readonly SessionOutput[], stayOpen = false) {
   const stream: ComputerSessionStream = {
     requestId: "request",
     id: "session",
-    cell: undefined,
     output: new ReadableStream<SessionOutput>({
       start(controller) {
         for (const frame of frames) controller.enqueue(frame);

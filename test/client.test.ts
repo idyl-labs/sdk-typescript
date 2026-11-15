@@ -6,7 +6,6 @@ import {
   ComputerNotAwakeError,
   ERROR_CODE_COMPUTER_NOT_AWAKE,
   Idyl,
-  NotebookNotFoundError,
   isApiCode,
   TransportError,
   credentialSourceFunc,
@@ -199,21 +198,6 @@ describe("Idyl.account", () => {
 });
 
 describe("errors from the platform", () => {
-  // Contract: NOTEBOOK_NOT_FOUND is always a NotebookNotFoundError, an
-  // ApiError whose message says how to create the notebook.
-  it("classifies a missing notebook", async () => {
-    const queue = new FetchQueue();
-    respondAccount(queue);
-    queue.respondJson(
-      { error: "notebook not found", code: "NOTEBOOK_NOT_FOUND" },
-      404,
-    );
-    const error = await rejection(client(queue).computers.get("team"));
-    expect(error).toBeInstanceOf(NotebookNotFoundError);
-    expect(error).toBeInstanceOf(ApiError);
-    expect((error as Error).message).toContain("computer.notebooks.create");
-  });
-
   // Contract: COMPUTER_NOT_AWAKE is always a ComputerNotAwakeError, an
   // ApiError that carries the code and the 409.
   it("classifies a Computer that is not awake", async () => {

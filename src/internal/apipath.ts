@@ -172,33 +172,6 @@ export function computerJournalById(
   return collectionMember(`${computerById(scope, id)}/journal`, entryId);
 }
 
-/**
- * The notebooks of the Computer addressed by name, or, with `notebook`, one
- * notebook of it.
- */
-export function computerNotebooks(
-  scope: NamespaceScope,
-  name: string,
-  notebook?: string,
-): string {
-  return collectionMember(
-    namespace(scope, `computers/${encodeURIComponent(name)}/notebooks`),
-    notebook,
-  );
-}
-
-/**
- * The notebooks of the Computer addressed by its stable identifier, or,
- * with `notebook`, one notebook of it.
- */
-export function computerNotebooksById(
-  scope: NamespaceScope,
-  id: string,
-  notebook?: string,
-): string {
-  return collectionMember(`${computerById(scope, id)}/notebooks`, notebook);
-}
-
 function collectionMember(collection: string, member?: string): string {
   return member === undefined
     ? collection

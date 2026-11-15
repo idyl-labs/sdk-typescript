@@ -141,8 +141,7 @@ terminal to xterm.js.
 Every export is documented in its type declarations. The client also covers
 Secrets (`idyl.secrets`), the record of every time a Secret's value was
 opened (`idyl.secrets.decryptions(name)` and `computer.decryptions()`),
-notebooks (`computer.notebooks`), history (`computer.history()`), wake and
-sleep (`computer.wake()`, `computer.sleep()`) and billing (`idyl.billing`).
+history (`computer.history()`), wake and sleep (`computer.wake()`, `computer.sleep()`) and billing (`idyl.billing`).
 
 ## Authentication
 

@@ -109,13 +109,6 @@ export const PAGES = [
     sources: ["client/files.ts", "client/download.ts"],
   },
   {
-    slug: "notebooks",
-    title: "computer.notebooks",
-    subject: "Notebooks",
-    sources: ["client/notebooks.ts"],
-    claims: ["Cell", "CellProcess"],
-  },
-  {
     slug: "secrets",
     title: "idyl.secrets",
     subject: "Secrets",
@@ -169,7 +162,6 @@ const RECEIVERS = {
   Computers: "idyl.computers",
   Computer: "computer",
   Files: "computer.files",
-  Notebooks: "computer.notebooks",
   Secrets: "idyl.secrets",
   Billing: "idyl.billing",
   Identity: "idyl.identity",

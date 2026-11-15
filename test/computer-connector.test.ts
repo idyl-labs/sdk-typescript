@@ -578,17 +578,16 @@ describe("computer connector", () => {
   });
 
   // Contract: an open asks only for the features its mode takes at the
-  // endpoint: an exec asks for its save result; a shell and a cell ask for
-  // none, so the endpoint never refuses them for a feature.
+  // endpoint: an exec asks for its save result; a shell asks for none, so
+  // the endpoint never refuses it for a feature.
   it("asks for the features each mode takes", async () => {
     const features = new Map<string, unknown>();
-    for (const mode of ["shell", "exec", "cell"] as const) {
+    for (const mode of ["shell", "exec"] as const) {
       const { connector, worker } = await harness();
       await connector.open(COMPUTER, {
         mode,
         ...(mode === "shell" ? TERMINAL : {}),
         ...(mode === "exec" ? { command: ["true"] } : {}),
-        ...(mode === "cell" ? { notebook: "notes", script: "true" } : {}),
       });
       const open = worker.requests.find((r) => r.type === "write");
       const text = new TextDecoder().decode(
@@ -599,7 +598,6 @@ describe("computer connector", () => {
     expect(Object.fromEntries(features)).toEqual({
       shell: undefined,
       exec: ["save-result"],
-      cell: undefined,
     });
   });
 
@@ -1026,14 +1024,13 @@ describe("computer files sessions", () => {
   });
 
   // Contract: a files session is created as an endpoint session of mode
-  // `files` naming no notebook, and its stream opens with mode `files`,
+  // `files`, and its stream opens with mode `files`,
   // no terminal and no features, exactly the published open.
   it("opens a files session", async () => {
     const { connector, worker, creates } = await harness();
     await connector.openFiles(COMPUTER, { onListing: () => undefined });
     expect(creates).toHaveLength(1);
     expect(creates[0]?.endpoint).toEqual({ mode: "files" });
-    expect(creates[0]?.notebook).toBeUndefined();
     const [open] = [...worker.sent.values()][0] ?? [];
     expect(open).toEqual({
       type: "open",
@@ -1204,8 +1201,8 @@ describe("computer files sessions", () => {
   // Contract: a session whose stream the endpoint answers first with an
   // error it sends only before a session starts (invalid_request,
   // unsupported, busy, not_granted) is cancelled once and never renewed, so
-  // it holds nothing, such as its notebook's turn, until its attach
-  // deadline. Any other first error leaves the session to the platform.
+  // it holds nothing until its attach deadline. Any other first error
+  // leaves the session to the platform.
   it("cancels a session whose open the endpoint refused before it started", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const id = "01954e20-7540-7ec4-93ec-14f783e6ab20";
@@ -1225,9 +1222,8 @@ describe("computer files sessions", () => {
       const h = await harness({ cancels: cancelled, renewals });
       h.worker.answerOpen = { type: "error", code, message: "refused" };
       const session = await h.connector.open(COMPUTER, {
-        mode: "cell",
-        notebook: "notes",
-        script: "echo hi > out.txt",
+        mode: "exec",
+        command: ["/bin/sh", "-c", "echo hi > out.txt"],
       });
       expect(await first(session.output, 1)).toEqual([
         { type: "error", code, message: "refused" },
@@ -1320,33 +1316,16 @@ describe("computer files sessions", () => {
   });
 
   // Contract: an open is judged before anything is sent, its stream as the
-  // endpoint judges it and its create as the platform does: a cell or a
-  // records stream without its notebook, a notebook on any other mode, a
-  // shell without a terminal, a terminal size, type or locale out of
-  // bounds, a relative shell, an exec without a command and a records
-  // position that is not an integer are refused with no create, no dock
-  // and no stream.
+  // endpoint judges it and its create as the platform does: a shell without
+  // a terminal, a terminal size, type or locale out of bounds, a relative
+  // shell and an exec without a command are refused with no create, no
+  // dock and no stream.
   it("refuses an invalid open before anything is sent", async () => {
     const { connector, worker, creates } = await harness();
     const refused: readonly [SessionOpen, string][] = [
       [
-        { mode: "cell", script: "true" },
-        "a cell or a records stream names its notebook, and only those do",
-      ],
-      [
-        {
-          mode: "records",
-          notebookId: "01954e20-7540-7ec4-93ec-14f783e6ab30",
-        },
-        "a cell or a records stream names its notebook, and only those do",
-      ],
-      [
-        { mode: "exec", command: ["true"], notebook: "notes" },
-        "a cell or a records stream names its notebook, and only those do",
-      ],
-      [
         { mode: "shell" },
-        "a shell session runs on a terminal and names no command or script",
+        "a shell session runs on a terminal and names no command",
       ],
       [
         { mode: "shell", tty: true, term: "xterm" },
@@ -1355,10 +1334,6 @@ describe("computer files sessions", () => {
       [
         { mode: "exec", command: [] },
         "an exec's command must hold 1 to 1024 arguments",
-      ],
-      [
-        { mode: "cell", notebook: "notes", script: "" },
-        "a cell's script must be 1 to 32768 bytes without NUL",
       ],
       [
         { ...TERMINAL, mode: "shell", size: { cols: 0, rows: 24 } },
@@ -1379,24 +1354,6 @@ describe("computer files sessions", () => {
       [
         { ...TERMINAL, mode: "shell", shell: "zsh" },
         'shell "zsh" is not a clean absolute path',
-      ],
-      [
-        {
-          mode: "records",
-          notebook: "notes",
-          notebookId: "01954e20-7540-7ec4-93ec-14f783e6ab30",
-          after: 1.5,
-        },
-        "after must be an integer",
-      ],
-      [
-        {
-          mode: "records",
-          notebook: "notes",
-          notebookId: "01954e20-7540-7ec4-93ec-14f783e6ab30",
-          after: -1,
-        },
-        "after must not be negative",
       ],
       [
         { ...TERMINAL, mode: "shell", shell: "/bin//zsh" },

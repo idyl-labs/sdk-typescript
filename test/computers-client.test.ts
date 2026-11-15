@@ -748,150 +748,6 @@ describe("Computer handles", () => {
     await expect(computer.update({})).rejects.toThrow("update states no field");
   });
 
-  // Contract: a notebook handle pins and unpins its notebook by the
-  // Computer's ID and returns a handle with the new snapshot; this handle
-  // keeps its old one, and an update that states nothing is refused before
-  // any request.
-  it("pins a notebook by the Computer's ID", async () => {
-    const sent: unknown[] = [];
-    const record = (pinned: boolean) => ({
-      name: "notes",
-      computer: ID,
-      createdAt: "2026-01-02T03:04:05Z",
-      creator: "owner@example.com",
-      cells: 2,
-      pinned,
-    });
-    const network = new FakeNetwork((request, body) => {
-      if (request.url.pathname === `${computersPath}/api-dev`) {
-        return json({ computer: computerRecord() });
-      }
-      if (request.url.pathname !== `${byId}/notebooks/notes`) return undefined;
-      if (request.method === "PATCH") {
-        sent.push(body);
-        return json(record((body as { pinned: boolean }).pinned));
-      }
-      return json(record(false));
-    });
-    const computer = await network.client().computers.get("api-dev");
-    const notes = await computer.notebooks.get("notes");
-    expect(notes.snapshot.pinned).toBe(false);
-    const pinned = await notes.update({ pinned: true });
-    expect(pinned.snapshot.pinned).toBe(true);
-    expect(notes.snapshot.pinned).toBe(false);
-    expect((await pinned.update({ pinned: false })).snapshot.pinned).toBe(
-      false,
-    );
-    expect(sent).toEqual([{ pinned: true }, { pinned: false }]);
-    await expect(notes.update({})).rejects.toThrow(
-      new TypeError("notebook update states no field"),
-    );
-    expect(sent).toHaveLength(2);
-  });
-
-  // Contract: a rename patches the notebook by its current name and returns
-  // a handle under the new name with the same ID; this handle keeps the old
-  // name, and a new name that is not valid is refused before any request.
-  it("renames a notebook and keeps its ID", async () => {
-    const sent: unknown[] = [];
-    const notebookId = "01954e20-7540-7ec4-93ec-14f783e6ab50";
-    const record = (name: string) => ({
-      id: notebookId,
-      name,
-      computer: ID,
-      createdAt: "2026-01-02T03:04:05Z",
-      creator: "owner@example.com",
-      cells: 2,
-      pinned: false,
-    });
-    const network = new FakeNetwork((request, body) => {
-      if (request.url.pathname === `${computersPath}/api-dev`) {
-        return json({ computer: computerRecord() });
-      }
-      if (request.url.pathname !== `${byId}/notebooks/notes`) return undefined;
-      if (request.method === "PATCH") {
-        sent.push(body);
-        return json(record((body as { name: string }).name));
-      }
-      return json(record("notes"));
-    });
-    const computer = await network.client().computers.get("api-dev");
-    const notes = await computer.notebooks.get("notes");
-    expect(notes.id).toBe(notebookId);
-    expect(notes.snapshot.id).toBe(notebookId);
-    const renamed = await notes.update({ name: "lab-notes" });
-    expect(renamed.name).toBe("lab-notes");
-    expect(renamed.id).toBe(notebookId);
-    expect(notes.name).toBe("notes");
-    expect(sent).toEqual([{ name: "lab-notes" }]);
-    await expect(notes.update({ name: "Lab Notes" })).rejects.toThrow(
-      TypeError,
-    );
-    expect(sent).toHaveLength(1);
-  });
-
-  // Contract: a notebook's cells read what ended their session, so a cell
-  // whose client closed it reads `client-disconnected`, and one with no
-  // recorded end reads none.
-  it("reads what ended a cell's session", async () => {
-    const page = JSON.parse(
-      readFileSync(
-        new URL(
-          "./conformance/fixtures/api/testdata/golden/computer-notebook.cells-page.json",
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-    ) as { items: Record<string, unknown>[] };
-    const ended = page.items[0];
-    if (ended === undefined) throw new Error("the cells page is empty");
-    const stopped = {
-      ...ended,
-      id: "01954e20-7540-7ec4-93ec-14f783e6ab42",
-      termination: "client-disconnected",
-      process: { outcome: "signaled", signal: "KILL" },
-    };
-    const running: Record<string, unknown> = {
-      ...ended,
-      id: "01954e20-7540-7ec4-93ec-14f783e6ab43",
-      state: "running",
-    };
-    for (const key of ["endedAt", "process", "termination"]) {
-      Reflect.deleteProperty(running, key);
-    }
-    const network = new FakeNetwork((request) => {
-      const path = request.url.pathname;
-      if (path === `${computersPath}/api-dev`) {
-        return json({ computer: computerRecord() });
-      }
-      if (path === `${byId}/notebooks/build`) {
-        return json({
-          name: "build",
-          computer: ID,
-          createdAt: "2026-01-02T03:04:05Z",
-          creator: "developer@example.com",
-          cells: 3,
-          pinned: false,
-        });
-      }
-      if (path === `${byId}/notebooks/build/cells`) {
-        return json({ items: [ended, stopped, running], totalCount: 3 });
-      }
-      return undefined;
-    });
-    const computer = await network.client().computers.get("api-dev");
-    const cells = [];
-    for await (const cell of (await computer.notebooks.get("build")).cells()) {
-      cells.push(cell);
-    }
-    expect(cells.map((cell) => cell.termination)).toEqual([
-      "exited",
-      "client-disconnected",
-      undefined,
-    ]);
-    expect(cells[1]?.process).toEqual({ outcome: "signaled", signal: "KILL" });
-  });
-
   // Contract: a rename is an update that states a name. It addresses the
   // Computer by its ID, so the handle keeps reaching it across the rename,
   // writes only the name, and returns a handle under the new name; a name in
@@ -1060,6 +916,41 @@ describe("Computer handles", () => {
       undefined,
     ]);
     expect(entries[1]?.settings).toEqual({ shell: "/bin/sh" });
+  });
+
+  // Contract: an entry of a kind the package shows no detail for, such as a
+  // `cell` entry, reads as its kind, identity, time and client, and carries
+  // none of its detail.
+  it("shows a cell entry in history by its kind alone", async () => {
+    const entry = JSON.parse(
+      readFileSync(
+        new URL(
+          "./conformance/fixtures/api/testdata/golden/computer-journal.cell-full.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ) as { readonly id: string; readonly admittedAt: string };
+    const network = new FakeNetwork((request) => {
+      if (request.url.pathname === `${computersPath}/api-dev`) {
+        return json({ computer: computerRecord() });
+      }
+      if (request.url.pathname === `${byId}/journal`) {
+        return json({ items: [entry], totalCount: 1 });
+      }
+      return undefined;
+    });
+    const computer = await network.client().computers.get("api-dev");
+    const entries = [];
+    for await (const read of computer.history()) entries.push(read);
+    expect(entries).toEqual([
+      {
+        id: entry.id,
+        kind: "cell",
+        admittedAt: entry.admittedAt,
+        client: "cli",
+      },
+    ]);
   });
 
   // Contract: an image patch reads as IDYL's own entry naming the catalog
@@ -1457,7 +1348,7 @@ describe("Computer.fork", () => {
     });
   });
 
-  // Contract: a stated `from` with nothing in it, as for a cell whose save has
+  // Contract: a stated `from` with nothing in it, as for a record that holds
   // no entry, is refused before any request: it never forks from somewhere else.
   it("refuses a stated from that names nothing", async () => {
     const network = new FakeNetwork((request) =>

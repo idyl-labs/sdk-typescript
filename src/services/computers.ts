@@ -66,24 +66,6 @@ import {
   journalByName,
   listJournal,
 } from "./computer-journal.js";
-import type { PageOptions } from "../api/storage.js";
-import type {
-  ComputerNotebook,
-  CreateComputerNotebookRequest,
-  ListComputerNotebookCellsResponse,
-  ListComputerNotebooksResponse,
-  UpdateComputerNotebookRequest,
-} from "../api/computer-notebook.js";
-import {
-  createNotebook,
-  deleteNotebook,
-  getNotebook,
-  listNotebookCells,
-  listNotebooks,
-  notebooksById,
-  notebooksByName,
-  updateNotebook,
-} from "./computer-notebooks.js";
 import {
   listComputersBySecret,
   listSecretAttachments,
@@ -412,9 +394,7 @@ export interface ComputersService
    * {@link ComputersService.getJournalEntry} returns the whole command.
    * The journal is one list that only grows forward, and each entry names
    * its `creator` unless IDYL made it on its own. A private session records
-   * no entry, and a notebook session's Cell is listed through
-   * {@link ComputersService.listNotebookCells}, while the save entry that
-   * covers it links to that cell in `save`. Anyone who may read the
+   * no entry. Anyone who may read the
    * Computer may read its whole journal, including entries other identities
    * caused.
    *
@@ -458,139 +438,6 @@ export interface ComputersService
     entryId: string,
     request?: RequestOptions,
   ): Promise<JournalEntry>;
-  /**
-   * Creates a notebook in the Computer addressed by name, as
-   * {@link CreateComputerNotebookRequest} describes, and returns it. A
-   * notebook that already exists is returned unchanged, so a caller may
-   * create a notebook before every use. The request is judged with
-   * `validateCreateComputerNotebookRequest` before it is sent. Throws a
-   * `TypeError` when `name` is blank or the request is invalid.
-   */
-  createNotebook(
-    name: string,
-    request: CreateComputerNotebookRequest,
-    options?: RequestOptions,
-  ): Promise<ComputerNotebook>;
-  /**
-   * Creates a notebook in the Computer addressed by its stable identity, as
-   * {@link ComputersService.createNotebook} does.
-   */
-  createNotebookById(
-    id: string,
-    request: CreateComputerNotebookRequest,
-    options?: RequestOptions,
-  ): Promise<ComputerNotebook>;
-  /**
-   * Reads a notebook of the Computer addressed by name. A notebook the
-   * Computer does not have rejects with an `ApiError` carrying
-   * `ERROR_CODE_NOTEBOOK_NOT_FOUND`. Throws a `TypeError` when `name` is
-   * blank or `notebook` is not a valid notebook name.
-   */
-  getNotebook(
-    name: string,
-    notebook: string,
-    options?: RequestOptions,
-  ): Promise<ComputerNotebook>;
-  /**
-   * Reads a notebook of the Computer addressed by its stable identity, as
-   * {@link ComputersService.getNotebook} does.
-   */
-  getNotebookById(
-    id: string,
-    notebook: string,
-    options?: RequestOptions,
-  ): Promise<ComputerNotebook>;
-  /**
-   * Returns one page of the notebooks of the Computer addressed by name,
-   * ordered by name. Pass the page's `continue` back in the options to read
-   * the next page; a page without one is the last. Throws a `TypeError`
-   * when `name` is blank or the options are invalid.
-   */
-  listNotebooks(
-    name: string,
-    options?: PageOptions,
-    request?: RequestOptions,
-  ): Promise<ListComputerNotebooksResponse>;
-  /**
-   * Returns one page of the notebooks of the Computer addressed by its
-   * stable identity, as {@link ComputersService.listNotebooks} does.
-   */
-  listNotebooksById(
-    id: string,
-    options?: PageOptions,
-    request?: RequestOptions,
-  ): Promise<ListComputerNotebooksResponse>;
-  /**
-   * Returns one page of a notebook's cells, in the order they ran, in the
-   * Computer addressed by name. Each cell carries its command, its process
-   * facts, and its `save`. Pass the page's `continue` back in the options
-   * to read the next page; a page without one is the last. A notebook the
-   * Computer does not have rejects with an `ApiError` carrying
-   * `ERROR_CODE_NOTEBOOK_NOT_FOUND`. Throws a `TypeError` when `name` is
-   * blank, `notebook` is not a valid notebook name, or the options are
-   * invalid.
-   */
-  listNotebookCells(
-    name: string,
-    notebook: string,
-    options?: PageOptions,
-    request?: RequestOptions,
-  ): Promise<ListComputerNotebookCellsResponse>;
-  /**
-   * Returns one page of a notebook's cells in the Computer addressed by its
-   * stable identity, as {@link ComputersService.listNotebookCells} does.
-   */
-  listNotebookCellsById(
-    id: string,
-    notebook: string,
-    options?: PageOptions,
-    request?: RequestOptions,
-  ): Promise<ListComputerNotebookCellsResponse>;
-  /**
-   * Updates a notebook of the Computer addressed by name, as
-   * {@link UpdateComputerNotebookRequest} describes, and returns it as the
-   * update left it. A notebook the Computer does not have rejects with an
-   * `ApiError` carrying `ERROR_CODE_NOTEBOOK_NOT_FOUND`. Throws a
-   * `TypeError` when `name` is blank, `notebook` is not a valid notebook
-   * name, or the request states no field.
-   */
-  updateNotebook(
-    name: string,
-    notebook: string,
-    request: UpdateComputerNotebookRequest,
-    options?: RequestOptions,
-  ): Promise<ComputerNotebook>;
-  /**
-   * Updates a notebook of the Computer addressed by its stable identity, as
-   * {@link ComputersService.updateNotebook} does.
-   */
-  updateNotebookById(
-    id: string,
-    notebook: string,
-    request: UpdateComputerNotebookRequest,
-    options?: RequestOptions,
-  ): Promise<ComputerNotebook>;
-  /**
-   * Deletes a notebook of the Computer addressed by name, with all its
-   * cells. The Computer's files and history are unchanged. A notebook the
-   * Computer does not have rejects with an `ApiError` carrying
-   * `ERROR_CODE_NOTEBOOK_NOT_FOUND`. Throws a `TypeError` when `name` is
-   * blank or `notebook` is not a valid notebook name.
-   */
-  deleteNotebook(
-    name: string,
-    notebook: string,
-    options?: RequestOptions,
-  ): Promise<void>;
-  /**
-   * Deletes a notebook of the Computer addressed by its stable identity, as
-   * {@link ComputersService.deleteNotebook} does.
-   */
-  deleteNotebookById(
-    id: string,
-    notebook: string,
-    options?: RequestOptions,
-  ): Promise<void>;
 }
 
 /**
@@ -832,100 +679,6 @@ export function computersService(
       const journal = journalById(computerId);
       requireScope(namespaceName);
       return await getJournalEntry(addressed, journal, entryId, request.signal);
-    },
-    async createNotebook(name, request, options = {}) {
-      const notebooks = notebooksByName(name);
-      requireScope(namespaceName);
-      return await createNotebook(
-        addressed,
-        notebooks,
-        request,
-        options.signal,
-      );
-    },
-    async createNotebookById(id, request, options = {}) {
-      const notebooks = notebooksById(id);
-      requireScope(namespaceName);
-      return await createNotebook(
-        addressed,
-        notebooks,
-        request,
-        options.signal,
-      );
-    },
-    async getNotebook(name, notebook, options = {}) {
-      const notebooks = notebooksByName(name);
-      requireScope(namespaceName);
-      return await getNotebook(addressed, notebooks, notebook, options.signal);
-    },
-    async getNotebookById(id, notebook, options = {}) {
-      const notebooks = notebooksById(id);
-      requireScope(namespaceName);
-      return await getNotebook(addressed, notebooks, notebook, options.signal);
-    },
-    async listNotebooks(name, options = {}, request = {}) {
-      const notebooks = notebooksByName(name);
-      requireScope(namespaceName);
-      return await listNotebooks(addressed, notebooks, options, request.signal);
-    },
-    async listNotebooksById(id, options = {}, request = {}) {
-      const notebooks = notebooksById(id);
-      requireScope(namespaceName);
-      return await listNotebooks(addressed, notebooks, options, request.signal);
-    },
-    async listNotebookCells(name, notebook, options = {}, request = {}) {
-      const notebooks = notebooksByName(name);
-      requireScope(namespaceName);
-      return await listNotebookCells(
-        addressed,
-        notebooks,
-        notebook,
-        options,
-        request.signal,
-      );
-    },
-    async listNotebookCellsById(id, notebook, options = {}, request = {}) {
-      const notebooks = notebooksById(id);
-      requireScope(namespaceName);
-      return await listNotebookCells(
-        addressed,
-        notebooks,
-        notebook,
-        options,
-        request.signal,
-      );
-    },
-    async updateNotebook(name, notebook, request, options = {}) {
-      const notebooks = notebooksByName(name);
-      requireScope(namespaceName);
-      return await updateNotebook(
-        addressed,
-        notebooks,
-        notebook,
-        request,
-        options.signal,
-      );
-    },
-    async updateNotebookById(id, notebook, request, options = {}) {
-      const notebooks = notebooksById(id);
-      requireScope(namespaceName);
-      return await updateNotebook(
-        addressed,
-        notebooks,
-        notebook,
-        request,
-        options.signal,
-      );
-    },
-    async deleteNotebook(name, notebook, options = {}) {
-      const notebooks = notebooksByName(name);
-      requireScope(namespaceName);
-      await deleteNotebook(addressed, notebooks, notebook, options.signal);
-    },
-    async deleteNotebookById(id, notebook, options = {}) {
-      const notebooks = notebooksById(id);
-      requireScope(namespaceName);
-      await deleteNotebook(addressed, notebooks, notebook, options.signal);
     },
   };
   return Object.freeze(service);

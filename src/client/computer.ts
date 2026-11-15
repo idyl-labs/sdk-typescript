@@ -63,7 +63,6 @@ import {
 } from "./records.js";
 import { decryptionOf, type Decryption } from "./decryptions.js";
 import { files, type Files } from "./files.js";
-import { notebooks, type Notebooks } from "./notebooks.js";
 import {
   computerSecretUseOf,
   secretAttachmentStatusOf,
@@ -253,10 +252,10 @@ export interface ForkOptions extends CallOptions {
    */
   readonly name: string;
   /**
-   * Where to fork from: a history entry's ID, such as a version's `entry` or
-   * a cell's `save.entry`; a saved version's number or name; or, left out, the
-   * newest saved version. Stating `undefined` is a `TypeError`, so a cell with
-   * no save is never forked from somewhere else.
+   * Where to fork from: a history entry's ID, such as a version's `entry`; a
+   * saved version's number or name; or, left out, the newest saved version.
+   * Stating `undefined` is a `TypeError`, so a value read from a record that
+   * holds none is never forked from somewhere else.
    */
   readonly from?: string | number;
   /** Makes the fork safe to repeat, as a create's key does. */
@@ -528,12 +527,6 @@ export class Computer {
     return files(state, record.id);
   }
 
-  /** The Computer's notebooks: recorded sequences of commands. */
-  get notebooks(): Notebooks {
-    const { state, record } = internalsOf(this);
-    return notebooks(state, record.id);
-  }
-
   /**
    * Updates the Computer field by field and returns a handle with its
    * updated snapshot. Execution settings take effect from its next start,
@@ -562,7 +555,7 @@ export class Computer {
   }
 
   /**
-   * Deletes the Computer: its files, history and notebooks are released.
+   * Deletes the Computer: its files and history are released.
    * The delete is accepted at once and completes on its own; `wait` waits
    * until the Computer is gone.
    *
@@ -699,8 +692,8 @@ export class Computer {
   /**
    * Puts the Computer to sleep and waits until it is asleep. Its files are
    * saved first, as `save` does, unless `discardUnsavedChanges` asks to
-   * discard the changes since its last saved version; then every command,
-   * terminal and notebook cell still running is ended and its execution is
+   * discard the changes since its last saved version; then every command
+   * and terminal still running is ended and its execution is
    * released, so background processes stop. A Computer that is already
    * asleep is asleep at once, with nothing saved. The next command wakes it
    * again.
@@ -1125,9 +1118,8 @@ export class Computer {
    * `failed` means the copy did not complete.
    *
    * @throws {@link TypeError} `name` is empty, `from` is stated as
-   * `undefined` (as for a cell whose save is off, pending or failed),
-   * `timeoutMs` is invalid, or the Computer has no saved version to fork
-   * from
+   * `undefined`, `timeoutMs` is invalid, or the Computer has no saved
+   * version to fork from
    * @throws {@link ApiError} IDYL refuses the fork, such as for a name
    * another Computer holds or a version the Computer does not have
    * @throws {@link TransportError} a request does not complete, or the
@@ -1505,7 +1497,7 @@ export interface Computers {
   sizes(options?: CallOptions): Promise<readonly ComputerSizeInfo[]>;
   /**
    * A connector for the Account's Computers: the one way a command, a
-   * terminal, a notebook cell or a live files listing runs in a Computer.
+   * terminal or a live files listing runs in a Computer.
    * Each session is end-to-end encrypted between the page and the
    * Computer, run by `options.worker`: a Worker that called
    * `serveComputerConnections` from `@idyl-sh/sdk/computer-connection`.
@@ -1532,8 +1524,7 @@ export interface ConnectorOptions {
   /** Where Computers were last placed, kept across page loads. */
   readonly placements?: PlacementMemory;
   /**
-   * The kind of client every session create states, recorded with each
-   * notebook cell the connector runs. `sdk` when absent.
+   * The kind of client every session create states. `sdk` when absent.
    */
   readonly client?: "sdk" | "console" | "cli";
   /**

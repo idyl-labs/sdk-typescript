@@ -99,8 +99,6 @@ interface SaveState {
   readonly outcome: string;
   readonly revision?: number;
   readonly reason?: string;
-  /** The notebook cell the session recorded. */
-  readonly cell?: string;
 }
 
 type SaveRead = (
@@ -132,7 +130,7 @@ export async function openSession(
 }
 
 /**
- * Runs `open`, a command or a notebook cell, on the Computer `computer` and
+ * Runs the command `open` names on the Computer `computer` and
  * returns once it has ended and its changes are saved, so a read of the files
  * after it sees what it wrote. The session is closed however the call ends.
  */
@@ -146,17 +144,10 @@ export async function runCommand(
   const session = await openSession(connector, computer, open, signal);
   const stdout = new Collected();
   const stderr = new Collected();
-  // The session's create may answer before it names the cell, so a read of
-  // the session can be what names it.
-  let cell: string | undefined;
-  const output = (): CommandOutput => {
-    const recorded = cell ?? session.cell;
-    return {
-      stdout: stdout.text,
-      stderr: stderr.text,
-      ...(recorded === undefined ? {} : { cell: recorded }),
-    };
-  };
+  const output = (): CommandOutput => ({
+    stdout: stdout.text,
+    stderr: stderr.text,
+  });
   const reader = session.output.getReader();
   let id = session.id;
   let exit: { readonly code?: number; readonly signal?: string } | undefined;
@@ -201,12 +192,8 @@ export async function runCommand(
     if (exit === undefined) {
       throw new CommandSessionError("no_exit", output());
     }
-    const recordsCell = open.mode === "cell" && session.cell === undefined;
     const state: SaveState =
-      saved === undefined || recordsCell
-        ? await sessionSave(id, readSession, signal)
-        : saved;
-    cell = state.cell;
+      saved ?? (await sessionSave(id, readSession, signal));
     if (state.outcome === "failed") {
       throw new CommandSaveError(state.reason, exit.code, output());
     }
@@ -247,24 +234,21 @@ async function sessionSave(
     try {
       const { status } = await read(session, signal);
       const save = status.save;
-      const cell = status.cell === undefined ? {} : { cell: status.cell };
       switch (save?.state) {
         case "saved": {
           const version = optionalNumber(save.version);
           return {
             outcome: "published",
             ...(version === undefined ? {} : { revision: version }),
-            ...cell,
           };
         }
         case "unchanged":
         case "off":
-          return { outcome: save.state, ...cell };
+          return { outcome: save.state };
         case "failed":
           return {
             outcome: "failed",
             ...(save.reason === undefined ? {} : { reason: save.reason }),
-            ...cell,
           };
         default:
           break;

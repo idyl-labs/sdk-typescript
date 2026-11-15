@@ -193,8 +193,7 @@ export interface ComputerExecutionSettings {
    * in the computer's image, such as `/usr/bin/zsh`. Whether the image
    * holds it is judged when a session starts, and a session whose shell the
    * image does not hold ends without starting. A change applies from the
-   * next session. Commands and notebook cells are run by a POSIX shell
-   * whatever it says. `undefined` or empty runs `/bin/bash` when the image
+   * next session. Commands are run by a POSIX shell whatever it says. `undefined` or empty runs `/bin/bash` when the image
    * holds it and `/bin/sh` otherwise, and none is written.
    */
   readonly shell?: string;
