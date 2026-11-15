@@ -5,9 +5,7 @@
  * stored value. The public type is built from the served record field by
  * field; no entry carries a value.
  */
-import { validateVaultDecryption, type VaultDecryption } from "../api/vault.js";
-import { TransportError } from "../errors.js";
-import { errorMessage } from "../resource/validation.js";
+import type { VaultDecryption } from "../api/vault.js";
 import { numberOf } from "./records.js";
 
 /**
@@ -74,34 +72,30 @@ export interface Decryption {
   readonly kmsRequestId?: string;
 }
 
-/** The public view of one served decryption record, judged as it is read. */
+/** The fields of a served record the public type carries. */
+const FIELDS = [
+  "at",
+  "kind",
+  "resourceId",
+  "name",
+  "computerId",
+  "podId",
+  "activation",
+  "outcome",
+  "reportedBy",
+  "kmsRequestId",
+] as const;
+
+/**
+ * The public view of one served decryption record, read leniently: an
+ * outcome or a reporter this package does not name is carried, and a field
+ * the public type does not declare is left out.
+ */
 export function decryptionOf(served: VaultDecryption): Decryption {
-  try {
-    validateVaultDecryption(served);
-  } catch (cause) {
-    throw new TransportError(
-      "invalid_response",
-      `decryption response is not a valid decryption: ${errorMessage(cause)}`,
-      { cause },
-    );
+  const view: Record<string, unknown> = {};
+  for (const field of FIELDS) {
+    if (served[field] !== undefined) view[field] = served[field];
   }
-  return Object.freeze({
-    at: served.at,
-    kind: served.kind,
-    resourceId: served.resourceId,
-    name: served.name,
-    version: numberOf(served.version),
-    ...(served.computerId === undefined
-      ? {}
-      : { computerId: served.computerId }),
-    ...(served.podId === undefined ? {} : { podId: served.podId }),
-    ...(served.activation === undefined
-      ? {}
-      : { activation: served.activation }),
-    outcome: served.outcome,
-    reportedBy: served.reportedBy,
-    ...(served.kmsRequestId === undefined
-      ? {}
-      : { kmsRequestId: served.kmsRequestId }),
-  });
+  view["version"] = numberOf(served.version);
+  return Object.freeze(view) as unknown as Decryption;
 }

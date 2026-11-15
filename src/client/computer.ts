@@ -25,7 +25,7 @@ import {
 } from "../resource/uuid-id.js";
 import { imageCatalogQuery } from "../internal/listquery.js";
 import { computersService } from "../services/computers.js";
-import { vaultDecryptionsService } from "../services/vault-decryptions.js";
+import { vaultSecretsService } from "../services/vault-secrets.js";
 import type { ComputersService } from "../services/computers.js";
 import {
   normalizeWaitOptions,
@@ -35,6 +35,7 @@ import {
 } from "../wait.js";
 import {
   clientOf,
+  offsetContinue,
   pageOf,
   pageRequest,
   requireLimit,
@@ -867,8 +868,9 @@ export class Computer {
     const { state, record } = internalsOf(this);
     const limit = requireLimit(options.limit);
     const offset = offsetOf(options.continue);
-    const context = await state.context(signalOf(options));
-    const page = await vaultDecryptionsService(context).listForComputer(
+    const page = await vaultSecretsService(
+      await state.context(signalOf(options)),
+    ).listComputerDecryptions(
       record.id,
       {
         ...(limit === undefined ? {} : { limit }),
@@ -876,12 +878,9 @@ export class Computer {
       },
       signalOf(options),
     );
-    const next = offset + page.items.length;
     return pageOf(
       page.items.map(decryptionOf),
-      page.items.length > 0 && BigInt(next) < BigInt(page.totalCount)
-        ? String(next)
-        : undefined,
+      offsetContinue(offset, page.items.length, page.totalCount),
     );
   }
 

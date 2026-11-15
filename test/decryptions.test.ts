@@ -119,10 +119,11 @@ describe("idyl.secrets.decryptions", () => {
     expect(network.computerCalls()).toEqual([]);
   });
 
-  // Contract: a record outside the addressed Subnet, and a record the
-  // contract's validation refuses, are never handed back. Each case changes
-  // one field of a valid record; the control is read.
-  it("refuses a record of another Subnet or an invalid record", async () => {
+  // Contract: a record outside the addressed Subnet is never handed back,
+  // and the control is read. A record is read leniently: an outcome or a
+  // reporter this package does not name is carried unchanged, and a field
+  // the public type does not declare is left out.
+  it("refuses a record of another Subnet and carries an unnamed outcome", async () => {
     const page = (fields: Record<string, unknown>) =>
       new FakeNetwork((request) => {
         if (request.url.pathname !== secretDecryptionsPath) return undefined;
@@ -130,28 +131,21 @@ describe("idyl.secrets.decryptions", () => {
         const [first] = golden["items"] as Record<string, unknown>[];
         return json({ items: [{ ...first, ...fields }], totalCount: 1 });
       });
-    for (const [fields, message] of [
-      [
-        { subnet: "550000000099" },
-        "decryption list names a record outside the addressed subnet",
-      ],
-      [
-        { outcome: "unknown" },
-        'decryption response is not a valid decryption: unknown vault decryption outcome "unknown"',
-      ],
-      [
-        { computerId: COMPUTER_ID, podId: COMPUTER_ID },
-        "decryption response is not a valid decryption: vault decryption names a Computer and a Pod",
-      ],
-    ] as const) {
-      const error = await rejection(
-        page(fields).client().secrets.decryptionsPage("database"),
-      );
-      expect(error, message).toBeInstanceOf(TransportError);
-      expect((error as Error).message).toBe(message);
-    }
-    const control = await page({}).client().secrets.decryptionsPage("database");
-    expect(control.items).toHaveLength(1);
+    const error = await rejection(
+      page({ subnet: "550000000099" })
+        .client()
+        .secrets.decryptionsPage("database"),
+    );
+    expect(error).toBeInstanceOf(TransportError);
+    expect((error as Error).message).toBe(
+      "decryption list names a record outside the addressed subnet",
+    );
+    const carried = await page({ outcome: "withheld", extra: true })
+      .client()
+      .secrets.decryptionsPage("database");
+    expect(carried.items).toEqual([
+      { ...publicRecords[0], outcome: "withheld" },
+    ]);
   });
 });
 
