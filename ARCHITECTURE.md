@@ -167,6 +167,14 @@ guards are judged before anything is sent. A Computer's attachment states
 and the Computers that attach one Secret are read on the Computers' own
 routes, when asked for, and never on a wake, a terminal or a cell.
 
+The record of decryptions, every time IDYL opened a Secret's value, is read
+on the Namespace's Vault routes: a Secret's by its name and a Computer's by
+the Computer's stable ID, offset-paged as every listing is. A served record
+is read leniently into a public `Decryption`: an outcome or a reporter the
+package does not name is carried, and a record that names another Subnet than
+the one addressed is refused. A Computer read, a listing and a wake never read
+it.
+
 Operations that settle on the platform, a save, a restore, a wake, a
 sleep, a fork's copy and a delete with `wait`, are read until they settle;
 no request is held open.

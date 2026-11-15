@@ -1,0 +1,14 @@
+{
+  "at": "2026-01-02T03:04:06Z",
+  "kind": "TLSCertificate",
+  "resourceId": "01954e20-7540-7ec4-93ec-14f783e6ab22",
+  "name": "edge-tls",
+  "version": 1,
+  "subnet": "550000000002",
+  "podId": "01954e20-7540-7ec4-93ec-14f783e6ab17",
+  "activation": "01954e20-7540-7ec4-93ec-14f783e6ab17.4",
+  "nodeId": "ERERERERERERERERERERERERERERERERERERERERERE",
+  "outcome": "refused",
+  "reportedBy": "vault",
+  "kmsRequestId": "0c1d2e3f-4a5b-4c6d-8e7f-8091a2b3c4d5"
+}

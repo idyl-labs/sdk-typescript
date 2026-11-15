@@ -104,6 +104,21 @@ export function computerSecretsById(scope: NamespaceScope, id: string): string {
 }
 
 /**
+ * The record of the Vault values opened for the Computer addressed by its
+ * stable identifier. The record lives under the Namespace's vault path, not
+ * under the Computer's, so a Computer read never carries it.
+ */
+export function vaultDecryptionsOfComputer(
+  scope: NamespaceScope,
+  id: string,
+): string {
+  return namespace(
+    scope,
+    `vault/computers/${encodeURIComponent(id)}/decryptions`,
+  );
+}
+
+/**
  * The session collection of the Computer addressed by name, or, with
  * `sessionId`, one session in it.
  */

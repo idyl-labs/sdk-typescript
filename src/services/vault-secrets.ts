@@ -12,6 +12,7 @@
  */
 import { TransportError } from "../errors.js";
 import {
+  decodeVaultDecryption,
   decodeVaultVersionMetadata,
   encodePurgeVaultResourceRequest,
   encodeRotateVaultSecretRequest,
@@ -20,6 +21,7 @@ import {
   validateVaultRotateOptions,
   VAULT_HEADER_IDEMPOTENCY_KEY,
   VAULT_HEADER_IF_MATCH,
+  type ListVaultDecryptionsResponse,
   type ListVaultSecretsResponse,
   type ListVaultVersionsResponse,
   type PurgeVaultResourceRequest,
@@ -28,7 +30,11 @@ import {
   type VaultRotateOptions,
 } from "../api/vault.js";
 import type { DeleteResponse, ListOptions } from "../api/types.js";
-import { namespace, namespaceResource } from "../internal/apipath.js";
+import {
+  namespace,
+  namespaceResource,
+  vaultDecryptionsOfComputer,
+} from "../internal/apipath.js";
 import type { PlacementContext } from "../internal/context.js";
 import { readList } from "../internal/envelopes.js";
 import { listQuery } from "../internal/listquery.js";
@@ -109,6 +115,30 @@ export interface VaultSecretsService {
     request?: RequestOptions,
   ): Promise<ListVaultVersionsResponse>;
   /**
+   * One page of the record of every decryption of the named Secret's
+   * values, newest first. The record names the Secret by name, so it holds
+   * decryptions made before the Secret was deleted and created again.
+   * `limit` and `offset` page it; a record of another Subnet in the page is
+   * refused with a `TransportError`.
+   */
+  listDecryptions(
+    name: string,
+    options?: ListOptions,
+    request?: RequestOptions,
+  ): Promise<ListVaultDecryptionsResponse>;
+  /**
+   * One page of the record of every Secret value opened for the Computer
+   * with this stable ID, newest first, on its own route under the
+   * Namespace's vault path: a Computer read, a listing and a wake never
+   * carry it. `limit` and `offset` page it; a record of another Subnet in
+   * the page is refused with a `TransportError`.
+   */
+  listComputerDecryptions(
+    computerId: string,
+    options?: ListOptions,
+    request?: RequestOptions,
+  ): Promise<ListVaultDecryptionsResponse>;
+  /**
    * Deletes the named Secret. It can be restored for seven days by writing
    * to its name, and the Computers attached to it resume when it is.
    */
@@ -174,6 +204,24 @@ export function vaultSecretsService(
       );
     }
     return secret;
+  };
+  /**
+   * One page of decryption records at `path`. A record that names a Subnet
+   * other than the addressed one, which the routes never serve, is refused.
+   */
+  const decryptions = async (
+    path: (resolved: ResolvedPlacement) => string,
+    request: RequestOptions,
+  ): Promise<ListVaultDecryptionsResponse> => {
+    const { resolved, response } = await send("GET", path, request);
+    const page = readList(response, "decryptions", decodeVaultDecryption);
+    if (!page.items.every((record) => record.subnet === resolved.subnet)) {
+      throw new TransportError(
+        "invalid_response",
+        "decryption list names a record outside the addressed subnet",
+      );
+    }
+    return page;
   };
   return {
     async put(secret, options = {}) {
@@ -269,6 +317,21 @@ export function vaultSecretsService(
         request,
       );
       return readList(response, "secret versions", decodeVaultVersionMetadata);
+    },
+    async listDecryptions(name, options = {}, request = {}) {
+      const secretName = requireNonBlank(name, "secret name");
+      return await decryptions(
+        secretPath(secretName, `/decryptions${listQuery(options)}`),
+        request,
+      );
+    },
+    async listComputerDecryptions(computerId, options = {}, request = {}) {
+      const id = requireNonBlank(computerId, "computer ID");
+      return await decryptions(
+        (resolved) =>
+          vaultDecryptionsOfComputer(resolved.scope, id) + listQuery(options),
+        request,
+      );
     },
     async delete(name, options = {}) {
       const { response } = await send(

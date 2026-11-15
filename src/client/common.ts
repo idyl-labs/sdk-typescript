@@ -122,6 +122,38 @@ export function offsetContinue(
 }
 
 /**
+ * One page of an offset-paged listing. `limit` is judged and `continue` read
+ * back into its offset before `read` sends anything; the served items become
+ * public through `of`, and the page carries the next `continue` while the
+ * platform reports more.
+ */
+export async function offsetPage<S, T>(
+  options: PageOptions,
+  read: (
+    page: { readonly limit?: number; readonly offset?: number },
+    call: { readonly signal?: AbortSignal },
+  ) => Promise<{
+    readonly items: readonly S[];
+    readonly totalCount: number | bigint;
+  }>,
+  of: (served: S) => T,
+): Promise<Page<T>> {
+  const limit = requireLimit(options.limit);
+  const offset = offsetOf(options.continue) ?? 0;
+  const page = await read(
+    {
+      ...(limit === undefined ? {} : { limit }),
+      ...(offset === 0 ? {} : { offset }),
+    },
+    signalOf(options),
+  );
+  return pageOf(
+    page.items.map(of),
+    offsetContinue(offset, page.items.length, page.totalCount),
+  );
+}
+
+/**
  * The kind of client a call states, recorded with what it changes or runs:
  * `sdk` when absent. Throws a `TypeError` for any other value.
  */

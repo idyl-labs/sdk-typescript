@@ -25,6 +25,7 @@ import {
 } from "../resource/uuid-id.js";
 import { imageCatalogQuery } from "../internal/listquery.js";
 import { computersService } from "../services/computers.js";
+import { vaultSecretsService } from "../services/vault-secrets.js";
 import type { ComputersService } from "../services/computers.js";
 import {
   normalizeWaitOptions,
@@ -34,6 +35,7 @@ import {
 } from "../wait.js";
 import {
   clientOf,
+  offsetPage,
   pageOf,
   pageRequest,
   requireLimit,
@@ -59,6 +61,7 @@ import {
   type OpenSession,
   type Version,
 } from "./records.js";
+import { decryptionOf, type Decryption } from "./decryptions.js";
 import { files, type Files } from "./files.js";
 import { notebooks, type Notebooks } from "./notebooks.js";
 import {
@@ -828,6 +831,49 @@ export class Computer {
       signalOf(options),
     );
     return Object.freeze(items.map(secretAttachmentStatusOf));
+  }
+
+  /**
+   * Every Secret value IDYL opened for the Computer, newest first, page by
+   * page: when, which Secret and version, the start it was opened for, the
+   * outcome and who reported it. The record names the Computer by its ID,
+   * so a Computer of the same name created after a delete has a record of
+   * its own. A decryption only the key service reported names no Computer
+   * and is in the Secret's record alone, `idyl.secrets.decryptions`. No
+   * entry carries a value. The record is read only when asked for: a
+   * Computer read, a listing and a wake never carry it.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer, before any
+   * request is sent
+   * @throws {@link ApiError} IDYL refuses a page's request
+   * @throws {@link TransportError} a page's request does not complete, or
+   * its answer is not a valid decryption
+   */
+  decryptions(options: ListOptions = {}): AsyncIterable<Decryption> {
+    return walk((page) => this.decryptionsPage(page), options);
+  }
+
+  /**
+   * One page of the record of every Secret value IDYL opened for the
+   * Computer, newest first.
+   *
+   * @throws {@link TypeError} `limit` is not a positive integer, or
+   * `continue` is not one a page of this listing returned, before any
+   * request is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete, or its
+   * answer is not a valid decryption
+   */
+  async decryptionsPage(options: PageOptions = {}): Promise<Page<Decryption>> {
+    const { state, record } = internalsOf(this);
+    return await offsetPage(
+      options,
+      async (page, call) =>
+        await vaultSecretsService(
+          await state.context(call),
+        ).listComputerDecryptions(record.id, page, call),
+      decryptionOf,
+    );
   }
 
   /**

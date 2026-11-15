@@ -143,6 +143,7 @@ export type {
   SecretAttachment,
   UpdateComputerOptions,
 } from "./client/settings.js";
+export type { Decryption } from "./client/decryptions.js";
 export type {
   ComputerSecretUse,
   CreateSecretOptions,
