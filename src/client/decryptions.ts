@@ -14,8 +14,8 @@ import { numberOf } from "./records.js";
  * each report every decryption, so the record holds a decryption whether or
  * not Vault's code reported it. IDYL keeps each entry for 90 days.
  *
- * A Computer's start opens the values it attaches, and the Computer opens
- * them again when it fetches them after more than 15 minutes without a use.
+ * A Computer's start opens the values it attaches, and a later use can
+ * open a value again.
  */
 export interface Decryption {
   /** When the value was opened, as an RFC 3339 instant. */
