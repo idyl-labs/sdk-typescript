@@ -10,9 +10,7 @@
 #
 # The tagged run uses the `npm` environment, which only version tags may
 # use. npm verifies the workflow's OpenID Connect identity against the
-# package's trusted publisher. A package's first release precedes its
-# trusted publisher, so that one authenticates with the environment's
-# stage-only token, which can stage a version and cannot publish one.
+# package's trusted publisher, so no npm token is stored anywhere.
 #
 # Run by hand, the workflow is a rehearsal: it builds, checks and packs a
 # commit of main, and uploads nothing.
@@ -75,8 +73,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - name: Stage the release with provenance, or rehearse it
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_STAGE_TOKEN }}
         run: |
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             npm stage publish --provenance --access public
