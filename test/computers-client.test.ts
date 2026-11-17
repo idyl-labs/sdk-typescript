@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   ApiError,
+  ERROR_CODE_RATE_LIMITED,
   Computer,
   Idyl,
   SAVE_REASON_ACCOUNT_STORAGE_LIMIT,
@@ -1015,16 +1016,18 @@ describe("Computer handles", () => {
 });
 
 describe("idyl.computers listing and images", () => {
-  // Contract: list walks every page; a handle is yielded for each.
-  it("lists every page", async () => {
+  // Contract: list walks every page by the position the last page
+  // returned, passed back unchanged, and yields a handle for each Computer.
+  it("lists every page by its continue position", async () => {
     const network = new FakeNetwork((request) => {
       if (request.url.pathname !== computersPath) return undefined;
-      return request.url.searchParams.get("offset") === null
+      return request.url.searchParams.get("continue") === null
         ? json({
             items: [computerRecord({ name: "a" })],
             totalCount: 2,
+            continue: "opaque/position+1",
           })
-        : json({ items: [computerRecord({ name: "b" })], totalCount: 2 });
+        : json({ items: [computerRecord({ name: "b" })] });
     });
     const names: string[] = [];
     for await (const computer of network.client().computers.list()) {
@@ -1032,11 +1035,75 @@ describe("idyl.computers listing and images", () => {
       names.push(computer.name);
     }
     expect(names).toEqual(["a", "b"]);
-    expect(
-      network
-        .computerRequests()
-        .map((request) => request.url.searchParams.get("offset")),
-    ).toEqual([null, "1"]);
+    const sent = network.computerRequests().map((request) => request.url);
+    expect(sent.map((url) => url.searchParams.get("continue"))).toEqual([
+      null,
+      "opaque/position+1",
+    ]);
+    expect(sent.every((url) => !url.searchParams.has("offset"))).toBe(true);
+  });
+
+  // Contract: listPage sends the stated page size and position; the first
+  // page carries the count up to 1,000 and whether the list holds more.
+  it("reads one page with its bounded count", async () => {
+    const network = new FakeNetwork((request) =>
+      request.url.pathname === computersPath
+        ? json({
+            items: [computerRecord({ name: "a" })],
+            totalCount: 1000,
+            totalCountIsLowerBound: true,
+            continue: "next",
+          })
+        : undefined,
+    );
+    const page = await network.client().computers.listPage({ limit: 100 });
+    expect(page.items.map((computer) => computer.name)).toEqual(["a"]);
+    expect(page.totalCount).toBe(1000);
+    expect(page.totalCountIsLowerBound).toBe(true);
+    expect(page.continue).toBe("next");
+    expect(network.computerRequests()[0]?.url.searchParams.get("limit")).toBe(
+      "100",
+    );
+  });
+
+  // Contract: a later page carries no count, and a page under the bound
+  // carries no lower-bound flag.
+  it("reads no count from a later page", async () => {
+    const network = new FakeNetwork((request) =>
+      request.url.pathname === computersPath
+        ? json({ items: [computerRecord({ name: "b" })] })
+        : undefined,
+    );
+    const page = await network
+      .client()
+      .computers.listPage({ continue: "next" });
+    expect(page.totalCount).toBeUndefined();
+    expect(page.totalCountIsLowerBound).toBeUndefined();
+    expect(page.continue).toBeUndefined();
+  });
+
+  // Contract: a refusal for listing too fast carries its code and the wait
+  // its details state when the response exposes no Retry-After.
+  it("surfaces a rate-limit refusal with its wait", async () => {
+    const network = new FakeNetwork((request) =>
+      request.url.pathname === computersPath
+        ? json(
+            {
+              error: "too many requests",
+              code: ERROR_CODE_RATE_LIMITED,
+              details: { retryAfterSeconds: 3 },
+            },
+            429,
+          )
+        : undefined,
+    );
+    const error: unknown = await network
+      .client()
+      .computers.listPage()
+      .catch((caught: unknown) => caught);
+    expect(isApiCode(error, ERROR_CODE_RATE_LIMITED)).toBe(true);
+    expect((error as ApiError).status).toBe(429);
+    expect((error as ApiError).retryAfterMs).toBe(3000);
   });
 
   // Contract: a listed Computer of another Account is never handed back;

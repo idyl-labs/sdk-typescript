@@ -409,6 +409,60 @@ describe("computer.files", () => {
     ]);
   });
 
+  // Contract: a listing sends its page size on every page; one page of a
+  // directory carries the count up to 1,000 and whether the folder holds
+  // more, and `continue` reads the next.
+  it("pages a directory at the stated size", async () => {
+    const network = new FakeNetwork((request) => {
+      const { pathname, searchParams } = request.url;
+      if (pathname === `${computersPath}/api-dev` || pathname === byId) {
+        return json({ computer: computerRecord({ headVersion: 7 }) });
+      }
+      if (pathname === `${byId}/files`) {
+        return searchParams.get("continue") === null
+          ? json({
+              items: [{ name: "a", type: "file", mode: 0o644, size: 1 }],
+              totalCount: 1000,
+              totalCountIsLowerBound: true,
+              continue: "after-a",
+            })
+          : json({
+              items: [{ name: "b", type: "file", mode: 0o644, size: 1 }],
+            });
+      }
+      return undefined;
+    });
+    const computer = await network.client().computers.get("api-dev");
+    const first = await computer.files.listPage("", { limit: 1 });
+    expect(first.items.map((entry) => entry.path)).toEqual(["a"]);
+    expect(first.totalCount).toBe(1000);
+    expect(first.totalCountIsLowerBound).toBe(true);
+    const second = await computer.files.listPage("", {
+      limit: 1,
+      continue: first.continue ?? "",
+    });
+    expect(second.items.map((entry) => entry.path)).toEqual(["b"]);
+    expect(second.totalCount).toBeUndefined();
+    const walked = [];
+    for await (const entry of computer.files.list("", { limit: 1 })) {
+      walked.push(entry.path);
+    }
+    expect(walked).toEqual(["a", "b"]);
+    const sent = network
+      .computerRequests()
+      .filter((request) => request.url.pathname.endsWith("/files"))
+      .map((request) => [
+        request.url.searchParams.get("limit"),
+        request.url.searchParams.get("continue"),
+      ]);
+    expect(sent).toEqual([
+      ["1", null],
+      ["1", "after-a"],
+      ["1", null],
+      ["1", "after-a"],
+    ]);
+  });
+
   // Contract: a listing yields each entry with its workspace path, and
   // recursively the directories below.
   it("lists, recursively", async () => {

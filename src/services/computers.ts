@@ -6,7 +6,7 @@ import {
   computerOperationMethods,
   type ComputerOperationMethods,
 } from "./computer-operations.js";
-import type { DeleteResponse, ListOptions } from "../api/types.js";
+import type { DeleteResponse } from "../api/types.js";
 import { evaluateComputerWait } from "../api/wait.js";
 import {
   createComputerRequestShape,
@@ -21,6 +21,7 @@ import type {
   ListComputersBySecretResponse,
 } from "../api/computer-secrets.js";
 import type {
+  ComputerListOptions,
   CreateComputerRequest,
   CreateComputerResponse,
   GetComputerResponse,
@@ -183,22 +184,24 @@ export interface ComputersService
   deleteById(id: string, options?: RequestOptions): Promise<DeleteResponse>;
   /**
    * One page of the Computers in the Namespace, in the client's resolved
-   * place. Filter selects ownership: empty or `unowned`, or `all`.
+   * place, newest first, as `ListComputersResponse` describes. Filter
+   * selects ownership: empty or `unowned`, or `all`. Throws a `TypeError`
+   * when `limit` is not a non-negative integer.
    */
   list(
-    options?: ListOptions,
+    options?: ComputerListOptions,
     request?: RequestOptions,
   ): Promise<ListComputersResponse>;
   /**
    * One page of Computers across every Namespace the caller is authorized
    * to list in the Account, in the resolved Subnet. The service's Namespace
    * does not narrow the result: each Computer carries its own Namespace,
-   * `totalCount` counts the account-wide authorized result, and the
-   * platform orders by Namespace name and then Computer name so paging is
-   * stable and equal names in different Namespaces stay distinct.
+   * `totalCount` counts the account-wide authorized result, and the order
+   * is the one `ListComputersResponse` describes. Throws a `TypeError` when
+   * `limit` is not a non-negative integer.
    */
   listAllNamespaces(
-    options?: ListOptions,
+    options?: ComputerListOptions,
     request?: RequestOptions,
   ): Promise<ListComputersResponse>;
   /**

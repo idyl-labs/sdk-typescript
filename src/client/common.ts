@@ -5,6 +5,7 @@
  * listing returns, and the walk that turns pages into an async iterator.
  */
 import { TransportError } from "../errors.js";
+import type { Integer } from "../resource/json.js";
 
 /**
  * What a call accepts beyond its own arguments. `signal` cancels the call:
@@ -33,6 +34,17 @@ export interface Page<T> {
    * absent on the last page.
    */
   readonly continue?: string;
+  /**
+   * How many items the listing selects, counted up to 1,000, on the first
+   * page of a listing that counts: the page read with no `continue`.
+   * Absent on every later page and on a listing that does not count.
+   */
+  readonly totalCount?: number;
+  /**
+   * `true` when the listing selects more than `totalCount` items, which is
+   * then 1,000 and reads as "1,000+". Absent otherwise.
+   */
+  readonly totalCountIsLowerBound?: true;
 }
 
 /** Walks a listing. */
@@ -186,10 +198,19 @@ export function requireText(value: unknown, label: string): string {
 export function pageOf<T>(
   items: readonly T[],
   next: string | undefined,
+  count?: {
+    readonly totalCount?: Integer;
+    readonly totalCountIsLowerBound?: boolean;
+  },
 ): Page<T> {
+  const total = count?.totalCount;
   return Object.freeze({
     items: Object.freeze([...items]),
     ...(next === undefined ? {} : { continue: next }),
+    ...(total === undefined ? {} : { totalCount: Number(total) }),
+    ...(total !== undefined && count?.totalCountIsLowerBound === true
+      ? { totalCountIsLowerBound: true as const }
+      : {}),
   });
 }
 

@@ -81,7 +81,6 @@ import {
   computerSpecShape,
   type ComputerSpec,
 } from "../resource/computer.js";
-import type { ListResponse } from "./types.js";
 import {
   computerExecutionSettingsImageStatusShape,
   type ComputerExecutionSettingsImageStatus,
@@ -1117,8 +1116,41 @@ export interface GetComputerResponse {
 }
 
 /**
+ * ComputerListOptions selects one page of a Computer list.
+ *
+ * `limit` is the page size: `undefined` or zero takes the platform's page
+ * of 100, and a value above the platform's largest page, 1,000, is refused
+ * with HTTP 400. `continue` is the position the previous page returned,
+ * passed back unchanged; `undefined` reads the first page. A position is
+ * valid only for the route and the `filter` it was issued under; any other
+ * is refused with `ERROR_CODE_INVALID_CONTINUE`. `filter` selects ownership:
+ * `undefined`, empty or `unowned`, `all`, or `actor:<ActorID>`.
+ */
+export interface ComputerListOptions {
+  readonly limit?: Integer;
+  readonly continue?: string;
+  readonly filter?: string;
+}
+
+/**
  * One page of Computers in one Subnet: those of one Namespace, or of every
  * Namespace the caller may list. Each Computer carries its own Namespace
  * and Subnet.
+ *
+ * Computers are ordered by creation time, newest first, then by ID. The
+ * order never moves, so a walk by `continue` returns every Computer that
+ * exists for the whole walk exactly once; one created during the walk sorts
+ * before its first page and is not returned by it.
+ *
+ * `continue` is present on every page but the last. `totalCount` is present
+ * on the first page only, the one read with no `continue`: the number of
+ * Computers the list selects, counted up to 1,000. When the list selects
+ * more, `totalCount` is 1,000 and `totalCountIsLowerBound` is `true`;
+ * otherwise `totalCountIsLowerBound` is absent.
  */
-export type ListComputersResponse = ListResponse<Computer>;
+export interface ListComputersResponse {
+  readonly items: readonly Computer[];
+  readonly totalCount?: Integer;
+  readonly totalCountIsLowerBound?: boolean;
+  readonly continue?: string;
+}

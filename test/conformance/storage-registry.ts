@@ -47,7 +47,8 @@ import type { ServedCodec } from "./served-registry.js";
 const fileListPageShape: Shape<fileStatus.FileListResponse> =
   object<fileStatus.FileListResponse>({
     items: always(array(files.fileEntryShape)),
-    totalCount: always(integer({ unsigned: false, bits: 64 })),
+    totalCount: pointer(integer({ unsigned: false, bits: 64 })),
+    totalCountIsLowerBound: omitEmpty(boolean()),
     continue: omitEmpty(string()),
     syncing: pointer(boolean()),
     store: pointer(fileStatus.fileStoreWaitShape),

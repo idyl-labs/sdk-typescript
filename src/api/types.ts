@@ -83,6 +83,22 @@ export interface ErrorResponse {
 }
 
 /**
+ * The code on the refusal of a request the Account makes faster than its
+ * plan allows, such as creating or listing Computers. It is returned with
+ * HTTP 429, a `Retry-After` header in whole seconds, and the same number
+ * under the detail key {@link RATE_LIMITED_DETAIL_RETRY_AFTER_SECONDS}. The
+ * refused request changes nothing, and the same request succeeds once the
+ * wait has passed. Clients classify on the code, never on the message.
+ */
+export const ERROR_CODE_RATE_LIMITED = "RATE_LIMITED";
+
+/**
+ * The detail key of an `ERROR_CODE_RATE_LIMITED` refusal that carries the
+ * seconds to wait before a retry, the number `Retry-After` states.
+ */
+export const RATE_LIMITED_DETAIL_RETRY_AFTER_SECONDS = "retryAfterSeconds";
+
+/**
  * The code on the refusal of a request whose `Idyl-Client` header names a
  * release of a product below the minimum version the API supports for that
  * product. It is returned with HTTP 426 Upgrade Required, and its details

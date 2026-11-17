@@ -169,7 +169,7 @@ routes, when asked for, and never on a wake, a terminal or a command.
 
 The record of decryptions, every time IDYL opened a Secret's value, is read
 on the Namespace's Vault routes: a Secret's by its name and a Computer's by
-the Computer's stable ID, offset-paged as every listing is. A served record
+the Computer's stable ID, offset-paged. A served record
 is read leniently into a public `Decryption`: an outcome or a reporter the
 package does not name is carried, and a record that names another Subnet than
 the one addressed is refused. A Computer read, a listing and a wake never read

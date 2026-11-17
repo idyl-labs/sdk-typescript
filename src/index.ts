@@ -124,6 +124,7 @@ export type {
   FileStoreWait,
   FolderStatus,
   ListFilesOptions,
+  ListFilesPageOptions,
   ReplacedPath,
   Uploaded,
   UploadOptions,

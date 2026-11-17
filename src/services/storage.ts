@@ -26,7 +26,7 @@ import {
   fileListQuery,
   watchFilesQuery,
 } from "../internal/listquery.js";
-import { asRecord, readList } from "../internal/envelopes.js";
+import { asRecord, readCountedPage, readList } from "../internal/envelopes.js";
 import { requireNonBlank, signalOption } from "../internal/options.js";
 import { resolvePlacement } from "../internal/routing.js";
 import {
@@ -506,16 +506,10 @@ export function storageMethods(
       fileListQuery(options),
       requestOptions,
     );
-    const {
-      items,
-      totalCount,
-      continue: next,
-    } = readList(value, "files", files.decodeFileEntry);
+    const page = readCountedPage(value, "files", files.decodeFileEntry);
     const { syncing, store } = asRecord(value);
     return {
-      items,
-      totalCount,
-      ...(next === undefined ? {} : { continue: next }),
+      ...page,
       ...(typeof syncing === "boolean" ? { syncing } : {}),
       ...(store === undefined || store === null
         ? {}

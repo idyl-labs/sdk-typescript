@@ -268,7 +268,8 @@ describe("Computers service", () => {
     );
     expect((await computers.list({ limit: 3 })).totalCount).toBe(1);
     expect(
-      (await computers.listAllNamespaces({ offset: 1 })).items[0]?.subnet,
+      (await computers.listAllNamespaces({ continue: "next" })).items[0]
+        ?.subnet,
     ).toBe(subnetSlug);
     expect(await computers.delete("payments")).toEqual({
       accepted: true,
@@ -284,7 +285,7 @@ describe("Computers service", () => {
       `GET ${computersPath}/payments`,
       `GET ${computersPath}/by-id/${COMPUTER_ID}`,
       `GET ${computersPath}?limit=3&subnet=${subnetSlug}`,
-      `GET /v1/accounts/${accountId}/subnets/${subnetSlug}/computers?offset=1`,
+      `GET /v1/accounts/${accountId}/subnets/${subnetSlug}/computers?continue=next`,
       `DELETE ${computersPath}/payments`,
       `DELETE ${computersPath}/by-id/${COMPUTER_ID}`,
     ]);

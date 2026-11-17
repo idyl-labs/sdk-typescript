@@ -34,10 +34,13 @@ import type { UploadRequestOptions } from "../services/storage.js";
 import { pollUntil } from "../wait.js";
 import {
   clientOf,
+  pageOf,
+  requireLimit,
   signalOf,
   walk,
   type CallOptions,
   type Page,
+  type PageOptions,
 } from "./common.js";
 import { serviceOf, type HandleState } from "./computer.js";
 import {
@@ -148,6 +151,18 @@ export interface DownloadLink {
 export interface ListFilesOptions extends CallOptions {
   /** Lists every directory below as well, depth first. */
   readonly recursive?: boolean;
+  /** The saved version to read, by number or name; the latest when absent. */
+  readonly version?: number | string;
+  /**
+   * The most entries to read per page. `undefined` takes the platform's
+   * page of 10,000, which is also the largest page. Must be a positive
+   * integer.
+   */
+  readonly limit?: number;
+}
+
+/** Selects one page of a directory's entries. */
+export interface ListFilesPageOptions extends PageOptions {
   /** The saved version to read, by number or name; the latest when absent. */
   readonly version?: number | string;
 }
@@ -457,6 +472,26 @@ export interface Files {
    */
   list(path?: string, options?: ListFilesOptions): AsyncIterable<FileEntry>;
   /**
+   * One page of a directory's entries in byte order of name, the workspace
+   * itself when `path` is absent. `limit` `undefined` takes the platform's
+   * page of 10,000. The first page, read with no `continue`, carries
+   * `totalCount`, counted up to 1,000, and `totalCountIsLowerBound` when the
+   * directory holds more; `continue` reads the next page.
+   *
+   * @param path - The directory's path, relative to the workspace; empty or
+   *   absent for the workspace itself.
+   * @throws {@link TypeError} the path, `limit` or `version` is invalid,
+   *   before any request is sent
+   * @throws {@link ApiError} IDYL refuses the request, such as with status
+   *   404 for a directory or version it does not hold, or a `continue` this
+   *   listing did not issue
+   * @throws {@link TransportError} the request does not complete
+   */
+  listPage(
+    path?: string,
+    options?: ListFilesPageOptions,
+  ): Promise<Page<FileEntry>>;
+  /**
    * Follows a folder, the workspace itself when `path` is absent. The first
    * answer is the folder's current status, whether the files are `syncing`
    * included, and each later one is an answer in which the status or the
@@ -706,28 +741,45 @@ export function files(state: HandleState, computerId: string): Files {
   }
 
   /** One page of a directory, each entry with whether its name addresses it. */
-  const listPage = async (
+  const listedPage = async (
     path: string,
     version: string | undefined,
-    options: CallOptions & { readonly continue?: string },
+    options: PageOptions,
   ): Promise<Page<Listed>> => {
+    const limit = requireLimit(options.limit);
     const service = await serviceOf(state, options);
     const page = await service.listFilesById(
       computerId,
       {
         path,
         ...(version === undefined ? {} : { version }),
+        ...(limit === undefined ? {} : { limit }),
         ...(options.continue === undefined
           ? {}
           : { continue: options.continue }),
       },
       signalOf(options),
     );
-    return Object.freeze({
-      items: page.items.map((entry) => listed(path, entry)),
-      ...(page.continue === undefined ? {} : { continue: page.continue }),
-    });
+    return pageOf(
+      page.items.map((entry) => listed(path, entry)),
+      page.continue,
+      page,
+    );
   };
+
+  async function listPage(
+    path = "",
+    options: ListFilesPageOptions = {},
+  ): Promise<Page<FileEntry>> {
+    const directory = workspacePath(path, "the workspace");
+    const { version } = versionOption(options.version);
+    const page = await listedPage(directory, version, options);
+    return pageOf(
+      page.items.map(({ entry }) => entry),
+      page.continue,
+      page,
+    );
+  }
 
   async function* walkDirectory(
     path: string,
@@ -735,8 +787,11 @@ export function files(state: HandleState, computerId: string): Files {
     options: ListFilesOptions,
   ): AsyncGenerator<FileEntry, void, undefined> {
     for await (const { entry, addressable } of walk(
-      (page) => listPage(path, version, page),
-      signalOf(options),
+      (page) => listedPage(path, version, page),
+      {
+        ...signalOf(options),
+        ...(options.limit === undefined ? {} : { limit: options.limit }),
+      },
     )) {
       yield entry;
       if (options.recursive === true && entry.type === "dir" && addressable) {
@@ -750,6 +805,7 @@ export function files(state: HandleState, computerId: string): Files {
     options: ListFilesOptions = {},
   ): AsyncGenerator<FileEntry, void, undefined> {
     const directory = workspacePath(path, "the workspace");
+    requireLimit(options.limit);
     let version = versionOption(options.version).version;
     // A recursive walk reads one saved version throughout, so a save while
     // it walks cannot mix two.
@@ -887,6 +943,7 @@ export function files(state: HandleState, computerId: string): Files {
       });
     },
     list,
+    listPage,
     watch,
     async move(from: string, to: string, options: ChangeOptions = {}) {
       const source = workspacePath(from);

@@ -119,6 +119,50 @@ export function readList<T, Count = Integer>(
 }
 
 /**
+ * One page of a list that counts on its first page only: `totalCount`
+ * where the page carries it, `totalCountIsLowerBound` only when `true`, and
+ * `continue` on every page but the last.
+ */
+export interface CountedPage<T> {
+  readonly items: readonly T[];
+  readonly totalCount?: Integer;
+  readonly totalCountIsLowerBound?: boolean;
+  readonly continue?: string;
+}
+
+/**
+ * Reads a page of a list that counts on its first page only, its items
+ * through `decode`. `items` is judged as {@link readList} judges it; an
+ * absent `totalCount` stays absent, and a present one must be an integer.
+ */
+export function readCountedPage<T>(
+  response: unknown,
+  plural: string,
+  decode: (document: unknown) => T,
+): CountedPage<T> {
+  const envelope = asRecord(response);
+  const count = envelope["totalCount"];
+  const counted = count !== undefined && count !== null;
+  const {
+    items,
+    totalCount,
+    continue: next,
+  } = readList(
+    counted ? envelope : { ...envelope, totalCount: 0 },
+    plural,
+    decode,
+  );
+  return {
+    items,
+    ...(counted ? { totalCount } : {}),
+    ...(envelope["totalCountIsLowerBound"] === true
+      ? { totalCountIsLowerBound: true }
+      : {}),
+    ...(next === undefined ? {} : { continue: next }),
+  };
+}
+
+/**
  * Runs a decoder over served data. A document it cannot read at all is the
  * platform's fault, never the caller's, so it is an `invalid_response`
  * `TransportError` with a fixed sentence naming only the field.

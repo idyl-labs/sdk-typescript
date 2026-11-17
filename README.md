@@ -137,6 +137,24 @@ const terminal = await computer.terminal({ size: { cols: 120, rows: 40 } });
 [`examples/browser-terminal.ts`](examples/browser-terminal.ts) connects a
 terminal to xterm.js.
 
+### Lists
+
+Every list answers in pages. `idyl.computers.list()` walks them for you,
+newest Computer first; `listPage` reads one, and its `continue` asks for the
+next. The first page counts what the list holds up to 1,000:
+
+```ts
+const first = await idyl.computers.listPage({ limit: 100 });
+console.log(first.totalCountIsLowerBound ? "1,000+" : first.totalCount);
+if (first.continue !== undefined) {
+  const second = await idyl.computers.listPage({ continue: first.continue });
+  console.log(second.items.length);
+}
+```
+
+`computer.files.list(path, { limit })` and `computer.files.listPage(path)`
+page a directory the same way.
+
 ### More
 
 Every export is documented in its type declarations. The client also covers
@@ -175,6 +193,10 @@ try {
   // No capacity to run it now; a later wake may succeed.
 }
 ```
+
+A request made faster than the Account's plan allows, such as listing or
+creating Computers in a tight loop, rejects with `ERROR_CODE_RATE_LIMITED`;
+its `retryAfterMs` is how long to wait before the same request succeeds.
 
 A request that does not complete rejects with a `TransportError`, and a
 command that exits other than with 0 with an `ExitError`.
