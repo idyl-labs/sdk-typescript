@@ -36,8 +36,13 @@ import {
   vaultDecryptionsOfComputer,
 } from "../internal/apipath.js";
 import type { PlacementContext } from "../internal/context.js";
-import { readList } from "../internal/envelopes.js";
-import { listQuery } from "../internal/listquery.js";
+import { readList, served } from "../internal/envelopes.js";
+import { listQuery, usageVersionsQuery } from "../internal/listquery.js";
+import {
+  decodeVaultSecretUsageResponse,
+  type VaultSecretUsageResponse,
+} from "../api/secret-usage.js";
+import type { Integer } from "../resource/json.js";
 import { requireNonBlank, signalOption } from "../internal/options.js";
 import {
   resolvePlacement,
@@ -126,6 +131,19 @@ export interface VaultSecretsService {
     options?: ListOptions,
     request?: RequestOptions,
   ): Promise<ListVaultDecryptionsResponse>;
+  /**
+   * Counts, without listing them, the openings of the named Secret's values
+   * in the last `VAULT_USAGE_WINDOW_MS` by outcome, and states when a value
+   * of each of `versions`, at most `MAX_USAGE_VERSIONS`, was last opened, in
+   * their order. Each count stops at `LIST_COUNT_BOUND`. Throws a
+   * `TypeError` before any request when `name` is blank or `versions` is not
+   * one a usage read may name.
+   */
+  usage(
+    name: string,
+    versions: readonly Integer[],
+    request?: RequestOptions,
+  ): Promise<VaultSecretUsageResponse>;
   /**
    * One page of the record of every Secret value opened for the Computer
    * with this stable ID, newest first, on its own route under the
@@ -323,6 +341,18 @@ export function vaultSecretsService(
       return await decryptions(
         secretPath(secretName, `/decryptions${listQuery(options)}`),
         request,
+      );
+    },
+    async usage(name, versions, request = {}) {
+      const secretName = requireNonBlank(name, "secret name");
+      const query = usageVersionsQuery(versions);
+      const { response } = await send(
+        "GET",
+        secretPath(secretName, `/usage${query}`),
+        request,
+      );
+      return served("secret usage", () =>
+        decodeVaultSecretUsageResponse(response),
       );
     },
     async listComputerDecryptions(computerId, options = {}, request = {}) {

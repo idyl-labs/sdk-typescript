@@ -34,16 +34,21 @@ import { parseTimestamp } from "../resource/shapes.js";
 import { errorMessage } from "../resource/validation.js";
 import { vaultSecretsService } from "../services/vault-secrets.js";
 import {
+  boundedCountOf,
   offsetPage,
   requireLimit,
   requireText,
+  requireVersions,
   signalOf,
   walk,
+  type BoundedCount,
   type CallOptions,
   type ListOptions,
   type Page,
   type PageOptions,
+  type UsageOptions,
 } from "./common.js";
+import { vaultDecryptionOutcomeFilter } from "../api/secret-usage.js";
 import { decryptionOf, type Decryption } from "./decryptions.js";
 import { numberOf } from "./records.js";
 
@@ -397,33 +402,54 @@ export interface Secrets {
    * first, page by page: when, which version, the Computer or Pod it was
    * opened for, the outcome and who reported the decryption. The record names
    * the Secret by name, so it holds decryptions made before the Secret was
-   * deleted and created again. No entry carries a value. It is read only
-   * when asked for, never on a Computer's wake, terminal or cell.
+   * deleted and created again. No entry carries a value. `outcome` narrows
+   * it to one outcome, such as `refused`. It is read only when asked for,
+   * never on a Computer's wake, terminal or cell.
    *
    * @param name - The Secret's name.
-   * @throws {@link TypeError} `name` is empty, or `limit` is not a positive
-   *   integer, before any request is sent
+   * @throws {@link TypeError} `name` is empty, `limit` is not a positive
+   *   integer, or `outcome` is empty, before any request is sent
    * @throws {@link ApiError} IDYL refuses a page's request
    * @throws {@link TransportError} a page's request does not complete, or
    *   its answer is not a valid decryption
    */
-  decryptions(name: string, options?: ListOptions): AsyncIterable<Decryption>;
+  decryptions(
+    name: string,
+    options?: DecryptionsOptions,
+  ): AsyncIterable<Decryption>;
   /**
    * One page of the record of every time IDYL opened a value of the Secret
-   * with this name, newest first.
+   * with this name, newest first, narrowed to one outcome when `outcome` is
+   * set.
    *
    * @param name - The Secret's name.
    * @throws {@link TypeError} `name` is empty, `limit` is not a positive
-   *   integer, or `continue` is not one a page of this listing returned,
-   *   before any request is sent
+   *   integer, `outcome` is empty, or `continue` is not one a page of this
+   *   listing returned, before any request is sent
    * @throws {@link ApiError} IDYL refuses the request
    * @throws {@link TransportError} the request does not complete, or its
    *   answer is not a valid decryption
    */
   decryptionsPage(
     name: string,
-    options?: PageOptions,
+    options?: DecryptionsPageOptions,
   ): Promise<Page<Decryption>>;
+  /**
+   * How the values of the Secret with this name were used in the last 90
+   * days: how many openings, refusals and failures, each counted up to
+   * 1,000, and when a value of each version asked about was last opened. No
+   * decryption is listed and no value is read. It is read only when asked
+   * for, never on a Computer's wake, terminal or cell.
+   *
+   * @param name - The Secret's name.
+   * @throws {@link TypeError} `name` is empty, or `versions` is not whole
+   *   numbers of at least 1, at most 100 and none twice, before any request
+   *   is sent
+   * @throws {@link ApiError} IDYL refuses the request, such as with status
+   *   404 for a name the Namespace does not hold
+   * @throws {@link TransportError} the request does not complete
+   */
+  usage(name: string, options?: UsageOptions): Promise<SecretUsage>;
   /**
    * Deletes the Secret with this name. For seven days, creating a Secret of
    * its name restores it, with its ID. To stop one Computer using a Secret,
@@ -436,6 +462,46 @@ export interface Secrets {
    * @throws {@link TransportError} the request does not complete
    */
   delete(name: string, options?: CallOptions): Promise<void>;
+}
+
+/** Narrows a Secret's decryption record to one outcome. */
+export interface DecryptionsOptions extends ListOptions {
+  /**
+   * Only the decryptions with this outcome, such as `refused`. `undefined`
+   * reads every outcome.
+   */
+  readonly outcome?: Decryption["outcome"];
+}
+
+/** Selects one page of a Secret's decryption record, narrowed to one outcome. */
+export interface DecryptionsPageOptions extends PageOptions {
+  /**
+   * Only the decryptions with this outcome, such as `refused`. `undefined`
+   * reads every outcome.
+   */
+  readonly outcome?: Decryption["outcome"];
+}
+
+/**
+ * How a Secret's values were used in the last 90 days, the record's whole
+ * retention, counted without listing a decryption.
+ */
+export interface SecretUsage {
+  /** The openings of its values. */
+  readonly opened: BoundedCount;
+  /** The openings the key service refused. */
+  readonly refused: BoundedCount;
+  /** The openings whose answer did not arrive, so whether they opened is not known. */
+  readonly failed: BoundedCount;
+  /**
+   * For each version asked about, in the order asked, when a value of it
+   * was last opened, as an RFC 3339 timestamp; `lastOpenedAt` is absent
+   * when none was opened in the 90 days.
+   */
+  readonly versions: readonly {
+    readonly version: number;
+    readonly lastOpenedAt?: string;
+  }[];
 }
 
 /** Builds the Secrets of the Namespace the client's context addresses. */
@@ -452,13 +518,31 @@ export function secrets(
     );
   const decryptionsPage = async (
     name: string,
-    options: PageOptions = {},
+    options: DecryptionsPageOptions = {},
   ): Promise<Page<Decryption>> => {
     const secretName = requireText(name, "secret name");
+    const { outcome } = options;
+    if (
+      outcome !== undefined &&
+      (typeof outcome !== "string" || outcome === "")
+    ) {
+      throw new TypeError("outcome must be a decryption outcome");
+    }
     return await offsetPage(
       options,
       async (page, call) =>
-        await (await service(options)).listDecryptions(secretName, page, call),
+        await (
+          await service(options)
+        ).listDecryptions(
+          secretName,
+          {
+            ...page,
+            ...(outcome === undefined
+              ? {}
+              : { filter: vaultDecryptionOutcomeFilter(outcome) }),
+          },
+          call,
+        ),
       decryptionOf,
     );
   };
@@ -546,11 +630,41 @@ export function secrets(
       ).get(secretName, signalOf(options));
       return secretOf(served);
     },
-    decryptions: (name: string, options: ListOptions = {}) => {
+    decryptions: (name: string, options: DecryptionsOptions = {}) => {
       const secretName = requireText(name, "secret name");
-      return walk((page) => decryptionsPage(secretName, page), options);
+      const { outcome } = options;
+      return walk(
+        (page) =>
+          decryptionsPage(secretName, {
+            ...page,
+            ...(outcome === undefined ? {} : { outcome }),
+          }),
+        options,
+      );
     },
     decryptionsPage,
+    async usage(name: string, options: UsageOptions = {}) {
+      const secretName = requireText(name, "secret name");
+      const versions = requireVersions(options.versions);
+      const served = await (
+        await service(options)
+      ).usage(secretName, versions, signalOf(options));
+      return Object.freeze({
+        opened: boundedCountOf(served.opened),
+        refused: boundedCountOf(served.refused),
+        failed: boundedCountOf(served.failed),
+        versions: Object.freeze(
+          served.versions.map((entry) =>
+            Object.freeze({
+              version: numberOf(entry.version),
+              ...(entry.lastOpenedAt === undefined
+                ? {}
+                : { lastOpenedAt: entry.lastOpenedAt }),
+            }),
+          ),
+        ),
+      });
+    },
     async delete(name: string, options: CallOptions = {}) {
       const secretName = requireText(name, "secret name");
       await (await service(options)).delete(secretName, signalOf(options));

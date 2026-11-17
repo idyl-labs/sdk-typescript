@@ -14,11 +14,17 @@ import {
   type ListComputersBySecretResponse,
 } from "../api/computer-secrets.js";
 import type { NamespaceScope } from "../api/types.js";
-import { computersBySecret } from "../internal/apipath.js";
+import { computerSecretUsage, computersBySecret } from "../internal/apipath.js";
+import { usageVersionsQuery } from "../internal/listquery.js";
+import {
+  decodeComputerSecretUsageResponse,
+  type ComputerSecretUsageResponse,
+} from "../api/secret-usage.js";
 import type { PlacementContext } from "../internal/context.js";
 import { served } from "../internal/envelopes.js";
 import { signalOption } from "../internal/options.js";
 import { resolvePlacement } from "../internal/routing.js";
+import type { Integer } from "../resource/json.js";
 import { parseResourceId } from "../resource/uuid-id.js";
 
 /** Reads the attachment states of the Computer `path` addresses. */
@@ -59,5 +65,32 @@ export async function listComputersBySecret(
   );
   return served("computers by secret", () =>
     decodeListComputersBySecretResponse(response),
+  );
+}
+
+/**
+ * Counts, without listing them, the Computers of the Namespace the context
+ * addresses whose settings attach the Secret with ID `secretId`, and those
+ * pinned to each of `versions`. Throws a `TypeError` before any request when
+ * `secretId` is not a canonical UUID or `versions` is not one a usage read
+ * may name.
+ */
+export async function computerSecretUsageOf(
+  context: PlacementContext,
+  secretId: string,
+  versions: readonly Integer[],
+  signal: AbortSignal | undefined,
+): Promise<ComputerSecretUsageResponse> {
+  const id = parseResourceId(secretId);
+  const query = usageVersionsQuery(versions);
+  const resolved = await resolvePlacement(context, signalOption(signal));
+  const response = await context.state.transport.json<unknown>(
+    "GET",
+    resolved.endpoint,
+    computerSecretUsage(resolved.scope, id) + query,
+    signalOption(signal),
+  );
+  return served("computer secret usage", () =>
+    decodeComputerSecretUsageResponse(response),
   );
 }

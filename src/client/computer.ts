@@ -18,6 +18,7 @@ import { formatDuration } from "../resource/duration.js";
 import { DEFAULT_IDLE_TIMEOUT } from "../resource/idle-timeout.js";
 import { formatVolume } from "../resource/volume.js";
 import {
+  isComputerId,
   isJournalEntryId,
   isResourceId,
   parseJournalEntryId,
@@ -34,17 +35,21 @@ import {
   type WaitOptions,
 } from "../wait.js";
 import {
+  boundedCountOf,
   clientOf,
   offsetPage,
   pageOf,
   pageRequest,
   requireLimit,
+  requireVersions,
   signalOf,
   walk,
+  type BoundedCount,
   type CallOptions,
   type ListOptions,
   type Page,
   type PageOptions,
+  type UsageOptions,
 } from "./common.js";
 import {
   awakeOf,
@@ -1394,6 +1399,24 @@ export interface ComputerSizeInfo {
 }
 
 /**
+ * How many of a Namespace's Computers attach one Secret, each count stopping
+ * at 1,000.
+ */
+export interface ComputerSecretUsage {
+  /** Every Computer whose settings attach it. */
+  readonly computers: BoundedCount;
+  /** Those where it is not attached, so its value is not sent. */
+  readonly notAttached: BoundedCount;
+  /** Those that follow its current version. */
+  readonly following: BoundedCount;
+  /** For each version asked about, in the order asked, the Computers pinned to it. */
+  readonly pinned: readonly {
+    readonly version: number;
+    readonly count: BoundedCount;
+  }[];
+}
+
+/**
  * The Computers of the client's Namespace: `idyl.computers`.
  *
  * @example
@@ -1435,6 +1458,18 @@ export interface Computers {
    * answer names another Account or Namespace
    */
   get(name: string, options?: CallOptions): Promise<Computer>;
+  /**
+   * The Computer with this ID, whatever it is called now.
+   *
+   * @param id the Computer's `id`, a canonical UUID
+   * @throws {@link TypeError} `id` is not a canonical UUID, before any
+   * request is sent
+   * @throws {@link ApiError} IDYL refuses the read, such as for an ID the
+   * Namespace does not hold (status 404)
+   * @throws {@link TransportError} the request does not complete, or the
+   * answer names another Account or Namespace
+   */
+  getById(id: string, options?: CallOptions): Promise<Computer>;
   /**
    * Every Computer of the Account, newest first, read page by page: each
    * page asks for the next from the position the last one returned, until a
@@ -1487,6 +1522,24 @@ export interface Computers {
     secretId: string,
     options?: CallOptions,
   ): Promise<readonly ComputerSecretUse[]>;
+  /**
+   * How many of the Namespace's Computers attach the Secret with this ID,
+   * asleep or awake, counted without listing them: all of them, those where
+   * it is not attached, those that follow its current version, and those
+   * pinned to each version asked about, in the order asked. Each count stops
+   * at 1,000. It reads no Secret.
+   *
+   * @param secretId a Secret's `id`, a canonical UUID
+   * @throws {@link TypeError} `secretId` is not a canonical UUID, or
+   * `versions` is not whole numbers of at least 1, at most 100 and none
+   * twice, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TransportError} the request does not complete
+   */
+  secretUsage(
+    secretId: string,
+    options?: UsageOptions,
+  ): Promise<ComputerSecretUsage>;
   /**
    * The image catalogue a Computer can start from, for one isolation class:
    * `secure-container` unless `isolation` names another. Empty for a class
@@ -1643,6 +1696,37 @@ export function computers(
     },
     list: (options: ListOptions = {}) => walk(listPage, options),
     listPage,
+    async getById(id: string, options: CallOptions = {}) {
+      if (!isComputerId(id)) {
+        throw new TypeError("computer ID must be a canonical UUID");
+      }
+      const state = fresh();
+      const service = await serviceOf(state, options);
+      const { computer } = await service.getById(id, signalOf(options));
+      return await handleOf(state, computer, options);
+    },
+    async secretUsage(secretId: string, options: UsageOptions = {}) {
+      if (!isResourceId(secretId)) {
+        throw new TypeError("secret ID must be a canonical UUID");
+      }
+      const versions = requireVersions(options.versions);
+      const served = await (
+        await service(options)
+      ).secretUsage(secretId, versions, signalOf(options));
+      return Object.freeze({
+        computers: boundedCountOf(served.computers),
+        notAttached: boundedCountOf(served.notAttached),
+        following: boundedCountOf(served.following),
+        pinned: Object.freeze(
+          served.pinned.map((entry) =>
+            Object.freeze({
+              version: numberOf(entry.version),
+              count: boundedCountOf(entry.count),
+            }),
+          ),
+        ),
+      });
+    },
     async listBySecret(secretId: string, options: CallOptions = {}) {
       // Judged before the client's context is read, so a refusal arrives
       // before anything is sent.

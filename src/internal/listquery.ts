@@ -22,6 +22,7 @@ import { pageOptionsShape, type PageOptions } from "../api/storage.js";
  */
 import type { ListOptions } from "../api/types.js";
 import type { ComputerListOptions } from "../api/computer.js";
+import { validateUsageVersions } from "../api/secret-usage.js";
 import type { JournalListOptions } from "../api/journal.js";
 
 /**
@@ -114,6 +115,16 @@ function encode(values: readonly (readonly [string, string])[]): string {
   const query = new URLSearchParams();
   for (const [key, value] of values) query.append(key, value);
   return `?${query.toString()}`;
+}
+
+/**
+ * The query of a usage read: one `version` parameter per version, in the
+ * order given, or an empty string for none. The versions are judged with
+ * `validateUsageVersions` first.
+ */
+export function usageVersionsQuery(versions: readonly Integer[]): string {
+  validateUsageVersions(versions);
+  return encode(versions.map((version) => ["version", integerText(version)]));
 }
 
 /** Encodes only the continuation fields served by a page-only route. */
