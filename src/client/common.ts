@@ -47,6 +47,59 @@ export interface Page<T> {
   readonly totalCountIsLowerBound?: true;
 }
 
+/**
+ * A count that stops at 1,000: `count` is exact up to it, and beyond it
+ * `count` is 1,000 and `isLowerBound` is `true`, which reads as "1,000+".
+ */
+export interface BoundedCount {
+  /** The count, at most 1,000. */
+  readonly count: number;
+  /** `true` when there are more than `count`; absent otherwise. */
+  readonly isLowerBound?: true;
+}
+
+/** Selects the versions a usage read states something of. */
+export interface UsageOptions extends CallOptions {
+  /**
+   * The versions to state something of, at most 100 and none twice, each a
+   * whole number of at least 1; the answer keeps their order. `undefined`
+   * names none.
+   */
+  readonly versions?: readonly number[];
+}
+
+/**
+ * Judges the versions of a usage read before any request: whole numbers of
+ * at least 1. Throws a `TypeError`; the count and repeats are judged with
+ * the request's other rules.
+ */
+export function requireVersions(versions: unknown): readonly number[] {
+  if (versions === undefined) return [];
+  if (
+    !Array.isArray(versions) ||
+    !versions.every(
+      (version: unknown) =>
+        typeof version === "number" &&
+        Number.isSafeInteger(version) &&
+        version >= 1,
+    )
+  ) {
+    throw new TypeError("versions must be whole numbers of at least 1");
+  }
+  return versions as readonly number[];
+}
+
+/** A served bounded count as the client hands it back. */
+export function boundedCountOf(served: {
+  readonly count: Integer;
+  readonly isLowerBound?: boolean;
+}): BoundedCount {
+  return Object.freeze({
+    count: Number(served.count),
+    ...(served.isLowerBound === true ? { isLowerBound: true as const } : {}),
+  });
+}
+
 /** Walks a listing. */
 export interface ListOptions extends CallOptions {
   /**

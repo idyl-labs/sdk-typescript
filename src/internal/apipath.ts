@@ -90,6 +90,21 @@ export function computersBySecret(
   );
 }
 
+/**
+ * The path of the counts of a Namespace's Computers whose settings attach
+ * one Secret, addressed by its stable identifier. The `secret-usage`
+ * segment is reserved on the platform beside `by-id`.
+ */
+export function computerSecretUsage(
+  scope: NamespaceScope,
+  secretId: string,
+): string {
+  return namespace(
+    scope,
+    `computers/secret-usage/${encodeURIComponent(secretId)}`,
+  );
+}
+
 /** The Secret attachment states of the Computer addressed by name. */
 export function computerSecrets(scope: NamespaceScope, name: string): string {
   return namespace(scope, `computers/${encodeURIComponent(name)}/secrets`);

@@ -1,5 +1,5 @@
 {
-  "revision": "4a2718c156047d03566fbd979ecf8dc29498682b",
+  "revision": "468dcb55c0d7745562660148862cf7fe7fd3e8c8",
   "files": {
     "api/testdata/golden/billing-plan-change.applied.json": "da96b96a19647c6b98ccd1a217724bb1a4623efc1cb59dca25d035637b3f4da8",
     "api/testdata/golden/billing-plan-change.create-response.json": "aa1d4e99b24cc892925dbbfb11669689250503e751d890eed33ce02b49747785",
@@ -68,6 +68,7 @@
     "api/testdata/golden/computer-notebook.rename-request.json": "bc48df1c75a8d2848e1ef452e2b863edda8bc9728413d5156bd26320516f3b1a",
     "api/testdata/golden/computer-notebook.update-request.json": "7e6c3ad9e1f014b5ec440c86d29774ddb624aefcfb86d0d0fb17149f2d22aa6e",
     "api/testdata/golden/computer-operation.requests.json": "b21683f673d3fcf2bb67c5955a47cc22f6aa2f8339a5be5af7d814e20433eac5",
+    "api/testdata/golden/computer-secret-usage.json": "3b5dbff63422895e2321e4529dd08a1b0640f008ded1084ead199cba2db28b44",
     "api/testdata/golden/computer-secrets.list.json": "165071b66e333c9d556dd74a6d94183f24c6a8f1ef67bc02cb6fb36f65fd3524",
     "api/testdata/golden/computer-session.attached.json": "00c00b375e42090ea3e50d409b4899aa6f2782b76e4aae7e7cf4239f381bedaf",
     "api/testdata/golden/computer-session.cancelled.json": "f5f8ed9a366f08e7b33a22c98a37c5fbe78c8ba04b8be27e03635e546f4c1344",
@@ -168,6 +169,7 @@
     "api/testdata/golden/vault-decryption.pod-refused.json": "231cc8e61bf1185c43c7e7d4bed0adb56a154cf736f64392ae0b203f534223b4",
     "api/testdata/golden/vault-decryptions.list-empty.json": "6554ce6c109fdbf1ebce13100a98bc35ebe37c552a4baef2c900e1aac380c4f0",
     "api/testdata/golden/vault-decryptions.list-page.json": "8491766bcfb62abde4c1d78f7b668b2d7febaf701adee4eaca016084f5fcbef3",
+    "api/testdata/golden/vault-secret-usage.json": "14386b74c987501511f8575fc29bc909686202bc18107f8a781b17d5e9c26e1e",
     "api/testdata/golden/version.full.json": "bb0a2ccb8d14c4b7aca6b9e9f865878f1c9bcbc62b43bd8579af7d2a5709395c",
     "api/testdata/golden/version.minimal.json": "2c41fe5d4708281fb90508e8a4faccd02f030fc1cc561e57db549545a36f3f3e",
     "resource/testdata/golden/computer.execution-refusals.json": "f321a38016f5e6ddb2fb4dcf16d8158f17f91bfff4770c2a1770ba2d3825c44f",

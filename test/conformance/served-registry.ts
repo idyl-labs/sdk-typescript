@@ -22,6 +22,16 @@
  * refuses, each with the refusal; its codec lives in `servedRefusals`.
  */
 import {
+  decodeComputerSecretUsageResponse,
+  decodeVaultSecretUsageResponse,
+  encodeComputerSecretUsageResponse,
+  encodeVaultSecretUsageResponse,
+  validateComputerSecretUsageResponse,
+  validateVaultSecretUsageResponse,
+  type ComputerSecretUsageResponse,
+  type VaultSecretUsageResponse,
+} from "../../src/api/secret-usage.js";
+import {
   decodeListComputerSecretAttachmentsResponse,
   decodeListComputersBySecretResponse,
   encodeListComputerSecretAttachmentsResponse,
@@ -286,6 +296,18 @@ const computersBySecret: ServedCodec<ListComputersBySecretResponse> = {
   validate: validateListComputersBySecretResponse,
 };
 
+const computerSecretUsage: ServedCodec<ComputerSecretUsageResponse> = {
+  decode: decodeComputerSecretUsageResponse,
+  encode: encodeComputerSecretUsageResponse,
+  validate: validateComputerSecretUsageResponse,
+};
+
+const vaultSecretUsage: ServedCodec<VaultSecretUsageResponse> = {
+  decode: decodeVaultSecretUsageResponse,
+  encode: encodeVaultSecretUsageResponse,
+  validate: validateVaultSecretUsageResponse,
+};
+
 const computerImage: ServedCodec<ComputerImage> = {
   decode: decodeComputerImage,
   encode: encodeComputerImage,
@@ -361,6 +383,8 @@ export const servedRegistry: ReadonlyMap<
   ],
   ["vault-decryption", vaultDecryption],
   ["vault-decryptions", vaultDecryptions],
+  ["computer-secret-usage", computerSecretUsage],
+  ["vault-secret-usage", vaultSecretUsage],
 ]);
 
 /**

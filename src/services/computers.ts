@@ -7,6 +7,8 @@ import {
   type ComputerOperationMethods,
 } from "./computer-operations.js";
 import type { DeleteResponse } from "../api/types.js";
+import type { ComputerSecretUsageResponse } from "../api/secret-usage.js";
+import type { Integer } from "../resource/json.js";
 import { evaluateComputerWait } from "../api/wait.js";
 import {
   createComputerRequestShape,
@@ -69,6 +71,7 @@ import {
   listJournal,
 } from "./computer-journal.js";
 import {
+  computerSecretUsageOf,
   listComputersBySecret,
   listSecretAttachments,
 } from "./computer-secrets.js";
@@ -341,6 +344,21 @@ export interface ComputersService
     secretId: string,
     options?: RequestOptions,
   ): Promise<ListComputersBySecretResponse>;
+  /**
+   * Counts, without listing them, the Computers of the Namespace whose
+   * execution settings attach the Secret with ID `secretId`: all of them,
+   * those whose attachment is not attached, those that follow the current
+   * version, and those pinned to each of `versions`, at most
+   * `MAX_USAGE_VERSIONS`, in their order. Each count stops at
+   * `LIST_COUNT_BOUND`. Throws a `TypeError` before any request when
+   * `secretId` is not a canonical UUID or `versions` is not one a usage
+   * read may name.
+   */
+  secretUsage(
+    secretId: string,
+    versions: readonly Integer[],
+    options?: RequestOptions,
+  ): Promise<ComputerSecretUsageResponse>;
   /**
    * Cancels a session of the Computer addressed by name: one whose stream
    * no endpoint has started. Once a stream may have started, the session
@@ -647,6 +665,15 @@ export function computersService(
     async listBySecret(secretId, options = {}) {
       requireScope(namespaceName);
       return await listComputersBySecret(addressed, secretId, options.signal);
+    },
+    async secretUsage(secretId, versions, options = {}) {
+      requireScope(namespaceName);
+      return await computerSecretUsageOf(
+        addressed,
+        secretId,
+        versions,
+        options.signal,
+      );
     },
     async cancelSession(name, sessionId, options = {}) {
       const sessions = sessionsByName(name);

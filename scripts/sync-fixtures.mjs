@@ -44,6 +44,7 @@ export const SELECTED = [
   /^api\/testdata\/golden\/network\.[a-z0-9-]+\.json$/u,
   /^api\/testdata\/golden\/signup-offer\.[a-z0-9-]+\.json$/u,
   /^api\/testdata\/golden\/vault-decryptions?\.[a-z0-9-]+\.json$/u,
+  /^api\/testdata\/golden\/(?:computer|vault)-secret-usage\.json$/u,
   /^resource\/testdata\/golden\/(?:computer\.execution|micropod\.network)-refusals\.json$/u,
   /^resource\/testdata\/golden\/(?:redacted)?secret\.[a-z0-9-]+\.json$/u,
 ];

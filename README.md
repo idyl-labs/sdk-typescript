@@ -160,6 +160,8 @@ page a directory the same way.
 Every export is documented in its type declarations. The client also covers
 Secrets (`idyl.secrets`), the record of every time a Secret's value was
 opened (`idyl.secrets.decryptions(name)` and `computer.decryptions()`),
+how much a Secret is used (`idyl.secrets.usage(name)` and
+`idyl.computers.secretUsage(id)`, counted up to 1,000),
 history (`computer.history()`), wake and sleep (`computer.wake()`, `computer.sleep()`) and billing (`idyl.billing`).
 
 ## Authentication

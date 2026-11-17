@@ -41,15 +41,18 @@ export {
 export { parseAccountId, type AccountId } from "./resource/id.js";
 export { parseProfileId, type ProfileId } from "./resource/uuid-id.js";
 export type {
+  BoundedCount,
   CallOptions,
   ListOptions,
   Page,
   PageOptions,
+  UsageOptions,
 } from "./client/common.js";
 export {
   Computer,
   type ComputerImage,
   type ComputerInfo,
+  type ComputerSecretUsage,
   type ComputerSizeInfo,
   type Computers,
   type ConnectorOptions,
@@ -150,7 +153,10 @@ export type {
   Secrets,
   SecretSource,
   SecretVersion,
+  SecretUsage,
   SecretVersionsOptions,
+  DecryptionsOptions,
+  DecryptionsPageOptions,
 } from "./client/secrets.js";
 export type {
   AccessToken,

@@ -77,7 +77,8 @@ export function readFixture(file: string): unknown {
  * One golden under `fixtures/api/testdata/golden`, `<kind>.<state>.json`:
  * a document the platform emits for a resource in one lifecycle state, or
  * one request or response envelope of a route, whose state names it
- * (`update-request`, `list-page`). The kind is the fixture's own name, and
+ * (`update-request`, `list-page`). A route answer with one shape only is
+ * `<kind>.json`, its state empty (`vault-secret-usage`). The kind is the fixture's own name, and
  * both parts may be hyphenated (`computer-session`, `notebook-busy`).
  *
  * `key` selects the codec: a served object's states share their kind's
@@ -98,11 +99,11 @@ export function discoverServedGoldens(): readonly ServedGolden[] {
   return readdirSync(servedGoldenDir)
     .sort()
     .map((file) => {
-      const match = /^(?<kind>[a-z0-9-]+)\.(?<state>[a-z0-9-]+)\.json$/u.exec(
-        file,
-      );
+      const match =
+        /^(?<kind>[a-z0-9-]+)(?:\.(?<state>[a-z0-9-]+))?\.json$/u.exec(file);
       const kind = match?.groups?.["kind"];
-      const state = match?.groups?.["state"];
+      const state =
+        match === null ? undefined : (match.groups?.["state"] ?? "");
       if (kind === undefined || state === undefined) {
         throw new Error(`unexpected served-object fixture ${file}`);
       }
