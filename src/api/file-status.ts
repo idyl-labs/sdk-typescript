@@ -60,10 +60,18 @@ export function validateFileStatus(value: FileStatus): void {
  * states `true`. It is `undefined` on a listing of a named version. `store`
  * is present on such a listing while the running Computer's reads wait for
  * the store.
+ *
+ * Entries are in byte order of name, and each page starts at the position
+ * the previous one returned. `totalCount` is present on the first page only,
+ * the one read with no `continue`: the number of entries in the directory,
+ * counted up to 1,000. When it holds more, `totalCount` is 1,000 and
+ * `totalCountIsLowerBound` is `true`; otherwise `totalCountIsLowerBound` is
+ * absent.
  */
 export interface FileListResponse {
   readonly items: readonly FileEntry[];
-  readonly totalCount: Integer;
+  readonly totalCount?: Integer;
+  readonly totalCountIsLowerBound?: boolean;
   readonly continue?: string;
   readonly syncing?: boolean;
   readonly store?: FileStoreWait;

@@ -16,11 +16,12 @@ import { pageOptionsShape, type PageOptions } from "../api/storage.js";
  * parameter on every request; an account-wide route addresses it in the
  * path and never repeats it.
  *
- * A page size is a positive integer and an offset a non-negative one.
+ * On the global API a page size is a positive integer and an offset a non-negative one.
  * `undefined` is unset, a present value is sent, and a value no route could
  * honour is refused with a `TypeError` naming the option.
  */
 import type { ListOptions } from "../api/types.js";
+import type { ComputerListOptions } from "../api/computer.js";
 import type { JournalListOptions } from "../api/journal.js";
 
 /**
@@ -34,23 +35,29 @@ export function listQuery(options: ListOptions): string {
 }
 
 /**
- * Encodes list options for a Namespace-scoped route served by a Computer's
- * API, which always states the resolved `subnet` explicitly.
+ * Encodes the options of a Computer list: `limit` when greater than zero,
+ * `continue` verbatim when not empty, `filter` when not empty, and, on a
+ * Namespace-scoped route, the resolved `subnet`. An account-wide route
+ * addresses its place in the path and passes no `subnet`. Keys are written
+ * in sorted order. Throws a `TypeError` when `limit` is not a non-negative
+ * integer.
  */
-export function namespaceListQuery(
-  options: ListOptions,
-  subnet: string,
+export function computerListQuery(
+  options: ComputerListOptions,
+  subnet?: string,
 ): string {
-  return encode(queryValues(options, subnet));
-}
-
-/**
- * Encodes list options for an account-wide route served by a Computer's
- * API, which addresses the resolved place in its path and does not repeat
- * it.
- */
-export function accountListQuery(options: ListOptions): string {
-  return encode(queryValues(options, undefined));
+  const values: [string, string][] = [];
+  const limit = options.limit ?? 0;
+  if (!isUint64(limit) || limit < 0) {
+    throw new TypeError("list limit must be a non-negative integer");
+  }
+  if (limit > 0) values.push(["limit", integerText(limit)]);
+  const position = options.continue ?? "";
+  if (position !== "") values.push(["continue", position]);
+  const filter = options.filter ?? "";
+  if (filter !== "") values.push(["filter", filter]);
+  if (subnet !== undefined && subnet !== "") values.push(["subnet", subnet]);
+  return encode(values.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 }
 
 /**

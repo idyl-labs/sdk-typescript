@@ -1436,23 +1436,34 @@ export interface Computers {
    */
   get(name: string, options?: CallOptions): Promise<Computer>;
   /**
-   * Every Computer of the Account, page by page, as handles. Each holds the
-   * snapshot the listing read and acts on its Computer without reading it
-   * again, as a handle from `get` does.
+   * Every Computer of the Account, newest first, read page by page: each
+   * page asks for the next from the position the last one returned, until a
+   * page returns none. Each Computer is a handle that holds the snapshot the
+   * listing read and acts on its Computer without reading it again, as a
+   * handle from `get` does. A walk returns every Computer that exists for
+   * the whole walk exactly once; one created during the walk is not
+   * returned by it.
    *
-   * @throws {@link TypeError} `limit` is not a positive integer
-   * @throws {@link ApiError} IDYL refuses a page's request
+   * @throws {@link TypeError} `limit` is not a positive integer or is above
+   * the largest page
+   * @throws {@link ApiError} IDYL refuses a page's request, such as
+   * `ERROR_CODE_RATE_LIMITED` with the wait in `retryAfterMs`
    * @throws {@link TransportError} a page's request does not complete, or a
    * listed Computer belongs to another Account or Namespace
    */
   list(options?: ListOptions): AsyncIterable<Computer>;
   /**
-   * One page of the Account's Computers, as handles.
+   * One page of the Account's Computers, newest first, as handles. `limit`
+   * `undefined` takes the platform's page of 100; the platform's largest
+   * page is 1,000. The first page, read with no `continue`, carries
+   * `totalCount`, counted up to 1,000, and `totalCountIsLowerBound` when
+   * the Account holds more.
    *
-   * @throws {@link TypeError} `limit` is not a positive integer, or
-   * `continue` is not a position this listing issued, before any request is
-   * sent
-   * @throws {@link ApiError} IDYL refuses the request
+   * @throws {@link TypeError} `limit` is not a positive integer or is above
+   * the largest page, before any request is sent
+   * @throws {@link ApiError} IDYL refuses the request, such as a `continue`
+   * this listing did not issue (`ERROR_CODE_INVALID_CONTINUE`), or
+   * `ERROR_CODE_RATE_LIMITED` with the wait in `retryAfterMs`
    * @throws {@link TransportError} the request does not complete, or a
    * listed Computer belongs to another Account or Namespace
    */
@@ -1585,27 +1596,22 @@ export function computers(
     options: PageOptions = {},
   ): Promise<Page<Computer>> => {
     const limit = requireLimit(options.limit);
-    const offset = offsetOf(options.continue);
     const state = fresh();
     const page = await (
       await serviceOf(state, options)
     ).list(
       {
         ...(limit === undefined ? {} : { limit }),
-        ...(offset === 0 ? {} : { offset }),
+        ...(options.continue === undefined
+          ? {}
+          : { continue: options.continue }),
       },
       signalOf(options),
     );
     const handles = await Promise.all(
       page.items.map((record) => handleOf(state, record, options)),
     );
-    const next = offset + page.items.length;
-    return pageOf(
-      handles,
-      page.items.length > 0 && BigInt(next) < BigInt(page.totalCount)
-        ? String(next)
-        : undefined,
-    );
+    return pageOf(handles, page.continue, page);
   };
   return Object.freeze({
     async create(options: CreateComputerOptions) {
@@ -1709,14 +1715,6 @@ export function computers(
       );
     },
   });
-}
-
-function offsetOf(value: string | undefined): number {
-  if (value === undefined) return 0;
-  if (!/^(?:0|[1-9][0-9]{0,15})$/u.test(value)) {
-    throw new TypeError("continue is not a position this listing issued");
-  }
-  return Number(value);
 }
 
 function requireName(name: unknown): string {

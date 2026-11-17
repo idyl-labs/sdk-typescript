@@ -13,6 +13,10 @@ import { parseJson, stringifyJson } from "../resource/json.js";
  * never trusted to be an envelope.
  */
 import { errorMessage } from "../resource/validation.js";
+import {
+  ERROR_CODE_RATE_LIMITED,
+  RATE_LIMITED_DETAIL_RETRY_AFTER_SECONDS,
+} from "../api/types.js";
 import { clientIdentification, type ClientProduct } from "../client-product.js";
 import type { Credential, CredentialSource } from "../credential.js";
 import { tokenProblem } from "../credential.js";
@@ -679,13 +683,31 @@ async function decodeApiError(
   }
   let message = envelope.error;
   if (message === "") message = truncateFallbackErrorMessage(text);
+  const retryAfterMs = metadata.retryAfterMs ?? statedWait(envelope);
   return apiError({
     status: response.status,
     message,
     ...(envelope.code === undefined ? {} : { code: envelope.code }),
     ...(envelope.details === undefined ? {} : { details: envelope.details }),
     ...metadata,
+    ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
   });
+}
+
+/**
+ * The wait a rate-limit refusal states in its details, in milliseconds, for
+ * a response whose `Retry-After` the runtime does not expose, as a browser
+ * hides it from a cross-origin caller. `undefined` for any other refusal or
+ * a value that is not a non-negative whole number of seconds.
+ */
+function statedWait(envelope: ErrorEnvelope): number | undefined {
+  if (envelope.code !== ERROR_CODE_RATE_LIMITED) return undefined;
+  const seconds = envelope.details?.[RATE_LIMITED_DETAIL_RETRY_AFTER_SECONDS];
+  return typeof seconds === "number" &&
+    Number.isSafeInteger(seconds) &&
+    seconds >= 0
+    ? seconds * 1_000
+    : undefined;
 }
 
 interface ErrorEnvelope {

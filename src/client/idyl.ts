@@ -244,7 +244,12 @@ export class Idyl {
       () => (service ??= identityService(identityEndpoints, transportOptions)),
     );
     this.#computers = computers(
-      (call) => this.#contextOf(call),
+      (call) => {
+        // Every Computer call resolves the place, so the read that needs no
+        // Account starts beside the Account's own.
+        this.#placement.prepare?.();
+        return this.#contextOf(call);
+      },
       namespace,
       (call) => listComputerSizes(this.#state, signalOf(call ?? {})),
       {

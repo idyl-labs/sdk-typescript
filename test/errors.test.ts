@@ -118,5 +118,6 @@ describe("public error classes", () => {
     expect(codes.ERROR_CODE_INVALID_CONTINUE).toBe(
       journal.ERROR_CODE_INVALID_CONTINUE,
     );
+    expect(codes.ERROR_CODE_RATE_LIMITED).toBe(types.ERROR_CODE_RATE_LIMITED);
   });
 });

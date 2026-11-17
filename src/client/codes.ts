@@ -167,6 +167,13 @@ export const ERROR_CODE_UPLOAD_CANCELLED = "UPLOAD_CANCELLED";
 export const ERROR_CODE_INVALID_CONTINUE = "INVALID_CONTINUE";
 
 /**
+ * A request made faster than the Account's plan allows, such as creating or
+ * listing Computers (HTTP 429). Nothing changed; the same request succeeds
+ * after the wait the error carries in `retryAfterMs`.
+ */
+export const ERROR_CODE_RATE_LIMITED = "RATE_LIMITED";
+
+/**
  * The Account has used its month's allowance and its extra usage, and
  * auto-refill cannot buy more (HTTP 402). It refuses a session at once,
  * and a wake or a session that fails later for the same cause carries it as
@@ -301,6 +308,7 @@ export type ApiErrorCode =
   | typeof ERROR_CODE_UPLOAD_EXPIRED
   | typeof ERROR_CODE_UPLOAD_CANCELLED
   | typeof ERROR_CODE_INVALID_CONTINUE
+  | typeof ERROR_CODE_RATE_LIMITED
   | typeof ERROR_CODE_OUT_OF_USAGE
   | typeof ERROR_CODE_SIZE_NOT_IN_PLAN
   | typeof ERROR_CODE_VCPU_LIMIT_REACHED

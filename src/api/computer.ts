@@ -81,7 +81,6 @@ import {
   computerSpecShape,
   type ComputerSpec,
 } from "../resource/computer.js";
-import type { ListResponse } from "./types.js";
 import {
   computerExecutionSettingsImageStatusShape,
   type ComputerExecutionSettingsImageStatus,
@@ -1116,9 +1115,72 @@ export interface GetComputerResponse {
   readonly computer: Computer;
 }
 
+/** The page a Computer list returns when the request states no `limit`. */
+export const DEFAULT_COMPUTER_LIST_PAGE_SIZE = 100;
+
+/** The largest page a Computer list returns, and the largest `limit` a request may state. */
+export const MAX_COMPUTER_LIST_PAGE_SIZE = 1000;
+
+/**
+ * The largest count a bounded list states. A list that selects more states
+ * this number and `totalCountIsLowerBound`, and a client shows it as "1,000+".
+ */
+export const LIST_COUNT_BOUND = 1000;
+
+/**
+ * ComputerListOptions selects one page of a Computer list.
+ *
+ * `limit` is the page size: `undefined` or zero takes
+ * {@link DEFAULT_COMPUTER_LIST_PAGE_SIZE}, and a value above
+ * {@link MAX_COMPUTER_LIST_PAGE_SIZE} is refused. `continue` is the position the previous page returned,
+ * passed back unchanged; `undefined` reads the first page. A position is
+ * valid only for the route and the `filter` it was issued under; any other
+ * is refused with `ERROR_CODE_INVALID_CONTINUE`. `filter` selects ownership:
+ * `undefined`, empty or `unowned`, `all`, or `actor:<ActorID>`.
+ */
+export interface ComputerListOptions {
+  readonly limit?: Integer;
+  readonly continue?: string;
+  readonly filter?: string;
+}
+
 /**
  * One page of Computers in one Subnet: those of one Namespace, or of every
  * Namespace the caller may list. Each Computer carries its own Namespace
  * and Subnet.
+ *
+ * Computers are ordered by creation time, newest first, then by ID. The
+ * order never moves, so a walk by `continue` returns every Computer that
+ * exists for the whole walk exactly once; one created during the walk sorts
+ * before its first page and is not returned by it.
+ *
+ * `continue` is present on every page but the last. `totalCount` is present
+ * on the first page only, the one read with no `continue`: the number of
+ * Computers the list selects, counted up to 1,000. When the list selects
+ * more, `totalCount` is 1,000 and `totalCountIsLowerBound` is `true`;
+ * otherwise `totalCountIsLowerBound` is absent.
  */
-export type ListComputersResponse = ListResponse<Computer>;
+export interface ListComputersResponse {
+  readonly items: readonly Computer[];
+  readonly totalCount?: Integer;
+  readonly totalCountIsLowerBound?: boolean;
+  readonly continue?: string;
+}
+
+/**
+ * Judges Computer list options as the reference contract does: a `limit` of
+ * at most {@link MAX_COMPUTER_LIST_PAGE_SIZE}. Throws a `TypeError` naming
+ * the field.
+ */
+export function validateComputerListOptions(
+  options: ComputerListOptions,
+): void {
+  if (
+    options.limit !== undefined &&
+    Number(options.limit) > MAX_COMPUTER_LIST_PAGE_SIZE
+  ) {
+    throw new TypeError(
+      `limit must be at most ${String(MAX_COMPUTER_LIST_PAGE_SIZE)}`,
+    );
+  }
+}

@@ -174,7 +174,7 @@ describe("computer placement", () => {
         read === 1
           ? errorResponse(503, "unavailable", "try again")
           : json({ computerSubnet: subnetSlug }),
-      identities: (read) => (read === 1 ? [] : [identity()]),
+      identities: (read) => (read === 2 ? [] : [identity()]),
     });
     const computers = client().account.computers;
     await expect(computers.get("payments")).rejects.toMatchObject({
@@ -186,7 +186,38 @@ describe("computer placement", () => {
     );
     await expect(computers.get("payments")).resolves.toBeDefined();
     expect(reads(metaHost)).toHaveLength(2);
-    expect(reads(apiHost)).toHaveLength(2);
+    expect(reads(apiHost)).toHaveLength(3);
+  });
+
+  // Contract: the metadata read and the Account's discovery run at once,
+  // so a first operation waits on one of them, not both in turn.
+  it("reads the metadata and discovery at once", async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let discoveryBeforeMetadata = false;
+    let metadataAnswered = false;
+    const { client } = networkPlane({
+      routes: async (request) => {
+        const { host, pathname } = request.url;
+        if (host === metaHost && pathname === "/v1/network") {
+          await held;
+          metadataAnswered = true;
+          return json({ computerSubnet: subnetSlug });
+        }
+        if (
+          host === apiHost &&
+          pathname.endsWith("/deployable-subnet-identities")
+        ) {
+          discoveryBeforeMetadata = !metadataAnswered;
+          release();
+        }
+        return undefined;
+      },
+    });
+    await client().account.computers.get("payments");
+    expect(discoveryBeforeMetadata).toBe(true);
   });
 
   // Contract: each Account is confirmed by its own discovery, and the

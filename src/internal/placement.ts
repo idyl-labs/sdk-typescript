@@ -53,13 +53,21 @@ export interface PlacementSource {
     accountId: AccountId,
     request?: PlacementRequest,
   ): Promise<AssignedPlacement>;
+  /**
+   * Starts the reads that need no Account, so a first resolution that
+   * follows waits only on the Account's own. Never rejects; a read that
+   * fails is made again by the resolution that needs it.
+   */
+  prepare?(): void;
 }
 
 /**
  * The placement source of a client on an IDYL network: the network's public
  * metadata names the Computer Subnet, read once, anonymously, and shared by
- * every Account; the Account's discovery advertises its API host. Concurrent operations share one read, and a caller's signal ends
- * only its own wait.
+ * every Account; the Account's discovery advertises its API host. The two
+ * reads run at once, and the metadata read starts as soon as the client
+ * asks for its Account. Concurrent operations share one read, and a
+ * caller's signal ends only its own wait.
  */
 export function networkPlacement(state: ServiceState): PlacementSource {
   let computerSubnet: Promise<SubnetSlug> | undefined;
@@ -78,8 +86,8 @@ export function networkPlacement(state: ServiceState): PlacementSource {
       const signal = request.signal ?? new AbortController().signal;
       let placement = managed.get(accountId);
       if (placement === undefined) {
-        placement = subnet()
-          .then((slug) => discover(state, accountId, slug))
+        placement = Promise.all([subnet(), readDiscovery(state, accountId)])
+          .then(([slug, discovery]) => discovered(state, discovery, slug))
           .catch((error: unknown) => {
             managed.delete(accountId);
             throw error;
@@ -87,6 +95,9 @@ export function networkPlacement(state: ServiceState): PlacementSource {
         managed.set(accountId, placement);
       }
       return await abortable(placement, signal);
+    },
+    prepare() {
+      subnet().catch(() => undefined);
     },
   };
 }
@@ -115,23 +126,30 @@ async function readComputerSubnet(state: ServiceState): Promise<SubnetSlug> {
   }
 }
 
-/**
- * Finds `slug` in the Account's deployable-Subnet discovery and returns it
- * with the origin of its API. Throws a plain `Error` that names no place
- * when discovery advertises no API host for it.
- */
-async function discover(
+/** Reads the Account's deployable-Subnet discovery. */
+async function readDiscovery(
   state: ServiceState,
   accountId: AccountId,
-  slug: SubnetSlug,
-): Promise<AssignedPlacement> {
-  const discovery = asRecord(
+): Promise<Record<string, unknown>> {
+  return asRecord(
     await state.transport.json<unknown>(
       "GET",
       state.endpoints.api,
       account(accountId, "deployable-subnet-identities"),
     ),
   );
+}
+
+/**
+ * Finds `slug` in the Account's deployable-Subnet discovery and returns it
+ * with the origin of its API. Throws a plain `Error` that names no place
+ * when discovery advertises no API host for it.
+ */
+function discovered(
+  state: ServiceState,
+  discovery: Record<string, unknown>,
+  slug: SubnetSlug,
+): AssignedPlacement {
   const identities = discovery["identities"];
   const identity = (Array.isArray(identities) ? identities : [])
     .map(asRecord)

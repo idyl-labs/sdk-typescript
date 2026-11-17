@@ -1,11 +1,7 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import {
-  accountListQuery,
-  listQuery,
-  namespaceListQuery,
-} from "../src/internal/listquery.js";
+import { listQuery, computerListQuery } from "../src/internal/listquery.js";
 import { subnetSlug } from "./fakes/fetch-queue.js";
 
 describe("list query encoding", () => {
@@ -51,19 +47,25 @@ describe("list query encoding", () => {
     }
   });
 
-  // Contract: a Namespace-scoped route always states the place it
-  // addresses.
-  it("always states the subnet on a namespace-scoped route", () => {
-    expect(namespaceListQuery({}, subnetSlug)).toBe(`?subnet=${subnetSlug}`);
-    expect(namespaceListQuery({ limit: 1 }, subnetSlug)).toBe(
-      `?limit=1&subnet=${subnetSlug}`,
+  // Contract: a Computer list sends its page size and position, never an
+  // offset; a Namespace-scoped route always states the place it addresses.
+  it("encodes a Computer list on a namespace-scoped route", () => {
+    expect(computerListQuery({}, subnetSlug)).toBe(`?subnet=${subnetSlug}`);
+    expect(
+      computerListQuery(
+        { limit: 100, continue: "a/b+c", filter: "all" },
+        subnetSlug,
+      ),
+    ).toBe(`?continue=a%2Fb%2Bc&filter=all&limit=100&subnet=${subnetSlug}`);
+    expect(() => computerListQuery({ limit: -1 })).toThrow(
+      new TypeError("list limit must be a non-negative integer"),
     );
   });
 
   // Contract: an account-wide route addresses its place in the path and
   // never repeats it.
   it("omits the subnet on an account-wide route", () => {
-    expect(accountListQuery({})).toBe("");
-    expect(accountListQuery({ offset: 3 })).toBe("?offset=3");
+    expect(computerListQuery({})).toBe("");
+    expect(computerListQuery({ continue: "p" })).toBe("?continue=p");
   });
 });

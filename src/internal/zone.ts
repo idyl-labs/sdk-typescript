@@ -22,16 +22,17 @@
  */
 import { TransportError } from "../errors.js";
 import { signalOption } from "../internal/options.js";
-import type {
-  DeleteResponse,
-  ListOptions,
-  ListResponse,
-} from "../api/types.js";
+import type { ComputerListOptions } from "../api/computer.js";
+import type { DeleteResponse } from "../api/types.js";
 import { accountSubnet, namespace, namespaceResource } from "./apipath.js";
 import type { PlacementContext } from "./context.js";
-import { readEnvelope, readList } from "./envelopes.js";
+import {
+  readCountedPage,
+  readEnvelope,
+  type CountedPage,
+} from "./envelopes.js";
 import { requireNonBlank } from "./options.js";
-import { accountListQuery, namespaceListQuery } from "./listquery.js";
+import { computerListQuery } from "./listquery.js";
 import { resolvePlacement } from "./routing.js";
 import type { ResolvedPlacement, ResolvePlacementOptions } from "./routing.js";
 
@@ -262,16 +263,16 @@ export class ZoneCollection<K extends string, T> {
 
   /** One page of the collection within the Namespace. */
   async list(
-    options: ListOptions,
+    options: ComputerListOptions,
     signal?: AbortSignal,
-  ): Promise<ListResponse<T>> {
+  ): Promise<CountedPage<T>> {
     return this.#page(
       await exchange(
         this.#context,
         "GET",
         (resolved) =>
           namespace(resolved.scope, this.#spec.plural) +
-          namespaceListQuery(options, resolved.subnet),
+          computerListQuery(options, resolved.subnet),
         {},
         signalOption(signal),
       ),
@@ -285,9 +286,9 @@ export class ZoneCollection<K extends string, T> {
    * its own Namespace.
    */
   async listAllNamespaces(
-    options: ListOptions,
+    options: ComputerListOptions,
     signal?: AbortSignal,
-  ): Promise<ListResponse<T>> {
+  ): Promise<CountedPage<T>> {
     return this.#page(
       await exchange(
         this.#context,
@@ -297,7 +298,7 @@ export class ZoneCollection<K extends string, T> {
             resolved.scope.accountId,
             resolved.subnet,
             this.#spec.plural,
-          ) + accountListQuery(options),
+          ) + computerListQuery(options),
         { requireNamespace: false },
         signalOption(signal),
       ),
@@ -314,8 +315,8 @@ export class ZoneCollection<K extends string, T> {
     return envelope;
   }
 
-  #page(exchanged: Exchanged): ListResponse<T> {
-    const page = readList(
+  #page(exchanged: Exchanged): CountedPage<T> {
+    const page = readCountedPage(
       exchanged.response,
       this.#spec.plural,
       this.#spec.decode,
