@@ -1115,12 +1115,24 @@ export interface GetComputerResponse {
   readonly computer: Computer;
 }
 
+/** The page a Computer list returns when the request states no `limit`. */
+export const DEFAULT_COMPUTER_LIST_PAGE_SIZE = 100;
+
+/** The largest page a Computer list returns, and the largest `limit` a request may state. */
+export const MAX_COMPUTER_LIST_PAGE_SIZE = 1000;
+
+/**
+ * The largest count a bounded list states. A list that selects more states
+ * this number and `totalCountIsLowerBound`, and a client shows it as "1,000+".
+ */
+export const LIST_COUNT_BOUND = 1000;
+
 /**
  * ComputerListOptions selects one page of a Computer list.
  *
- * `limit` is the page size: `undefined` or zero takes the platform's page
- * of 100, and a value above the platform's largest page, 1,000, is refused
- * with HTTP 400. `continue` is the position the previous page returned,
+ * `limit` is the page size: `undefined` or zero takes
+ * {@link DEFAULT_COMPUTER_LIST_PAGE_SIZE}, and a value above
+ * {@link MAX_COMPUTER_LIST_PAGE_SIZE} is refused. `continue` is the position the previous page returned,
  * passed back unchanged; `undefined` reads the first page. A position is
  * valid only for the route and the `filter` it was issued under; any other
  * is refused with `ERROR_CODE_INVALID_CONTINUE`. `filter` selects ownership:
@@ -1153,4 +1165,71 @@ export interface ListComputersResponse {
   readonly totalCount?: Integer;
   readonly totalCountIsLowerBound?: boolean;
   readonly continue?: string;
+}
+
+/**
+ * Judges Computer list options as the reference contract does: a `limit` of
+ * at most {@link MAX_COMPUTER_LIST_PAGE_SIZE}. Throws a `TypeError` naming
+ * the field.
+ */
+export function validateComputerListOptions(
+  options: ComputerListOptions,
+): void {
+  if (
+    options.limit !== undefined &&
+    Number(options.limit) > MAX_COMPUTER_LIST_PAGE_SIZE
+  ) {
+    throw new TypeError(
+      `limit must be at most ${String(MAX_COMPUTER_LIST_PAGE_SIZE)}`,
+    );
+  }
+}
+
+const listComputersResponseShape: Shape<ListComputersResponse> =
+  object<ListComputersResponse>({
+    items: always(array(computerShape)),
+    totalCount: pointer(integer({ unsigned: false, bits: 64 })),
+    totalCountIsLowerBound: omitEmpty(boolean()),
+    continue: omitEmpty(string()),
+  });
+
+/**
+ * Reads a page of Computers leniently, as {@link decodeComputer} reads each
+ * of its Computers; {@link validateListComputersResponse} judges it.
+ */
+export function decodeListComputersResponse(
+  document: unknown,
+): ListComputersResponse {
+  const value: unknown =
+    typeof document === "string" ? parseJson(document) : document;
+  return decodeValue(value, listComputersResponseShape, "lenient");
+}
+
+/** Renders a page of Computers as the document the platform emits. */
+export function encodeListComputersResponse(
+  page: ListComputersResponse,
+): unknown {
+  return listComputersResponseShape.encode(page);
+}
+
+/**
+ * Judges a page's count: absent, or between zero and
+ * {@link LIST_COUNT_BOUND}, and exactly the bound when it is a lower bound.
+ * Throws a `TypeError`.
+ */
+export function validateListComputersResponse(
+  page: ListComputersResponse,
+): void {
+  const count =
+    page.totalCount === undefined ? undefined : Number(page.totalCount);
+  if (count !== undefined && (count < 0 || count > LIST_COUNT_BOUND)) {
+    throw new TypeError(
+      `totalCount must be between 0 and ${String(LIST_COUNT_BOUND)}`,
+    );
+  }
+  if (page.totalCountIsLowerBound === true && count !== LIST_COUNT_BOUND) {
+    throw new TypeError(
+      `a lower-bound totalCount must be ${String(LIST_COUNT_BOUND)}`,
+    );
+  }
 }

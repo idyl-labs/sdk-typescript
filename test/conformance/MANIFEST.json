@@ -1,5 +1,5 @@
 {
-  "revision": "7999610a88131a6506914aa80fa46e42fd0f9ae4",
+  "revision": "4a2718c156047d03566fbd979ecf8dc29498682b",
   "files": {
     "api/testdata/golden/billing-plan-change.applied.json": "da96b96a19647c6b98ccd1a217724bb1a4623efc1cb59dca25d035637b3f4da8",
     "api/testdata/golden/billing-plan-change.create-response.json": "aa1d4e99b24cc892925dbbfb11669689250503e751d890eed33ce02b49747785",
@@ -131,6 +131,8 @@
     "api/testdata/golden/computer.update-size-request.json": "5a66e495a6839ec91aff67615b10746ccb894c621029070e8dad286d4e246526",
     "api/testdata/golden/computers.by-secret-empty.json": "0343639fac1511a32a4c9a92c7655a6e9f9ad3a600fc6f30b5bdad6806160a97",
     "api/testdata/golden/computers.by-secret.json": "a3ca50ca1f03ad9322fbbe63942bfa94527373132685d472b971877f6ac982b1",
+    "api/testdata/golden/computers.list-page-first.json": "cbbc69157d3989b7b9fb819a8b267ccb7fb4eb92393f467372baa2a6752c9ccf",
+    "api/testdata/golden/computers.list-page-later.json": "31a28d0aed9b9ce6895fac33a3432e6aa6931d6f8ad3888ada2d7b84ccd5f5b6",
     "api/testdata/golden/file.byte-name.json": "cf5f0d59a9a45e487001eb7a47f51d2a0844abf9449b01b58306cbccd728054e",
     "api/testdata/golden/file.failed.json": "4f139134a8861181cfaa15eb191bbf2c214f669204eb8bde724d605c2b6b0230",
     "api/testdata/golden/file.full.json": "50075c76147ff968c23cb449460e27347f2ad7ab08db9a9febfa229efcbb815e",
@@ -138,6 +140,8 @@
     "api/testdata/golden/files-watch.full.json": "fabd9c710d0ea786c8b6cde2e74a1ba8818c4c91ce6b6623f45013c76ec43576",
     "api/testdata/golden/files-watch.minimal.json": "5e7d99543fde4787b1073ca947465a16ee2eab36598fe99cc61e764975dc7fa2",
     "api/testdata/golden/files-watch.relist.json": "b259ad947d6eba8cac8ec5a69cbe18d2ef368cad3d7f05eda6e6e29b2b3d8317",
+    "api/testdata/golden/files.list-page-bounded.json": "84b44a24ca1388eec8418ed4f2d89c6fe6b16f505f25617fbd5963c3a700ad4c",
+    "api/testdata/golden/files.list-page-later.json": "74f3d99314115916e3a211d483df5ae5a9bd56b86b6bba89c70b1f1020932e4f",
     "api/testdata/golden/files.list-page-version.json": "6554ce6c109fdbf1ebce13100a98bc35ebe37c552a4baef2c900e1aac380c4f0",
     "api/testdata/golden/files.list-page-waiting.json": "97a277d1f54d82754ae853722254574a64497940e57e4dd0c608eed002db8835",
     "api/testdata/golden/files.list-page.json": "75d788179b5a96d451433f11c4ca68159d5234627b53ba2f4232a88e30b169dd",

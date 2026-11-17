@@ -1444,7 +1444,8 @@ export interface Computers {
    * the whole walk exactly once; one created during the walk is not
    * returned by it.
    *
-   * @throws {@link TypeError} `limit` is not a positive integer
+   * @throws {@link TypeError} `limit` is not a positive integer or is above
+   * the largest page
    * @throws {@link ApiError} IDYL refuses a page's request, such as
    * `ERROR_CODE_RATE_LIMITED` with the wait in `retryAfterMs`
    * @throws {@link TransportError} a page's request does not complete, or a
@@ -1458,12 +1459,11 @@ export interface Computers {
    * `totalCount`, counted up to 1,000, and `totalCountIsLowerBound` when
    * the Account holds more.
    *
-   * @throws {@link TypeError} `limit` is not a positive integer, before any
-   * request is sent
+   * @throws {@link TypeError} `limit` is not a positive integer or is above
+   * the largest page, before any request is sent
    * @throws {@link ApiError} IDYL refuses the request, such as a `continue`
-   * this listing did not issue (`ERROR_CODE_INVALID_CONTINUE`), a `limit`
-   * above the largest page, or `ERROR_CODE_RATE_LIMITED` with the wait in
-   * `retryAfterMs`
+   * this listing did not issue (`ERROR_CODE_INVALID_CONTINUE`), or
+   * `ERROR_CODE_RATE_LIMITED` with the wait in `retryAfterMs`
    * @throws {@link TransportError} the request does not complete, or a
    * listed Computer belongs to another Account or Namespace
    */

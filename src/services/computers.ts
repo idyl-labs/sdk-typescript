@@ -12,6 +12,7 @@ import {
   createComputerRequestShape,
   decodeComputer,
   encodeUpdateComputerRequest,
+  validateComputerListOptions,
   validateCreateComputerRequest,
   validateUpdateComputerRequest,
 } from "../api/computer.js";
@@ -186,7 +187,8 @@ export interface ComputersService
    * One page of the Computers in the Namespace, in the client's resolved
    * place, newest first, as `ListComputersResponse` describes. Filter
    * selects ownership: empty or `unowned`, or `all`. Throws a `TypeError`
-   * when `limit` is not a non-negative integer.
+   * when `limit` is not a non-negative integer or is above
+   * `MAX_COMPUTER_LIST_PAGE_SIZE`.
    */
   list(
     options?: ComputerListOptions,
@@ -198,7 +200,8 @@ export interface ComputersService
    * does not narrow the result: each Computer carries its own Namespace,
    * `totalCount` counts the account-wide authorized result, and the order
    * is the one `ListComputersResponse` describes. Throws a `TypeError` when
-   * `limit` is not a non-negative integer.
+   * `limit` is not a non-negative integer or is above
+   * `MAX_COMPUTER_LIST_PAGE_SIZE`.
    */
   listAllNamespaces(
     options?: ComputerListOptions,
@@ -567,11 +570,13 @@ export function computersService(
       );
     },
     async list(options = {}, request = {}) {
+      validateComputerListOptions(options);
       validateComputerOwnerFilter(options.filter ?? "");
       requireScope(namespaceName);
       return await collection.list(options, request.signal);
     },
     async listAllNamespaces(options = {}, request = {}) {
+      validateComputerListOptions(options);
       validateComputerOwnerFilter(options.filter ?? "");
       return await collection.listAllNamespaces(options, request.signal);
     },
