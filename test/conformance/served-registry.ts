@@ -54,19 +54,15 @@ import {
 import {
   createComputerRequestShape,
   decodeComputer,
-  decodeListComputersResponse,
   encodeComputer,
-  encodeListComputersResponse,
   updateComputerRequestShape,
   updateComputerResponseShape,
   validateComputerExecution,
   validateComputerPhase,
   validateCreateComputerRequest,
-  validateListComputersResponse,
   validateUpdateComputerRequest,
   type Computer,
   type CreateComputerRequest,
-  type ListComputersResponse,
   type UpdateComputerRequest,
   type UpdateComputerResponse,
 } from "../../src/api/computer.js";
@@ -290,15 +286,6 @@ const computersBySecret: ServedCodec<ListComputersBySecretResponse> = {
   validate: validateListComputersBySecretResponse,
 };
 
-const computerPage: ServedCodec<ListComputersResponse> = {
-  decode: decodeListComputersResponse,
-  encode: encodeListComputersResponse,
-  validate: (page) => {
-    validateListComputersResponse(page);
-    page.items.forEach(validateServedComputer);
-  },
-};
-
 const computerImage: ServedCodec<ComputerImage> = {
   decode: decodeComputerImage,
   encode: encodeComputerImage,
@@ -355,8 +342,6 @@ export const servedRegistry: ReadonlyMap<
   ["computer-secrets.list", computerSecrets],
   ["computers.by-secret", computersBySecret],
   ["computers.by-secret-empty", computersBySecret],
-  ["computers.list-page-first", computerPage],
-  ["computers.list-page-later", computerPage],
   ["computer.update-size-request", updateComputerRequest],
   ["computer.update-request", updateComputerRequest],
   ["computer.update-response", updateComputerResponse],

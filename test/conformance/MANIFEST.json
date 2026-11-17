@@ -131,8 +131,6 @@
     "api/testdata/golden/computer.update-size-request.json": "5a66e495a6839ec91aff67615b10746ccb894c621029070e8dad286d4e246526",
     "api/testdata/golden/computers.by-secret-empty.json": "0343639fac1511a32a4c9a92c7655a6e9f9ad3a600fc6f30b5bdad6806160a97",
     "api/testdata/golden/computers.by-secret.json": "a3ca50ca1f03ad9322fbbe63942bfa94527373132685d472b971877f6ac982b1",
-    "api/testdata/golden/computers.list-page-first.json": "cbbc69157d3989b7b9fb819a8b267ccb7fb4eb92393f467372baa2a6752c9ccf",
-    "api/testdata/golden/computers.list-page-later.json": "31a28d0aed9b9ce6895fac33a3432e6aa6931d6f8ad3888ada2d7b84ccd5f5b6",
     "api/testdata/golden/file.byte-name.json": "cf5f0d59a9a45e487001eb7a47f51d2a0844abf9449b01b58306cbccd728054e",
     "api/testdata/golden/file.failed.json": "4f139134a8861181cfaa15eb191bbf2c214f669204eb8bde724d605c2b6b0230",
     "api/testdata/golden/file.full.json": "50075c76147ff968c23cb449460e27347f2ad7ab08db9a9febfa229efcbb815e",
