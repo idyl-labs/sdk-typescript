@@ -2,6 +2,7 @@
 
 # IDYL TypeScript SDK
 
+[![npm](https://img.shields.io/npm/v/@idyl-sh/sdk.svg)](https://www.npmjs.com/package/@idyl-sh/sdk)
 [![CI](https://github.com/idyl-labs/sdk-typescript/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/idyl-labs/sdk-typescript/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22.3-brightgreen.svg)](https://nodejs.org)
