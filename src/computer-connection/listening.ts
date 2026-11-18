@@ -13,8 +13,9 @@
 // 30 s. A stream that ends after it carried events is opened again no
 // sooner than the current step after its own attempt began: one that lived
 // longer than the step is opened again at once and the steps start from the
-// first again; one that ended sooner counts as a failure, so the steps
-// climb. The connector has no event stream from a failed attempt, or from a
+// first again; one that ended sooner is a failed attempt, so the steps
+// climb. After a failure a stream counts as carrying events only once it
+// has outlived its step, though its events are handed on meanwhile. The connector has no event stream from a failed attempt, or from a
 // dock whose Zone serves no events, until a stream delivers its first
 // `reread`; meanwhile waits pause as with no stream and a page reads on its
 // fallback schedule. A first attempt still in flight is not that state.
@@ -157,6 +158,8 @@ interface Stream {
   deadline: ReturnType<typeof setTimeout> | undefined;
   /** When the stream's attempt began, in milliseconds since the epoch. */
   readonly began: number;
+  /** Counts the stream as carrying events once it outlives its step. */
+  proven: ReturnType<typeof setTimeout> | undefined;
   stop(): void;
 }
 
@@ -319,6 +322,7 @@ export class Listening {
   #open(dock: number, began: number): Stream {
     const stream: Stream = {
       began,
+      proven: undefined,
       dock,
       lane: undefined,
       service: undefined,
@@ -494,8 +498,21 @@ export class Listening {
       stream.carried = true;
       clearTimeout(stream.deadline);
       stream.deadline = undefined;
-      this.#state = "listening";
-      this.#report(true);
+      if (this.#failures === 0) {
+        this.#listening();
+      } else {
+        // After failures a stream counts only once it outlives its step;
+        // its events are handed on meanwhile.
+        stream.proven = setTimeout(
+          () => {
+            stream.proven = undefined;
+            if (this.#stream !== stream) return;
+            this.#failures = 0;
+            this.#listening();
+          },
+          Math.max(0, stream.began + this.#step() - Date.now()),
+        );
+      }
     }
     const part = isComputerEventPart(frame.part) ? frame.part : "reread";
     const change: ComputerChange =
@@ -549,8 +566,10 @@ export class Listening {
       this.#kick();
       return;
     }
-    // A stream that ended sooner is a failure: wait out the step from when
-    // its attempt began, and the steps climb.
+    // A stream that ended sooner is a failed attempt: the connector has no
+    // event stream, the next attempt waits out the step from when this one
+    // began, and the steps climb.
+    this.#down();
     this.#failures += 1;
     if (!this.#started || this.#retry !== undefined) return;
     this.#retry = setTimeout(
@@ -580,6 +599,12 @@ export class Listening {
     }, wait);
   }
 
+  /** A stream carries the Namespace's events. */
+  #listening(): void {
+    this.#state = "listening";
+    this.#report(true);
+  }
+
   /** The connector has no event stream. */
   #down(): void {
     this.#state = "down";
@@ -592,6 +617,7 @@ export class Listening {
     this.#stream = undefined;
     if (stream === undefined) return;
     clearTimeout(stream.deadline);
+    clearTimeout(stream.proven);
     stream.stop();
     if (stream.service !== undefined) {
       void this.#port

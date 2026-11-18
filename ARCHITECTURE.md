@@ -402,7 +402,10 @@ within 30 s. An attempt that fails is tried again after 0.5 s, 1, 2, 4, 8,
 15, then every 30 s. A stream that ends after it carried events is opened
 again, on a new lane, no sooner than the current step after its own attempt
 began: at once when it lived longer than the step, which starts the steps
-again from the first, and otherwise after the step, as a failure. A wait on
+again from the first, and otherwise after the step, as a failed attempt,
+from which the connector has no event stream. After a failure, a stream
+counts as carrying events only once it outlives its step; its events are
+handed on meanwhile. A wait on
 a Computer of another Namespace pauses as with no event stream. A watch create refused for the caller's sign-in or
 permission is tried again only on the connector's next dock or use.
 `listen` tells the caller each change and whether the connector has an

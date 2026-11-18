@@ -412,6 +412,38 @@ describe("listening", () => {
     expect(gaps).toEqual([500, 1_000, 2_000, 4_000, 8_000]);
   });
 
+  // Contract: a stream that ends sooner than its step is a failed attempt
+  // and the connector says it has no event stream, through the climbing
+  // steps; a stream that then outlives its step says it has one again.
+  it("reports no event stream while streams end sooner than their step", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const port = new FakePort();
+    port.churn = true;
+    const listening = new Listening(port);
+    const states: boolean[] = [];
+    const changes: ComputerChange[] = [];
+    listening.subscribe({
+      onListening: (on) => states.push(on),
+      onChange: (change) => changes.push(change),
+    });
+    listening.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(states).toEqual([true, false]);
+    await vi.advanceTimersByTimeAsync(500 + 1_000 + 2_000);
+    expect(port.lanes).toHaveLength(4);
+    expect(states).toEqual([true, false]);
+    expect(listening.listening).toBe(false);
+    // Each stream's reread was still handed on.
+    expect(changes).toHaveLength(4);
+    port.churn = false;
+    await vi.advanceTimersByTimeAsync(4_000);
+    port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    expect(states).toEqual([true, false]);
+    await vi.advanceTimersByTimeAsync(8_000);
+    expect(states).toEqual([true, false, true]);
+    expect(listening.listening).toBe(true);
+  });
+
   // Contract: a stream that outlives its step is opened again at once,
   // and the steps start from the first again.
   it("opens a stream that outlived its step again at once", async () => {
