@@ -12,7 +12,8 @@ import {
   ExitError,
   type CommandOutput,
 } from "../errors.js";
-import { abortable, delay } from "../internal/abort.js";
+import { abortable } from "../internal/abort.js";
+import { pollUntil, saveResultPauses } from "../wait.js";
 import type { CallOptions } from "./common.js";
 import { optionalNumber } from "./records.js";
 
@@ -24,10 +25,6 @@ const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
  * state one, in milliseconds. A read of the session is repeated until then.
  */
 const SAVE_WAIT_MS = 30_000;
-/** The interval between those reads, in milliseconds. */
-const SAVE_POLL_MS = 250;
-
-const NEVER_ABORTED = new AbortController().signal;
 
 /** Runs a command. */
 export interface ExecOptions extends CallOptions {
@@ -220,8 +217,10 @@ function saveOf(outcome: string): CommandSave {
 
 /**
  * The save of a session that sent no save result, as the platform records it.
- * Reads that fail are repeated within the bound; a save that stays unknown is
- * `unconfirmed`, and the command's own outcome stands.
+ * The session is read until it states its save or {@link SAVE_WAIT_MS} has
+ * passed, pausing by {@link saveResultPauses}; a read that fails is repeated
+ * at the next pause. A save that stays unknown is `unconfirmed`, and the
+ * command's own outcome stands.
  */
 async function sessionSave(
   session: string | undefined,
@@ -229,35 +228,54 @@ async function sessionSave(
   signal: AbortSignal | undefined,
 ): Promise<SaveState> {
   if (session === undefined) return { outcome: "unconfirmed" };
-  const deadline = Date.now() + SAVE_WAIT_MS;
-  for (;;) {
-    try {
-      const { status } = await read(session, signal);
-      const save = status.save;
-      switch (save?.state) {
-        case "saved": {
-          const version = optionalNumber(save.version);
-          return {
-            outcome: "published",
-            ...(version === undefined ? {} : { revision: version }),
-          };
-        }
-        case "unchanged":
-        case "off":
-          return { outcome: save.state };
-        case "failed":
-          return {
-            outcome: "failed",
-            ...(save.reason === undefined ? {} : { reason: save.reason }),
-          };
-        default:
-          break;
-      }
-    } catch (error) {
-      if (signal?.aborted === true) throw error;
+  let stated: SaveState | undefined;
+  try {
+    await pollUntil<true>(
+      { timeoutMs: SAVE_WAIT_MS, ...(signal === undefined ? {} : { signal }) },
+      {
+        pauses: saveResultPauses(),
+        read: async (readSignal) => {
+          try {
+            stated = statedSave((await read(session, readSignal)).status.save);
+          } catch (error) {
+            if (readSignal.aborted) throw error;
+          }
+          return true;
+        },
+        met: () => stated !== undefined,
+        timeoutMessage: () => "",
+      },
+    );
+  } catch (error) {
+    // Every read failure is repeated, so the wait ends early only when it
+    // is cancelled or runs out of time.
+    if (signal?.aborted === true) throw error;
+  }
+  return stated ?? { outcome: "unconfirmed" };
+}
+
+/** The save a session's status states, or `undefined` while it states none. */
+function statedSave(
+  save: ComputerSession["status"]["save"],
+): SaveState | undefined {
+  switch (save?.state) {
+    case "saved": {
+      const version = optionalNumber(save.version);
+      return {
+        outcome: "published",
+        ...(version === undefined ? {} : { revision: version }),
+      };
     }
-    if (Date.now() >= deadline) return { outcome: "unconfirmed" };
-    await delay(SAVE_POLL_MS, signal ?? NEVER_ABORTED);
+    case "unchanged":
+    case "off":
+      return { outcome: save.state };
+    case "failed":
+      return {
+        outcome: "failed",
+        ...(save.reason === undefined ? {} : { reason: save.reason }),
+      };
+    default:
+      return undefined;
   }
 }
 

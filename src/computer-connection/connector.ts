@@ -29,7 +29,7 @@ import {
   isComputerSessionId,
   type ComputerSessionId,
 } from "../resource/uuid-id.js";
-import { pollUntil } from "../wait.js";
+import { pollUntil, sessionPlacementPauses } from "../wait.js";
 import type { ComputerSessionEndpoint } from "../api/computer-session-endpoint.js";
 import {
   FrameError,
@@ -372,12 +372,14 @@ const BIND_WAIT_MS = 30_000;
  * disagreeing, so the open normally reads the session failed.
  */
 const READY_BY_GRACE_MS = 30_000;
+
 /**
- * The first pause before a read of an unbound session, and the longest:
- * each pause doubles up to it. Milliseconds.
+ * How long one attempt to connect a session waits, in milliseconds: from
+ * the moment it connects to the place it knows or the create answered,
+ * until the Computer connection is established and the endpoint answered
+ * the session's open with its first frame.
  */
-const BIND_BACKOFF_MS = 100;
-const BIND_BACKOFF_MAX_MS = 1_000;
+const OPEN_WAIT_MS = 30_000;
 
 /** A request to the Worker, before its `ref`. */
 type Request = PageToWorker extends infer T
@@ -649,17 +651,38 @@ class Connector implements ComputerConnector {
     const known =
       this.#known.get(computer) ?? this.#recall(computer) ?? (await answered);
     let connection: Connection;
+    let deadline = Date.now() + OPEN_WAIT_MS;
     try {
-      connection = await this.#connection(computer, known);
-      await connection.established;
-    } catch (first) {
-      // The place the client knew is stale: the create says where it is.
-      const endpoint = await answered;
-      if (sameEndpoint(endpoint, known)) throw first;
-      connection = await this.#connection(computer, endpoint, true);
-      await connection.established;
+      try {
+        // A create that answers another place ends the attempt on the
+        // remembered one at once.
+        connection = await this.#establish(
+          computer,
+          known,
+          answered,
+          deadline,
+          false,
+          (endpoint) => !sameEndpoint(endpoint, known),
+        );
+      } catch (first) {
+        if (first instanceof CreateFailure) throw first;
+        // The place the client knew is stale: the create says where it is.
+        const endpoint = await answered;
+        if (sameEndpoint(endpoint, known)) throw first;
+        deadline = Date.now() + OPEN_WAIT_MS;
+        connection = await this.#establish(
+          computer,
+          endpoint,
+          answered,
+          deadline,
+          true,
+        );
+      }
+    } catch (error) {
+      throw await this.#unopened(computer, created, error);
     }
     const session = await this.#stream(computer, connection, requestID, open);
+    session.answerBy(deadline, () => this.#late(computer, created));
     created.then(
       (served) => {
         session.served(served.id);
@@ -686,8 +709,8 @@ class Connector implements ComputerConnector {
    * forward while the wake makes progress. The reads therefore go on until
    * the latest `readyBy` read has passed by {@link READY_BY_GRACE_MS}, and
    * never end before {@link BIND_WAIT_MS}, which is also the bound when no
-   * answer states a `readyBy`. They pause from {@link BIND_BACKOFF_MS},
-   * doubling to {@link BIND_BACKOFF_MAX_MS}; a read that meets a network
+   * answer states a `readyBy`. They pause by
+   * {@link sessionPlacementPauses}; a read that meets a network
    * failure, HTTP 429 or a server error is tried again at the next pause,
    * and any other refusal rejects at once. A session still unbound once the
    * bound passed rejects with a `TimeoutError` `DOMException`, and `close`
@@ -701,6 +724,7 @@ class Connector implements ComputerConnector {
     let current = session;
     let readyBy = instant(session.status.readyBy);
     let until = boundBy(readyBy, started);
+    const pauses = sessionPlacementPauses();
     for (;;) {
       try {
         await pollUntil<ServedSession>(
@@ -727,14 +751,10 @@ class Connector implements ComputerConnector {
               readyBy === undefined
                 ? `computer session ${session.id} was not bound to an Activation within ${String(BIND_WAIT_MS)} ms`
                 : `computer session ${session.id} was not bound to an Activation by its ready-by time ${rfc3339Seconds(readyBy)}`,
-            delay: (attempt) =>
+            pauses: (streaming, elapsedMs) =>
               Math.max(
                 0,
-                Math.min(
-                  BIND_BACKOFF_MS * 2 ** attempt,
-                  BIND_BACKOFF_MAX_MS,
-                  until - Date.now(),
-                ),
+                Math.min(pauses(streaming, elapsedMs), until - Date.now()),
               ),
           },
         );
@@ -788,6 +808,168 @@ class Connector implements ComputerConnector {
       });
     }
     return this.#started;
+  }
+
+  /**
+   * Connects to the Computer at `at` and waits until the connection is
+   * established, or until `deadline`, in milliseconds since the epoch, when
+   * it rejects with a `TimeoutError` `DOMException` and the connection is
+   * closed, so the next open connects afresh. The session's create is
+   * watched beside it: a create that fails, or answers the session ended,
+   * ends the attempt at once with a {@link CreateFailure} carrying why.
+   */
+  async #establish(
+    computer: string,
+    at: ComputerSessionEndpoint,
+    answered: Promise<ComputerSessionEndpoint>,
+    deadline: number,
+    fresh = false,
+    moved?: (endpoint: ComputerSessionEndpoint) => boolean,
+  ): Promise<Connection> {
+    const opened = this.#connection(computer, at, fresh);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => {
+          reject(
+            new DOMException(
+              `the Computer connection was not established within ${String(OPEN_WAIT_MS)} ms`,
+              "TimeoutError",
+            ),
+          );
+        },
+        Math.max(0, deadline - Date.now()),
+      );
+    });
+    const refused = answered.then(
+      (endpoint) => {
+        if (moved?.(endpoint) === true) {
+          throw new Error("the create answered another place");
+        }
+        return new Promise<never>(() => undefined);
+      },
+      (cause: unknown) => {
+        throw new CreateFailure(cause);
+      },
+    );
+    try {
+      return await Promise.race([
+        opened.then(async (connection) => {
+          await connection.established;
+          return connection;
+        }),
+        late,
+        refused,
+      ]);
+    } catch (error) {
+      if (!(error instanceof CreateFailure)) this.#drop(computer, opened);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * What an open whose connection was not made rejects with. A create that
+   * failed, or answered the session ended, ends it with its own failure.
+   * Otherwise the session, once its create has answered, is read once: a
+   * session in a final phase ends the open with a
+   * {@link ComputerSessionEndedError} and its reason, and any other with
+   * `error`. The session is no longer renewed and is cancelled, since
+   * nothing will use it; cancelling a session already final changes
+   * nothing.
+   */
+  async #unopened(
+    computer: string,
+    created: Promise<ServedSession>,
+    error: unknown,
+  ): Promise<unknown> {
+    if (error instanceof CreateFailure) return error.cause;
+    const served = await created.catch(() => undefined);
+    if (served === undefined) return error;
+    this.#sessions.get(computer)?.delete(served.id);
+    const ended = await this.#endedNow(computer, served.id);
+    void this.#o.api.cancelSession(computer, served.id).catch(() => undefined);
+    return ended ?? error;
+  }
+
+  /**
+   * What a stream the endpoint did not answer in time fails with: once its
+   * create has answered, the session is read once, and a session in a final
+   * phase fails it with a {@link ComputerSessionEndedError} and its reason;
+   * otherwise a `TimeoutError` `DOMException`.
+   */
+  async #late(
+    computer: string,
+    created: Promise<ServedSession>,
+  ): Promise<unknown> {
+    const served = await created.catch(() => undefined);
+    const ended =
+      served === undefined
+        ? undefined
+        : await this.#endedNow(computer, served.id);
+    return (
+      ended ??
+      new DOMException(
+        `the endpoint did not answer the session's open within ${String(OPEN_WAIT_MS)} ms`,
+        "TimeoutError",
+      )
+    );
+  }
+
+  /**
+   * One read of the session `id`: a {@link ComputerSessionEndedError} when
+   * it is in a final phase, and `undefined` when it is not or the read
+   * fails. The read cannot hold an open: the client's transport bounds
+   * every request by its request timeout, 30 s unless the client states
+   * another, and a read that runs out reads as not final.
+   */
+  async #endedNow(
+    computer: string,
+    id: string,
+  ): Promise<ComputerSessionEndedError | undefined> {
+    try {
+      const read = await this.#o.api.readSession(
+        computer,
+        id,
+        this.#closing.signal,
+      );
+      const phase = read.status.phase;
+      if (!isEndedPhase(phase)) return undefined;
+      return new ComputerSessionEndedError({
+        session: read.id,
+        phase,
+        ...(read.status.reason === undefined
+          ? {}
+          : { reason: read.status.reason }),
+      });
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Forgets the connection `opened` and asks the Worker to close it, once
+   * it has a handle, so a connection that was never established is not
+   * reused.
+   */
+  #drop(computer: string, opened: Promise<Connection>): void {
+    if (this.#connections.get(computer) === opened) {
+      this.#connections.delete(computer);
+    }
+    void opened.then(
+      (connection) => {
+        this.#listeners.delete(connection.listener);
+        for (const s of connection.streams.values()) s.ended(true);
+        connection.streams.clear();
+        void this.#request({
+          type: "close-computer",
+          dock: connection.dock,
+          computer: connection.handle,
+        }).catch(() => undefined);
+      },
+      () => undefined,
+    );
   }
 
   /**
@@ -1335,6 +1517,18 @@ export interface ComputerSessionStream {
 }
 
 /**
+ * A session's create that failed, or answered the session ended, while its
+ * connection was being established: the open ends with `cause`, the
+ * create's own failure.
+ */
+class CreateFailure extends Error {
+  constructor(cause: unknown) {
+    super("the session's create failed", { cause });
+    this.name = "CreateFailure";
+  }
+}
+
+/**
  * The error codes an endpoint answers an open with only before it asks the
  * machine the Computer runs on to start the session: a session whose stream opens with one of them
  * never started, and its request ID is used once, so it never will.
@@ -1372,6 +1566,10 @@ class SessionStream implements ComputerSessionStream {
   #unstarted = false;
   // The unstarted session was cancelled.
   #abandoned = false;
+  // Ends the stream when the endpoint has not answered its open in time.
+  #answerTimer: ReturnType<typeof setTimeout> | undefined;
+  // The open was given up on: nothing the endpoint sends reaches the output.
+  #gaveUp = false;
 
   /**
    * `abandon` cancels the session by its ID, once, when the endpoint
@@ -1429,6 +1627,7 @@ class SessionStream implements ComputerSessionStream {
    * ended, and the session is no longer renewed.
    */
   close(): void {
+    this.#stopAnswerTimer();
     this.#closed = true;
     this.#release();
     this.#forget();
@@ -1444,6 +1643,43 @@ class SessionStream implements ComputerSessionStream {
     if (this.#released) return;
     this.#released = true;
     this.#finish();
+  }
+
+  /**
+   * @internal Ends the stream unless a frame of it arrives by `deadline`,
+   * in milliseconds since the epoch: the session is no longer renewed and
+   * is cancelled once its create has answered, and the output fails with
+   * what `late` resolves to, the session's ending when it is final and a
+   * `TimeoutError` `DOMException` otherwise; the Worker's stream is then
+   * finished.
+   */
+  answerBy(deadline: number, late: () => Promise<unknown>): void {
+    if (this.#answered || this.#done) return;
+    this.#answerTimer = setTimeout(
+      () => {
+        this.#answerTimer = undefined;
+        if (this.#answered || this.#done) return;
+        // Nothing waits for this session any more: it is no longer renewed,
+        // and is cancelled once its create has answered.
+        this.#gaveUp = true;
+        this.#closed = true;
+        this.#forget();
+        this.#unstarted = true;
+        this.#abandonUnstarted();
+        void late().then((error) => {
+          this.fail(error);
+          this.#release();
+        });
+      },
+      Math.max(0, deadline - Date.now()),
+    );
+  }
+
+  /** Stops the wait for the endpoint's first frame. */
+  #stopAnswerTimer(): void {
+    if (this.#answerTimer === undefined) return;
+    clearTimeout(this.#answerTimer);
+    this.#answerTimer = undefined;
   }
 
   /** @internal The session's create answered. */
@@ -1462,6 +1698,7 @@ class SessionStream implements ComputerSessionStream {
   #first(frame: SessionOutput): void {
     if (this.#answered) return;
     this.#answered = true;
+    this.#stopAnswerTimer();
     if (frame.type === "opened") {
       try {
         validateOpenedFor(frame, this.#mode);
@@ -1491,6 +1728,7 @@ class SessionStream implements ComputerSessionStream {
 
   /** @internal The session's create failed. */
   fail(error: unknown): void {
+    this.#stopAnswerTimer();
     if (this.#done) return;
     this.#done = true;
     this.#controller.error(error);
@@ -1498,7 +1736,7 @@ class SessionStream implements ComputerSessionStream {
 
   /** @internal Bytes of the stream arrived. */
   receive(bytes: Uint8Array): void {
-    if (this.#done) return;
+    if (this.#done || this.#gaveUp) return;
     try {
       for (const frame of this.#reader.push(bytes)) {
         this.#first(frame);
@@ -1516,8 +1754,10 @@ class SessionStream implements ComputerSessionStream {
 
   /** @internal The stream ended. */
   ended(broken: boolean): void {
+    this.#stopAnswerTimer();
     this.#released = true;
-    if (this.#done) return;
+    // An open given up on fails with its reason once the read settles.
+    if (this.#done || this.#gaveUp) return;
     this.#done = true;
     if (broken) this.#controller.enqueue({ type: "broken" });
     this.#controller.close();

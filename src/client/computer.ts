@@ -30,6 +30,7 @@ import { vaultSecretsService } from "../services/vault-secrets.js";
 import type { ComputersService } from "../services/computers.js";
 import {
   normalizeWaitOptions,
+  operationPauses,
   pollUntil,
   waitForDeletion,
   type WaitOptions,
@@ -449,9 +450,6 @@ interface Internals {
 
 const internals = new WeakMap<Computer, Internals>();
 
-/** The interval between reads while a save, restore, fork, wake, sleep or delete settles. */
-const SETTLE_POLL_MS = 500;
-
 /** How long a fork whose copy reports no progress is read before it counts as copied. */
 const FORK_GRACE_MS = 5_000;
 
@@ -465,7 +463,6 @@ function settleOptions(
 ): WaitOptions {
   const wait: WaitOptions = {
     ...signalOf(options),
-    pollIntervalMs: SETTLE_POLL_MS,
     ...(options.timeoutMs === undefined
       ? {}
       : { timeoutMs: options.timeoutMs }),
@@ -618,6 +615,7 @@ export class Computer {
     );
     const settled =
       (await pollUntil(wait, {
+        pauses: operationPauses(),
         initial: created,
         read: async (signal) =>
           await service.getCommitById(record.id, created.id, { signal }),
@@ -680,6 +678,7 @@ export class Computer {
     };
     const settled =
       (await pollUntil(wait, {
+        pauses: operationPauses(),
         initial: observed(created),
         read: async (signal) =>
           observed(
@@ -741,6 +740,7 @@ export class Computer {
     };
     const settled =
       (await pollUntil(wait, {
+        pauses: operationPauses(),
         initial: observed(created),
         read: async (signal) =>
           observed(
@@ -1101,6 +1101,7 @@ export class Computer {
     );
     const settled =
       (await pollUntil(wait, {
+        pauses: operationPauses(),
         initial: created,
         read: async (signal) =>
           await service.getRestoreById(record.id, created.id, { signal }),
@@ -1160,6 +1161,7 @@ export class Computer {
     const unreported = Date.now() + FORK_GRACE_MS;
     const settled =
       (await pollUntil(wait, {
+        pauses: operationPauses(),
         initial: computer,
         read: async (signal) =>
           (await service.getById(computer.id, { signal })).computer,

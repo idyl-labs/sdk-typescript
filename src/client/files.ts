@@ -31,7 +31,7 @@ import {
 import { delay } from "../internal/abort.js";
 import type { ComputersService } from "../services/computers.js";
 import type { UploadRequestOptions } from "../services/storage.js";
-import { pollUntil } from "../wait.js";
+import { operationPauses, pollUntil } from "../wait.js";
 import {
   clientOf,
   pageOf,
@@ -568,9 +568,6 @@ export interface Files {
   ): Promise<number>;
 }
 
-/** The interval between reads while an upload settles. */
-const SETTLE_POLL_MS = 500;
-
 /** The first bound of the wait before a failed watch request is asked again. */
 const FIRST_WATCH_RETRY_MS = 500;
 /** The bound every wait before a failed watch request is asked again stays under. */
@@ -623,24 +620,17 @@ export function files(state: HandleState, computerId: string): Files {
       );
     }
     const settled =
-      (await pollUntil(
-        { ...signalOf(options), pollIntervalMs: SETTLE_POLL_MS },
-        {
-          initial: result,
-          read: async (signal) =>
-            await service.getUploadById(computerId, created.id, { signal }),
-          met: (upload) =>
-            [
-              "published",
-              "conflict",
-              "expired",
-              "cancelled",
-              "failed",
-            ].includes(upload.state),
-          timeoutMessage: (ms) =>
-            `upload did not settle within ${String(ms)} ms`,
-        },
-      )) ?? result;
+      (await pollUntil(signalOf(options), {
+        pauses: operationPauses(),
+        initial: result,
+        read: async (signal) =>
+          await service.getUploadById(computerId, created.id, { signal }),
+        met: (upload) =>
+          ["published", "conflict", "expired", "cancelled", "failed"].includes(
+            upload.state,
+          ),
+        timeoutMessage: (ms) => `upload did not settle within ${String(ms)} ms`,
+      })) ?? result;
     const version = optionalNumber(settled.version);
     if (settled.state !== "published" || version === undefined) {
       throw unpublished(settled);
