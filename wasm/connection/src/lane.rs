@@ -15,6 +15,11 @@
 //! - For a data dock the header bytes are `data-dock-stream/1`: which
 //!   sandbox and Activation the stream is for. The data dock answers with
 //!   one reply before any byte from the endpoint.
+//! - A client service lane (profile `client-service-lanes/1`) reaches one
+//!   Zone service by its exact SPIFFE ID. The client asks for it only when
+//!   the edge's welcome names the profile, and opens one stream on it,
+//!   whose header bytes name the stream's profile, such as
+//!   `computer-events/json-v1`.
 
 use prost::Message;
 
@@ -31,6 +36,11 @@ pub const LANE_CLASS_STREAM: u64 = 1 << 2;
 pub const STREAM_CLASS_E2E_MTLS: u8 = 0x01;
 /// The `RequesterToEdge` field of the data dock lane verb.
 pub const OPEN_DATA_DOCK_LANE_FIELD: u32 = 7;
+/// The `RequesterToEdge` field of the client service lane verb.
+pub const OPEN_CLIENT_SERVICE_LANE_FIELD: u32 = 9;
+/// The lane profile under which a client may open a lane to a Zone service
+/// (`wire.ClientServiceLaneProfile`).
+pub const CLIENT_SERVICE_LANE_PROFILE: &str = "client-service-lanes/1";
 
 #[derive(Clone, PartialEq, Message)]
 struct OpenDataDockLane {
@@ -70,6 +80,14 @@ struct EdgeToRequester {
     lane_opened: Option<LaneOpened>,
 }
 
+#[derive(Clone, PartialEq, Message)]
+struct OpenClientServiceLane {
+    #[prost(string, tag = "1")]
+    service_principal: String,
+    #[prost(bytes = "vec", tag = "2")]
+    metadata: Vec<u8>,
+}
+
 /// The bytes of a delivery stream that asks for a lane to the data dock
 /// named `target_principal`.
 pub fn open_data_dock_lane(target_principal: &str, metadata: &[u8]) -> Vec<u8> {
@@ -78,15 +96,31 @@ pub fn open_data_dock_lane(target_principal: &str, metadata: &[u8]) -> Vec<u8> {
         metadata: metadata.to_vec(),
     }
     .encode_to_vec();
-    // RequesterToEdge { oneof msg { OpenDataDockLane open_data_dock_lane } }
+    delivery_stream(OPEN_DATA_DOCK_LANE_FIELD, &verb)
+}
+
+/// The bytes of a delivery stream that asks for a client service lane to
+/// the Zone service named exactly `service_principal`, with no metadata.
+pub fn open_client_service_lane(service_principal: &str) -> Vec<u8> {
+    let verb = OpenClientServiceLane {
+        service_principal: service_principal.to_string(),
+        metadata: Vec::new(),
+    }
+    .encode_to_vec();
+    delivery_stream(OPEN_CLIENT_SERVICE_LANE_FIELD, &verb)
+}
+
+/// A delivery stream carrying one `RequesterToEdge` whose oneof is the verb
+/// `verb` at field `field`, length-prefixed after the stream kind byte.
+fn delivery_stream(field: u32, verb: &[u8]) -> Vec<u8> {
     let mut message = Vec::with_capacity(verb.len() + 6);
     prost::encoding::encode_key(
-        OPEN_DATA_DOCK_LANE_FIELD,
+        field,
         prost::encoding::WireType::LengthDelimited,
         &mut message,
     );
     prost::encoding::encode_varint(verb.len() as u64, &mut message);
-    message.extend_from_slice(&verb);
+    message.extend_from_slice(verb);
     let mut out = Vec::with_capacity(5 + message.len());
     out.push(STREAM_KIND_DELIVERY);
     out.extend_from_slice(&(message.len() as u32).to_be_bytes());

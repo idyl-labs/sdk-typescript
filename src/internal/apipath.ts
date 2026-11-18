@@ -65,6 +65,11 @@ export function namespaceResource(
   return namespace(scope, `${collection}/${encodeURIComponent(name)}`);
 }
 
+/** The collection of a Namespace's Computer watches, which a create posts to. */
+export function computerWatches(scope: NamespaceScope): string {
+  return namespace(scope, "computer-watches");
+}
+
 /**
  * The path of one Computer addressed by its stable identifier rather than
  * its name. The `by-id` segment is reserved on the platform, so no Computer

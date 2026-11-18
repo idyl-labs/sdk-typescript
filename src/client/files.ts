@@ -43,6 +43,7 @@ import {
   type PageOptions,
 } from "./common.js";
 import { serviceOf, type HandleState } from "./computer.js";
+import { changesOf, operationChange } from "./changes.js";
 import {
   openDownload,
   type DownloadOptions,
@@ -622,6 +623,7 @@ export function files(state: HandleState, computerId: string): Files {
     const settled =
       (await pollUntil(signalOf(options), {
         pauses: operationPauses(),
+        ...changesOf(state, operationChange(created.id)),
         initial: result,
         read: async (signal) =>
           await service.getUploadById(computerId, created.id, { signal }),

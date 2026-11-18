@@ -1,0 +1,37 @@
+{
+  "type": "idyl-session-trust/1",
+  "network": "example.test",
+  "zone": "zone-a",
+  "version": 9,
+  "issuedAt": "2026-01-02T03:04:05Z",
+  "expiresAt": "2026-01-09T03:04:05Z",
+  "pod": {
+    "zone": "zone-a",
+    "purpose": "POD",
+    "sequence": 3,
+    "issuedAt": "2026-01-02T03:04:05Z",
+    "validUntil": "2026-01-09T03:04:05Z",
+    "digest": "sha256:4f0c1a2b",
+    "generations": [
+      {
+        "generationId": "01954e20-7540-7ec4-93ec-14f783e6ab30",
+        "certificateDer": "MIIBGjCBzaADAgECAgEHMAUGAytlcDAVMRMwEQYDVQQDEwp6b25lLWEgUE9EMB4XDTI2MDEwMTAwMDAwMFoXDTI3MDEwMTAwMDAwMFowFTETMBEGA1UEAxMKem9uZS1hIFBPRDAqMAUGAytlcAMhAMBQxWN6RPqGKf/zzMziMAyzYqY9mdlfxUFFJm9DMkRao0IwQDAOBgNVHQ8BAf8EBAMCAgQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUS3NawXTkBjZQdxbtXJqKdfv29GIwBQYDK2VwA0EA3zhGfj30iJUZTHqfzuM9WOQjxRmRlM45S9bxZMSfi893jmq4Tjz9VlKBAqhBf8wOiSzHSdvrfel5rWGvuhBmCw==",
+        "sha256Fingerprint": "sha256:9a8b7c",
+        "notBefore": "2026-01-01T00:00:00Z",
+        "notAfter": "2027-01-01T00:00:00Z",
+        "publishedSequence": 3,
+        "state": "ACTIVE"
+      }
+    ]
+  },
+  "dataFabric": {
+    "endpoint": "data.zone-a.zone.example.test:443",
+    "serverId": "spiffe://zone-a.zone.example.test/fabric/data",
+    "serverRoots": "-----BEGIN CERTIFICATE-----\nMIIBNDCB56ADAgECAgEBMAUGAytlcDAiMSAwHgYDVQQDExdkYXRhLnpvbmUtYS5l\neGFtcGxlLmNvbTAeFw0yNjAxMDEwMDAwMDBaFw0yNzAxMDEwMDAwMDBaMCIxIDAe\nBgNVBAMTF2RhdGEuem9uZS1hLmV4YW1wbGUuY29tMCowBQYDK2VwAyEA0EqyMnQr\ntKs6E2i9RhXk5tAiSrcaAWuvhSCjMsl3hzejQjBAMA4GA1UdDwEB/wQEAwICBDAP\nBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQQumgsitE1E5cei1aIGquL1wK7gDAF\nBgMrZXADQQAhcIWSrho+nKXt+QdYcFti2AdploG1h+nUbKMY8CbbD4FTIK1jHXJb\nnqdpf6MhZTOJX1MwnRMd1yOr9Chk7B0J\n-----END CERTIFICATE-----\n",
+    "browserEndpoint": "wss://edge.zone-a.zone.example.test/hyperplane/fallback/1"
+  },
+  "computerEvents": {
+    "serverId": "spiffe://zone-a.zone.example.test/service/computer",
+    "serverRoots": "-----BEGIN CERTIFICATE-----\nMIIBNDCB56ADAgECAgEBMAUGAytlcDAiMSAwHgYDVQQDExdkYXRhLnpvbmUtYS5l\neGFtcGxlLmNvbTAeFw0yNjAxMDEwMDAwMDBaFw0yNzAxMDEwMDAwMDBaMCIxIDAe\nBgNVBAMTF2RhdGEuem9uZS1hLmV4YW1wbGUuY29tMCowBQYDK2VwAyEA0EqyMnQr\ntKs6E2i9RhXk5tAiSrcaAWuvhSCjMsl3hzejQjBAMA4GA1UdDwEB/wQEAwICBDAP\nBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQQumgsitE1E5cei1aIGquL1wK7gDAF\nBgMrZXADQQAhcIWSrho+nKXt+QdYcFti2AdploG1h+nUbKMY8CbbD4FTIK1jHXJb\nnqdpf6MhZTOJX1MwnRMd1yOr9Chk7B0J\n-----END CERTIFICATE-----\n"
+  }
+}

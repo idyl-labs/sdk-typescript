@@ -46,6 +46,49 @@ export type PageToWorker =
       readonly minEpoch: string;
     }
   | {
+      readonly type: "open-service-lane";
+      readonly ref: number;
+      readonly dock: number;
+      readonly principal: string;
+    }
+  | {
+      readonly type: "open-service";
+      readonly ref: number;
+      readonly dock: number;
+      readonly lane: number;
+      /** The stream profile the lane stream's header names. */
+      readonly profile: string;
+      /** The trust anchors of the service's certificate, DER. */
+      readonly roots: readonly Uint8Array[];
+      readonly chain: readonly Uint8Array[];
+      /** The exact SPIFFE ID the service's certificate must name. */
+      readonly principal: string;
+    }
+  | {
+      readonly type: "service-write";
+      readonly ref: number;
+      readonly dock: number;
+      readonly service: number;
+      readonly bytes: Uint8Array;
+    }
+  | {
+      readonly type: "close-service";
+      readonly ref: number;
+      readonly dock: number;
+      readonly service: number;
+    }
+  /**
+   * The page has handled the last `service-data` of a service connection:
+   * the Worker reads its stream again. Until then it reads none, so the
+   * stream's sender is held by its receive window.
+   */
+  | {
+      readonly type: "service-release";
+      readonly ref: number;
+      readonly dock: number;
+      readonly service: number;
+    }
+  | {
       readonly type: "close-computer";
       readonly ref: number;
       readonly dock: number;
@@ -95,7 +138,15 @@ export type WorkerToPage =
       readonly certificateRequest: Uint8Array;
       readonly publicKey: Uint8Array;
     }
-  | { readonly type: "docked"; readonly dock: number }
+  /**
+   * The dock is admitted; `serviceLaneProfile` is the client service lane
+   * profile its edge serves, empty when it serves none.
+   */
+  | {
+      readonly type: "docked";
+      readonly dock: number;
+      readonly serviceLaneProfile: string;
+    }
   | { readonly type: "drain"; readonly dock: number; readonly reason: string }
   | {
       readonly type: "dock-ended";
@@ -126,6 +177,23 @@ export type WorkerToPage =
       readonly computer: number;
       readonly reason: string;
       readonly refusal?: number;
+    }
+  | {
+      readonly type: "service-established";
+      readonly dock: number;
+      readonly service: number;
+    }
+  | {
+      readonly type: "service-ended";
+      readonly dock: number;
+      readonly service: number;
+      readonly reason: string;
+    }
+  | {
+      readonly type: "service-data";
+      readonly dock: number;
+      readonly service: number;
+      readonly bytes: Uint8Array;
     }
   | {
       readonly type: "data";

@@ -197,6 +197,22 @@ export function parseComputerOperationId(value: string): ComputerOperationId {
   return parseUuidId(value, "computer operation ID") as ComputerOperationId;
 }
 
+/**
+ * Identifies one Computer watch, the grant to listen for changes to the
+ * Computers of one Namespace in one Subnet, by its canonical UUID.
+ */
+export type ComputerWatchId = Branded<"ComputerWatchId">;
+
+/** Parses the canonical UUID of one Computer watch; throws a TypeError otherwise. */
+export function parseComputerWatchId(value: string): ComputerWatchId {
+  return parseUuidId(value, "computer watch ID") as ComputerWatchId;
+}
+
+/** Reports whether value is a canonical Computer watch identity. */
+export function isComputerWatchId(value: unknown): value is ComputerWatchId {
+  return isUuidId(value);
+}
+
 /** Reports whether value is a canonical computer operation identity. */
 export function isComputerOperationId(
   value: unknown,

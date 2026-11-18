@@ -14,11 +14,12 @@ use js_sys::{Array, Object, Reflect, Uint8Array};
 use rustls::pki_types::CertificateDer;
 use wasm_bindgen::prelude::*;
 
-use crate::client::{Client, ComputerEnd, Event, LaneEnd};
+use crate::client::{Client, ComputerEnd, Event, LaneEnd, ServiceEnd};
 use crate::computer::{ComputerConfig, StreamRead};
 use crate::dock::Opening;
 use crate::edge::{EdgeConfig, EdgeEnded};
 use crate::identity::{ClientKey, ServerIdentity};
+use crate::service::ServiceConfig;
 
 /// The client certificate's key.
 #[wasm_bindgen]
@@ -171,7 +172,17 @@ impl WorkerClient {
             return JsValue::UNDEFINED;
         };
         let o = match event {
-            Event::Docked => object("docked"),
+            Event::Docked {
+                service_lane_profile,
+            } => {
+                let o = object("docked");
+                set(
+                    &o,
+                    "serviceLaneProfile",
+                    &JsValue::from_str(&service_lane_profile),
+                );
+                o
+            }
             Event::Drain { reason } => {
                 let o = object("drain");
                 set(&o, "reason", &JsValue::from_str(&reason));
@@ -224,6 +235,22 @@ impl WorkerClient {
                 }
                 o
             }
+            Event::ServiceEstablished { service } => {
+                let o = object("service-established");
+                set(&o, "service", &JsValue::from(service));
+                o
+            }
+            Event::ServiceEnded { service, reason } => {
+                let o = object("service-ended");
+                set(&o, "service", &JsValue::from(service));
+                let reason = match reason {
+                    ServiceEnd::Link(why) => format!("{why:?}"),
+                    ServiceEnd::Transport => "transport".into(),
+                    ServiceEnd::Closed => "closed".into(),
+                };
+                set(&o, "reason", &JsValue::from_str(&reason));
+                o
+            }
         };
         o.into()
     }
@@ -234,6 +261,67 @@ impl WorkerClient {
         self.client
             .open_lane(principal)
             .map_err(|e| JsError::new(&format!("open lane: {e:?}")))
+    }
+
+    /// Asks for a client service lane to the Zone service named exactly
+    /// `principal`.
+    #[wasm_bindgen(js_name = openServiceLane)]
+    pub fn open_service_lane(&mut self, principal: &str) -> Result<u32, JsError> {
+        self.client
+            .open_service_lane(principal)
+            .map_err(|e| JsError::new(&format!("open service lane: {e:?}")))
+    }
+
+    /// Opens the one stream of the client service lane `lane`, whose header
+    /// names the stream profile `profile`, and starts TLS with the service,
+    /// which must prove exactly `principal` against `roots`.
+    #[wasm_bindgen(js_name = openService)]
+    pub fn open_service(
+        &mut self,
+        lane: u32,
+        profile: &str,
+        roots: &Array,
+        chain: &Array,
+        principal: String,
+    ) -> Result<u32, JsError> {
+        let config = ServiceConfig {
+            server_name: "service.idyl.invalid".into(),
+            roots: certificates(roots)?,
+            chain: certificates(chain)?,
+            principal,
+        };
+        self.client
+            .open_service(lane, profile.as_bytes(), config)
+            .map_err(|e| JsError::new(&format!("open service connection: {e:?}")))
+    }
+
+    /// Queues plaintext for a service connection.
+    #[wasm_bindgen(js_name = serviceWrite)]
+    pub fn service_write(&mut self, service: u32, bytes: &[u8]) -> Result<(), JsError> {
+        self.client
+            .service_write(service, bytes)
+            .map_err(|e| JsError::new(&format!("service write: {e:?}")))
+    }
+
+    /// The plaintext a service connection received since the last read, as
+    /// one batch, possibly empty; after a batch nothing more is read until
+    /// `serviceRelease`.
+    #[wasm_bindgen(js_name = serviceRead)]
+    pub fn service_read(&mut self, service: u32) -> Uint8Array {
+        Uint8Array::from(self.client.service_read(service).as_slice())
+    }
+
+    /// The page has handled the last batch of a service connection; its
+    /// stream is read again.
+    #[wasm_bindgen(js_name = serviceRelease)]
+    pub fn service_release(&mut self, service: u32) {
+        self.client.service_release(service);
+    }
+
+    /// Ends a service connection.
+    #[wasm_bindgen(js_name = closeService)]
+    pub fn close_service(&mut self, service: u32) {
+        self.client.close_service(service);
     }
 
     /// Opens a Computer connection on `lane` to the sandbox

@@ -1,0 +1,43 @@
+{
+  "computer": {
+    "type": "event",
+    "namespaceId": "01954e20-7540-7ec4-93ec-14f783e6ab06",
+    "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+    "part": "computer"
+  },
+  "operation": {
+    "type": "event",
+    "namespaceId": "01954e20-7540-7ec4-93ec-14f783e6ab06",
+    "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+    "part": "operation",
+    "id": "01954e20-7540-7ec4-93ec-14f783e6ab41"
+  },
+  "rereadAll": {
+    "type": "event",
+    "part": "reread"
+  },
+  "rereadNamespace": {
+    "type": "event",
+    "namespaceId": "01954e20-7540-7ec4-93ec-14f783e6ab06",
+    "part": "reread"
+  },
+  "session": {
+    "type": "event",
+    "namespaceId": "01954e20-7540-7ec4-93ec-14f783e6ab06",
+    "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+    "part": "session",
+    "id": "01954e20-7540-7ec4-93ec-14f783e6ab50"
+  },
+  "sessions": {
+    "type": "event",
+    "namespaceId": "01954e20-7540-7ec4-93ec-14f783e6ab06",
+    "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+    "part": "sessions"
+  },
+  "version": {
+    "type": "event",
+    "namespaceId": "01954e20-7540-7ec4-93ec-14f783e6ab06",
+    "computer": "01954e20-7540-7ec4-93ec-14f783e6ab04",
+    "part": "version"
+  }
+}

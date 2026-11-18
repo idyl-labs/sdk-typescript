@@ -60,6 +60,17 @@ export interface SessionTrust {
     readonly serverRoots: readonly Uint8Array[];
     readonly browserEndpoint?: string;
   };
+  /**
+   * The service that sends Computer change events: the exact SPIFFE ID its
+   * certificate names, one service of the bundle's Zone, and the DER roots
+   * that certificate chains to. A client verifies the service against this
+   * and nothing else. `undefined` when the bundle names none: no change
+   * events are sent, and a client reads on its fallback schedule.
+   */
+  readonly computerEvents?: {
+    readonly serverId: string;
+    readonly serverRoots: readonly Uint8Array[];
+  };
 }
 
 /** What a bundle must satisfy. */
@@ -291,6 +302,7 @@ export async function verifySessionTrust(
       "session trust names a browser endpoint that is not a wss URL",
     );
   }
+  const computerEvents = readComputerEvents(b, zone, policy.network);
   return {
     network: policy.network,
     zone,
@@ -303,5 +315,58 @@ export async function verifySessionTrust(
       serverRoots,
       ...(browser === undefined ? {} : { browserEndpoint: browser }),
     },
+    ...(computerEvents === undefined ? {} : { computerEvents }),
   };
+}
+
+/**
+ * The event service a verified bundle's payload `b` names for `zone` in
+ * `network`, or `undefined` when it names none. Throws a
+ * `SessionTrustError` when it names one that is not one service of that
+ * Zone, or without roots.
+ */
+export function readComputerEvents(
+  b: Readonly<Record<string, unknown>>,
+  zone: string,
+  network: string,
+): SessionTrust["computerEvents"] {
+  const events = b["computerEvents"];
+  if (events === undefined || events === null) return undefined;
+  const e = events as Record<string, unknown>;
+  const id = e["serverId"];
+  const pem = e["serverRoots"];
+  if (typeof id !== "string" || !isZoneServiceId(id, zone, network)) {
+    throw new SessionTrustError(
+      "session trust names an event service that is not one service of its Zone",
+    );
+  }
+  const serverRoots = pemCertificates(typeof pem === "string" ? pem : "");
+  if (serverRoots.length === 0) {
+    throw new SessionTrustError(
+      "session trust names no roots for its event service",
+    );
+  }
+  return { serverId: id, serverRoots };
+}
+
+/**
+ * Whether `id` is the SPIFFE ID of one service of `zone` in `network`:
+ * `spiffe://{zone}.zone.{network}/service/{name}`, the trust domain spelt
+ * exactly as the bundle spells it, with one name and nothing after it, no
+ * escapes, query, fragment, user or white space.
+ */
+function isZoneServiceId(id: string, zone: string, network: string): boolean {
+  const prefix = "spiffe://";
+  if (!id.toLowerCase().startsWith(prefix) || /[\s%?#@]/u.test(id)) {
+    return false;
+  }
+  const rest = id.slice(prefix.length);
+  const slash = rest.indexOf("/");
+  if (slash < 0) return false;
+  const host = rest.slice(0, slash);
+  if (host !== `${zone}.zone.${network}`) return false;
+  const path = rest.slice(slash);
+  if (!path.startsWith("/service/")) return false;
+  const name = path.slice("/service/".length);
+  return name !== "" && !name.includes("/");
 }

@@ -25,7 +25,7 @@ The package keeps these properties:
 - **No runtime dependencies.** Every capability is either a web standard or
   code in this repository, so installing the package installs nothing else.
 - **Small.** The whole package, every product on the client included, fits
-  in 70 kB minified and compressed. The budget is checked on every change.
+  in 75 kB minified and compressed. The budget is checked on every change.
 - **Explicit configuration.** The package reads no environment variable and
   no file, holds no default credential and discovers no private endpoint.
   What a client does follows from the options it was given.
@@ -370,6 +370,48 @@ session ID and Computer ID, and a read or a renewal that names another
 session is refused. A session create is judged before it is sent: the shell
 operation, the endpoint attachment and its arm, no shell for an `ssh`
 session, and the idempotency key its stream names.
+
+## Change events
+
+A connector learns that its own Namespace's Computers changed, and listens
+for no other Namespace, from events its
+Zone sends on the connection it already holds, and reads the API once for
+the part an event names (`computer-connection/listening.ts`). It listens
+from `ready` or its first session on, and nothing waits for it. It creates
+a Computer watch, decided as a list of the Namespace's Computers is, opens
+one client service lane (`client-service-lanes/1`) to the event service the
+verified session trust names, and opens one stream on it, its header the
+profile `computer-events/json-v1`, inside which TLS 1.3 presents the client
+certificate and requires the service's certificate to name exactly that
+service. It then presents the watch's ticket. An edge whose welcome names
+no client service lane profile, or a trust that names no event service, is
+never asked.
+
+The stream's frames (`events.ts`) are a big-endian 32-bit length and that
+many bytes of one JSON object, 1 to 4096 bytes; a frame out of bounds ends
+the stream. An `event` names its Namespace, Computer, part and, for a
+session or an operation, its ID, and carries no state; a part the package
+does not name reads as `reread`. The first frame after an accepted ticket
+is a `reread`. At a ticket's end the service sends `ended`, and the
+connector creates the watch again and presents the new ticket; it keeps no
+clock of its own for the watch. A refused ticket is answered by one new
+watch.
+
+An attempt to listen succeeds when its stream delivers its first `reread`
+within 30 s. An attempt that fails is tried again after 0.5 s, 1, 2, 4, 8,
+15, then every 30 s. A stream that ends after it carried events is opened
+again, on a new lane, no sooner than the current step after its own attempt
+began: at once when it lived longer than the step, which starts the steps
+again from the first, and otherwise after the step, as a failed attempt,
+from which the connector has no event stream. After a failure, a stream
+counts as carrying events only once it outlives its step; its events are
+handed on meanwhile. A wait on
+a Computer of another Namespace pauses as with no event stream. A watch create refused for the caller's sign-in or
+permission is tried again only on the connector's next dock or use.
+`listen` tells the caller each change and whether the connector has an
+event stream: `false` from a failed attempt or a dock whose Zone serves no
+events, `true` from the next first `reread`. Every wait of a handle the
+client holds a connector for listens through it.
 
 ## Errors
 

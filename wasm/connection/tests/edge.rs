@@ -313,7 +313,8 @@ fn the_dock_opens_with_a_proof_bound_to_the_connection() {
     assert_eq!(
         events(&mut f.link),
         vec![EdgeEvent::Docked {
-            generation: generation()
+            generation: generation(),
+            service_lane_profile: String::new(),
         }]
     );
     assert!(f.link.docked());

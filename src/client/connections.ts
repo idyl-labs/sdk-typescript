@@ -40,6 +40,11 @@ export interface Connections {
   adopt(connector: ComputerConnector): ComputerConnector;
   /** A use of the adopted connector, or of one started for it. */
   hold(): Promise<ConnectionHold>;
+  /**
+   * The connector in hand, adopted or started and not yet closed, without
+   * starting one: a wait listens through it when there is one.
+   */
+  current(): ComputerConnector | undefined;
   /** Runs `work` on the connector of a {@link hold}, released when it ends. */
   use<T>(work: (connector: ComputerConnector) => Promise<T>): Promise<T>;
 }
@@ -73,6 +78,7 @@ export function connections(options: ConnectionsOptions): Connections {
   const connect = options.connect ?? connectFromPackage;
   let adopted: ComputerConnector | undefined;
   let started: Promise<ComputerConnector> | undefined;
+  let runningConnector: ComputerConnector | undefined;
   let running = 0;
   let idle: ReturnType<typeof setTimeout> | undefined;
 
@@ -95,9 +101,14 @@ export function connections(options: ConnectionsOptions): Connections {
     const starting = connect().then(({ worker, module }) =>
       build({ worker, module, network, trustKeys }),
     );
-    starting.catch(() => {
-      if (started === starting) started = undefined;
-    });
+    starting.then(
+      (connector) => {
+        if (started === starting) runningConnector = connector;
+      },
+      () => {
+        if (started === starting) started = undefined;
+      },
+    );
     return starting;
   };
 
@@ -108,6 +119,7 @@ export function connections(options: ConnectionsOptions): Connections {
       idle = undefined;
       const closing = started;
       started = undefined;
+      runningConnector = undefined;
       void closing?.then(
         (connector) => {
           connector.close();
@@ -146,6 +158,9 @@ export function connections(options: ConnectionsOptions): Connections {
       return connector;
     },
     hold,
+    current() {
+      return adopted ?? runningConnector;
+    },
     async use<T>(work: (connector: ComputerConnector) => Promise<T>) {
       const { connector, release } = await hold();
       try {

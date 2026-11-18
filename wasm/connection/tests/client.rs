@@ -23,6 +23,8 @@ use idyl_computer_connection::computer::{ComputerConfig, StreamRead};
 use idyl_computer_connection::dock::{DockGen, EdgeTag, Opening};
 use idyl_computer_connection::edge::EdgeConfig;
 use idyl_computer_connection::identity::{ClientKey, ServerIdentity};
+use idyl_computer_connection::mux::INITIAL_WINDOW;
+use idyl_computer_connection::service::ServiceConfig;
 use prost::Message;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::WebPkiClientVerifier;
@@ -35,6 +37,10 @@ const HOST_POD: &str = "6c0d0b6e-1d2a-4c7f-8e9b-2f4a1c3d5e60";
 const ACCOUNT: &str = "550000000001";
 const TRUST_DOMAIN: &str = "zone-a.zone.example.test";
 const LANE_ID: u64 = 5;
+const SERVICE: &str = "spiffe://zone-a.zone.example.test/service/computers";
+const SERVICE_LANE_ID: u64 = 6;
+/// What the event service sends, far more than one stream's window.
+const FLOOD: usize = 4 << 20;
 
 struct Ca {
     cert: rcgen::Certificate,
@@ -216,6 +222,8 @@ struct Welcome {
     generation: Option<DockGen>,
     #[prost(uint32, tag = "2")]
     keepalive_ms: u32,
+    #[prost(string, tag = "3")]
+    service_lane_profile: String,
 }
 #[derive(Clone, PartialEq, Message)]
 struct LaneAttached {
@@ -256,9 +264,46 @@ struct OpenDataDockLane {
     target_principal: String,
 }
 #[derive(Clone, PartialEq, Message)]
+struct OpenClientServiceLane {
+    #[prost(string, tag = "1")]
+    service_principal: String,
+}
+#[derive(Clone, PartialEq, Message)]
 struct RequesterToEdge {
     #[prost(message, optional, tag = "7")]
     open_data_dock_lane: Option<OpenDataDockLane>,
+    #[prost(message, optional, tag = "9")]
+    open_client_service_lane: Option<OpenClientServiceLane>,
+}
+
+// ---- the event service: TLS that sends FLOOD bytes once established ----
+
+struct FakeService {
+    conn: ServerConnection,
+    sent: usize,
+}
+
+impl FakeService {
+    fn exchange(&mut self, mut bytes: &[u8]) -> Vec<u8> {
+        while !bytes.is_empty() {
+            self.conn.read_tls(&mut bytes).unwrap();
+            self.conn.process_new_packets().expect("service tls");
+            let mut p = Vec::new();
+            let _ = self.conn.reader().read_to_end(&mut p);
+        }
+        if !self.conn.is_handshaking() {
+            while self.sent < FLOOD {
+                let n = (FLOOD - self.sent).min(16 << 10);
+                self.conn.writer().write_all(&vec![b'e'; n]).unwrap();
+                self.sent += n;
+            }
+        }
+        let mut wire = Vec::new();
+        while self.conn.wants_write() {
+            self.conn.write_tls(&mut wire).unwrap();
+        }
+        wire
+    }
 }
 
 fn frame(kind: u8, sid: u32, payload: &[u8]) -> Vec<u8> {
@@ -291,6 +336,14 @@ struct Edge {
     headers: Vec<Vec<u8>>,
     // The reply the data dock gives: 0 links.
     reply_code: u8,
+    // The client service lane profile the welcome names.
+    profile: String,
+    service: Option<FakeService>,
+    // The stream carrying the event service, and what is queued for it
+    // beyond the credit the client granted: the edge honours flow control.
+    service_sid: Option<u32>,
+    service_credit: usize,
+    service_backlog: Vec<u8>,
 }
 
 impl Edge {
@@ -316,18 +369,55 @@ impl Edge {
                 0x01 => {
                     self.streams.insert(sid, StreamIn::default());
                 }
+                0x03 if self.service_sid == Some(sid) => {
+                    let back = self.service.as_mut().unwrap().exchange(&payload);
+                    self.service_backlog.extend(back);
+                }
                 0x03 => {
                     let s = self.streams.get_mut(&sid).unwrap();
                     s.bytes.extend(payload);
+                    if s.kind.is_none()
+                        && s.bytes.first() == Some(&0x03)
+                        && s.bytes.get(1) == Some(&(SERVICE_LANE_ID as u8))
+                    {
+                        // 0x03, varint 6, class 1, u16 23, the profile.
+                        if s.bytes.len() < 5 + 23 {
+                            continue;
+                        }
+                        assert_eq!(&s.bytes[5..28], b"computer-events/json-v1");
+                        let rest = s.bytes.split_off(28);
+                        self.service_sid = Some(sid);
+                        self.streams.remove(&sid);
+                        let back = self.service.as_mut().unwrap().exchange(&rest);
+                        self.service_backlog.extend(back);
+                        continue;
+                    }
                     out.extend(Self::stream_work(
                         sid,
                         s,
                         &mut self.endpoint,
                         &mut self.headers,
                         self.reply_code,
+                        &self.profile,
                     ));
                 }
+                0x06 if self.service_sid == Some(sid) => {
+                    self.service_credit +=
+                        u32::from_be_bytes(payload[..4].try_into().unwrap()) as usize;
+                }
                 _ => {}
+            }
+        }
+        if let Some(sid) = self.service_sid {
+            while !self.service_backlog.is_empty() && self.service_credit > 0 {
+                let n = self
+                    .service_backlog
+                    .len()
+                    .min(self.service_credit)
+                    .min(64 << 10);
+                let chunk: Vec<u8> = self.service_backlog.drain(..n).collect();
+                self.service_credit -= n;
+                out.extend(frame(0x03, sid, &chunk));
             }
         }
         if !out.is_empty() {
@@ -347,6 +437,7 @@ impl Edge {
         endpoint: &mut Endpoint,
         headers: &mut Vec<Vec<u8>>,
         reply_code: u8,
+        profile: &str,
     ) -> Vec<u8> {
         let mut out = Vec::new();
         if sid == 1 {
@@ -367,6 +458,7 @@ impl Edge {
                                 nonce: vec![3; 12],
                             }),
                             keepalive_ms: 15_000,
+                            service_lane_profile: profile.into(),
                         }),
                         lane_attached: None,
                     };
@@ -383,16 +475,29 @@ impl Edge {
                 let len = u32::from_be_bytes(s.bytes[1..5].try_into().unwrap()) as usize;
                 if s.bytes.len() >= 5 + len {
                     s.done = true;
-                    let verb = RequesterToEdge::decode(&s.bytes[5..5 + len])
-                        .unwrap()
-                        .open_data_dock_lane
-                        .unwrap();
-                    assert_eq!(verb.target_principal, DATA_DOCK);
+                    let verb = RequesterToEdge::decode(&s.bytes[5..5 + len]).unwrap();
+                    let (lane_id, principal) = match verb {
+                        RequesterToEdge {
+                            open_client_service_lane: Some(service),
+                            ..
+                        } => {
+                            assert_eq!(service.service_principal, SERVICE);
+                            (SERVICE_LANE_ID, SERVICE)
+                        }
+                        RequesterToEdge {
+                            open_data_dock_lane: Some(dock),
+                            ..
+                        } => {
+                            assert_eq!(dock.target_principal, DATA_DOCK);
+                            (LANE_ID, DATA_DOCK)
+                        }
+                        _ => panic!("unknown verb"),
+                    };
                     let answer = EdgeToRequester {
                         lane_opened: Some(LaneOpened {
-                            lane_id: LANE_ID,
+                            lane_id,
                             confirms: vec![Confirm {
-                                principal: DATA_DOCK.into(),
+                                principal: principal.into(),
                             }],
                         }),
                     };
@@ -401,8 +506,8 @@ impl Edge {
                     let attached = EdgeToClient {
                         welcome: None,
                         lane_attached: Some(LaneAttached {
-                            lane_id: LANE_ID,
-                            peer_principal: DATA_DOCK.into(),
+                            lane_id,
+                            peer_principal: principal.into(),
                             lane_class: 4,
                         }),
                     };
@@ -451,6 +556,16 @@ struct World {
 fn world(
     endpoint_epoch: u64,
     reply_code: u8,
+) -> (World, Vec<CertificateDer<'static>>, CertificateDer<'static>) {
+    world_with(endpoint_epoch, reply_code, false)
+}
+
+/// A world whose edge serves the client service lane profile, when
+/// `with_service`, to an event service that floods its stream.
+fn world_with(
+    endpoint_epoch: u64,
+    reply_code: u8,
+    with_service: bool,
 ) -> (World, Vec<CertificateDer<'static>>, CertificateDer<'static>) {
     let edge_ca = ca("edge ca");
     let pod_ca = ca("pod ca");
@@ -505,6 +620,26 @@ fn world(
         tls: endpoint_tls,
         streams: Vec::new(),
     };
+    let service_key = rcgen::KeyPair::generate_for(&rcgen::PKCS_ED25519).unwrap();
+    let service_leaf = leaf(
+        &pod_ca,
+        SERVICE,
+        rcgen::ExtendedKeyUsagePurpose::ServerAuth,
+        &service_key,
+    );
+    let service = with_service.then(|| FakeService {
+        conn: server(
+            rustls::crypto::CryptoProvider {
+                kx_groups: vec![rustls::crypto::aws_lc_rs::kx_group::X25519MLKEM768],
+                ..rustls::crypto::aws_lc_rs::default_provider()
+            },
+            service_leaf,
+            &service_key,
+            &pod_ca,
+            None,
+        ),
+        sent: 0,
+    });
     let edge = Edge {
         tls: server(
             rustls::crypto::CryptoProvider {
@@ -521,6 +656,15 @@ fn world(
         endpoint,
         headers: Vec::new(),
         reply_code,
+        profile: if with_service {
+            "client-service-lanes/1".into()
+        } else {
+            String::new()
+        },
+        service,
+        service_sid: None,
+        service_credit: INITIAL_WINDOW,
+        service_backlog: Vec::new(),
     };
     let client = Client::new(
         key,
@@ -591,7 +735,12 @@ fn computer_config(
 #[test]
 fn a_session_reaches_the_endpoint_through_the_edge_and_the_data_dock() {
     let (mut w, pod_roots, chain) = world(12, 0);
-    assert_eq!(w.pump(), vec![Event::Docked]);
+    assert_eq!(
+        w.pump(),
+        vec![Event::Docked {
+            service_lane_profile: String::new()
+        }]
+    );
     let lane = w.client.open_lane(DATA_DOCK).unwrap();
     assert_eq!(w.pump(), vec![Event::LaneReady { lane }]);
 
@@ -669,4 +818,87 @@ fn a_data_dock_refusal_ends_only_that_computer_connection() {
             .open_computer(lane, HOST_POD, 3, 12, computer_config(pod_roots, chain, 12))
             .is_ok()
     );
+}
+
+// A flooding event service is held by its stream's receive window while
+// the caller does not release what it took: the plaintext held stays within
+// one window, the sender keeps the rest, and a terminal on the same dock
+// still opens and echoes. Releasing reads the next window.
+#[test]
+fn a_flooding_event_service_is_held_by_its_window_and_a_terminal_is_not() {
+    let (mut w, roots, chain) = world_with(12, 0, true);
+    assert_eq!(
+        w.pump(),
+        vec![Event::Docked {
+            service_lane_profile: "client-service-lanes/1".into()
+        }]
+    );
+    let lane = w.client.open_service_lane(SERVICE).unwrap();
+    assert_eq!(w.pump(), vec![Event::LaneReady { lane }]);
+    let service = w
+        .client
+        .open_service(
+            lane,
+            b"computer-events/json-v1",
+            ServiceConfig {
+                server_name: "service.example.test".into(),
+                roots: roots.clone(),
+                chain: vec![chain.clone()],
+                principal: SERVICE.into(),
+            },
+        )
+        .unwrap();
+    let events = w.pump();
+    assert!(
+        events.contains(&Event::ServiceEstablished { service }),
+        "{events:?}"
+    );
+
+    // The first batch is taken and never released.
+    let mut held = 0;
+    for _ in 0..50 {
+        w.pump();
+        held += w.client.service_read(service).len();
+    }
+    assert!(held > 0, "nothing reached the caller");
+    assert!(held <= INITIAL_WINDOW, "held {held} bytes past one window");
+    assert!(
+        !w.edge.service_backlog.is_empty(),
+        "the sender was not held"
+    );
+
+    // A terminal on the same dock is not held back.
+    let data = w.client.open_lane(DATA_DOCK).unwrap();
+    assert_eq!(w.pump(), vec![Event::LaneReady { lane: data }]);
+    let computer = w
+        .client
+        .open_computer(data, HOST_POD, 3, 12, computer_config(roots, chain, 12))
+        .unwrap();
+    let stream = w.client.open_stream(computer).unwrap();
+    w.client.write(computer, stream, b"typed").unwrap();
+    w.client.finish(computer, stream).unwrap();
+    w.pump();
+    let mut got = Vec::new();
+    for _ in 0..50 {
+        match w.client.read(computer, stream) {
+            StreamRead::Data(d) => got.extend(d),
+            StreamRead::End => break,
+            StreamRead::Empty => {
+                w.pump();
+            }
+            StreamRead::Broken => panic!("broken"),
+        }
+    }
+    assert_eq!(got, b"typed");
+    assert_eq!(w.client.service_read(service).len(), 0);
+
+    // Released, the next window is read.
+    w.client.service_release(service);
+    let mut more = 0;
+    for _ in 0..10 {
+        w.pump();
+        more += w.client.service_read(service).len();
+        w.client.service_release(service);
+    }
+    assert!(more > 0, "nothing more after the release");
 }

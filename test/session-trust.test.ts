@@ -114,6 +114,86 @@ describe("session trust", () => {
     expect(trust.dataFabric.serverRoots).toEqual([Uint8Array.of(0x30, 1, 2)]);
   });
 
+  // Contract: a bundle that names the service sending Computer change
+  // events carries its exact SPIFFE ID and roots; one that names none
+  // carries no such service, and the client reads on its fallback schedule.
+  it("reads the event service a bundle names, and none when it names none", async () => {
+    const pinned = await signer("k1");
+    const policy = {
+      network: "example.test",
+      keys: [pinned.key],
+      minVersion: 0,
+      nowMs: NOW,
+    };
+    const named = await verifySessionTrust(
+      await response(
+        bundle({
+          computerEvents: {
+            serverId: "spiffe://zone-a.zone.example.test/service/computer",
+            serverRoots: PEM,
+          },
+        }),
+        [pinned],
+      ),
+      policy,
+    );
+    expect(named.computerEvents).toEqual({
+      serverId: "spiffe://zone-a.zone.example.test/service/computer",
+      serverRoots: [Uint8Array.of(0x30, 1, 2)],
+    });
+    const none = await verifySessionTrust(
+      await response(bundle(), [pinned]),
+      policy,
+    );
+    expect(none.computerEvents).toBeUndefined();
+  });
+
+  // Contract: an event service that is not one service of the bundle's own
+  // Zone, its trust domain spelt exactly as the bundle spells it, or that
+  // names no roots, refuses the bundle.
+  it("refuses an event service outside its Zone or without roots", async () => {
+    const pinned = await signer("k1");
+    const policy = {
+      network: "example.test",
+      keys: [pinned.key],
+      minVersion: 0,
+      nowMs: NOW,
+    };
+    for (const serverId of [
+      "spiffe://zone-b.zone.example.test/service/computer",
+      "spiffe://Zone-A.zone.example.test/service/computer",
+      "spiffe://zone-a.zone.example.test/node/computer",
+      "spiffe://zone-a.zone.example.test/service/",
+      "spiffe://zone-a.zone.example.test/service/computer/extra",
+      "spiffe://zone-a.zone.example.test/service/comp%2Futer",
+      "https://zone-a.zone.example.test/service/computer",
+    ]) {
+      await expect(
+        verifySessionTrust(
+          await response(
+            bundle({ computerEvents: { serverId, serverRoots: PEM } }),
+            [pinned],
+          ),
+          policy,
+        ),
+      ).rejects.toThrow(SessionTrustError);
+    }
+    await expect(
+      verifySessionTrust(
+        await response(
+          bundle({
+            computerEvents: {
+              serverId: "spiffe://zone-a.zone.example.test/service/computer",
+              serverRoots: "",
+            },
+          }),
+          [pinned],
+        ),
+        policy,
+      ),
+    ).rejects.toThrow(SessionTrustError);
+  });
+
   // Contract: a bundle signed by any other key, or substituted after
   // signing, is refused.
   it("refuses a bundle no trusted key signed", async () => {

@@ -82,6 +82,11 @@ export {
   type WorkerPort,
 } from "./computer-connection/connector.js";
 export type {
+  ChangeListener,
+  ComputerChange,
+} from "./computer-connection/listening.js";
+export type { ComputerEventPart } from "./api/computer-watch.js";
+export type {
   ComputerFilesSession,
   FilesSessionEnding,
   FilesSessionHandlers,

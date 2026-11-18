@@ -46,6 +46,8 @@ interface Dock {
   readonly socket: WebSocket;
   // Streams the page has opened, to read after every turn.
   readonly streams: Map<number, Set<number>>;
+  // Service connections the page has opened, to read after every turn.
+  readonly services: Set<number>;
   timer: ReturnType<typeof setTimeout> | undefined;
 }
 
@@ -97,6 +99,14 @@ export function serveComputerConnections(scope: WorkerScope): void {
         }
       }
     }
+    for (const service of dock.services) {
+      const read = dock.client.serviceRead(service);
+      if (read.length > 0) {
+        post({ type: "service-data", dock: id, service, bytes: read }, [
+          read.buffer,
+        ]);
+      }
+    }
     // Reading may have granted credit: send what that produced.
     const more = dock.client.takeOutput();
     if (more.length > 0 && dock.socket.readyState === WebSocket.OPEN) {
@@ -131,8 +141,38 @@ export function serveComputerConnections(scope: WorkerScope): void {
       typeof value === "number" ? value : 0;
     switch (event["type"]) {
       case "docked":
-        post({ type: "docked", dock: id });
+        post({
+          type: "docked",
+          dock: id,
+          serviceLaneProfile: text(event["serviceLaneProfile"]),
+        });
         return;
+      case "service-established":
+        post({
+          type: "service-established",
+          dock: id,
+          service: num(event["service"]),
+        });
+        return;
+      case "service-ended": {
+        const service = num(event["service"]);
+        // Bytes the service sent before it ended reach the page first.
+        const read = dock.client.serviceRead(service);
+        if (read.length > 0) {
+          post({ type: "service-data", dock: id, service, bytes: read }, [
+            read.buffer,
+          ]);
+        }
+        dock.services.delete(service);
+        dock.client.closeService(service);
+        post({
+          type: "service-ended",
+          dock: id,
+          service,
+          reason: text(event["reason"]),
+        });
+        return;
+      }
       case "drain":
         post({ type: "drain", dock: id, reason: text(event["reason"]) });
         return;
@@ -205,7 +245,13 @@ export function serveComputerConnections(scope: WorkerScope): void {
     const socket = new WebSocket(request.url, SUBPROTOCOL);
     socket.binaryType = "arraybuffer";
     const id = nextDock++;
-    const dock: Dock = { client, socket, streams: new Map(), timer: undefined };
+    const dock: Dock = {
+      client,
+      socket,
+      streams: new Map(),
+      services: new Set(),
+      timer: undefined,
+    };
     docks.set(id, dock);
     socket.addEventListener("open", () => {
       turn(id, dock);
@@ -276,6 +322,43 @@ export function serveComputerConnections(scope: WorkerScope): void {
         dock.streams.set(computer, new Set());
         turn(request.dock, dock);
         return computer;
+      }
+      case "open-service-lane": {
+        const dock = docked(request.dock);
+        const lane = dock.client.openServiceLane(request.principal);
+        turn(request.dock, dock);
+        return lane;
+      }
+      case "open-service": {
+        const dock = docked(request.dock);
+        const service = dock.client.openService(
+          request.lane,
+          request.profile,
+          [...request.roots],
+          [...request.chain],
+          request.principal,
+        );
+        dock.services.add(service);
+        turn(request.dock, dock);
+        return service;
+      }
+      case "service-write": {
+        const dock = docked(request.dock);
+        dock.client.serviceWrite(request.service, request.bytes);
+        turn(request.dock, dock);
+        return undefined;
+      }
+      case "service-release": {
+        const dock = docked(request.dock);
+        dock.client.serviceRelease(request.service);
+        turn(request.dock, dock);
+        return undefined;
+      }
+      case "close-service": {
+        const dock = docked(request.dock);
+        dock.client.closeService(request.service);
+        turn(request.dock, dock);
+        return undefined;
       }
       case "close-computer": {
         const dock = docked(request.dock);
