@@ -41,8 +41,6 @@ pub const OPEN_CLIENT_SERVICE_LANE_FIELD: u32 = 9;
 /// The lane profile under which a client may open a lane to a Zone service
 /// (`wire.ClientServiceLaneProfile`).
 pub const CLIENT_SERVICE_LANE_PROFILE: &str = "client-service-lanes/1";
-/// The most metadata the edge takes on a client service lane verb.
-pub const MAX_CLIENT_SERVICE_LANE_METADATA: usize = 1024;
 
 #[derive(Clone, PartialEq, Message)]
 struct OpenDataDockLane {

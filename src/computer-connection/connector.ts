@@ -724,6 +724,11 @@ class Connector implements ComputerConnector {
         : placed(session),
     );
     answered.catch(() => undefined);
+    // A session event for this session makes the read that tells whether it
+    // failed at once, while its connection is made and its stream answered.
+    const failure = this.#endedOnEvent(computer, created);
+    const watched = Promise.race([answered, failure.ended]);
+    watched.catch(() => undefined);
     // The client connects where it last saw the Computer; with no place
     // known it waits for the create. The endpoint's certificate must name
     // an Activation epoch at least the one known, so a command never
@@ -739,7 +744,7 @@ class Connector implements ComputerConnector {
         connection = await this.#establish(
           computer,
           known,
-          answered,
+          watched,
           deadline,
           false,
           (endpoint) => !sameEndpoint(endpoint, known),
@@ -747,22 +752,27 @@ class Connector implements ComputerConnector {
       } catch (first) {
         if (first instanceof CreateFailure) throw first;
         // The place the client knew is stale: the create says where it is.
-        const endpoint = await answered;
+        const endpoint = await watched;
         if (sameEndpoint(endpoint, known)) throw first;
         deadline = Date.now() + OPEN_WAIT_MS;
         connection = await this.#establish(
           computer,
           endpoint,
-          answered,
+          watched,
           deadline,
           true,
         );
       }
     } catch (error) {
+      failure.stop();
       throw await this.#unopened(computer, created, error);
     }
     const session = await this.#stream(computer, connection, requestID, open);
     session.answerBy(deadline, () => this.#late(computer, created));
+    session.onSettled(failure.stop);
+    failure.ended.catch((error: unknown) => {
+      session.fail(error);
+    });
     created.then(
       (served) => {
         session.served(served.id);
@@ -860,6 +870,49 @@ class Connector implements ComputerConnector {
     const ended = await this.#endedNow(computer, served.id);
     void this.#o.api.cancelSession(computer, served.id).catch(() => undefined);
     return ended ?? error;
+  }
+
+  /**
+   * Follows the connector's events for the session `created` answers: each
+   * `session` event for it, and each `reread`, reads it once, and `ended`
+   * rejects with a {@link ComputerSessionEndedError} when it is final, until
+   * `stop` is called. Nothing else rejects it.
+   */
+  #endedOnEvent(
+    computer: string,
+    created: Promise<ServedSession>,
+  ): { readonly ended: Promise<never>; readonly stop: () => void } {
+    let stopped = false;
+    let remove: (() => void) | undefined;
+    const ended = new Promise<never>((_, reject) => {
+      void created.then(
+        (served) => {
+          if (stopped) return;
+          remove = this.#changes.subscribe({
+            onChange: (change) => {
+              if (
+                change.part !== "reread" &&
+                !(change.part === "session" && change.id === served.id)
+              ) {
+                return;
+              }
+              void this.#endedNow(computer, served.id).then((error) => {
+                if (error !== undefined && !stopped) reject(error);
+              });
+            },
+          });
+        },
+        () => undefined,
+      );
+    });
+    ended.catch(() => undefined);
+    return {
+      ended,
+      stop: () => {
+        stopped = true;
+        remove?.();
+      },
+    };
   }
 
   /**
@@ -1670,6 +1723,8 @@ class SessionStream implements ComputerSessionStream {
   #answerTimer: ReturnType<typeof setTimeout> | undefined;
   // The open was given up on: nothing the endpoint sends reaches the output.
   #gaveUp = false;
+  // Called once the open is answered, given up on, or the stream ends.
+  #settled: (() => void)[] = [];
 
   /**
    * `abandon` cancels the session by its ID, once, when the endpoint
@@ -1762,6 +1817,7 @@ class SessionStream implements ComputerSessionStream {
         // Nothing waits for this session any more: it is no longer renewed,
         // and is cancelled once its create has answered.
         this.#gaveUp = true;
+        this.#settle();
         this.#closed = true;
         this.#forget();
         this.#unstarted = true;
@@ -1775,8 +1831,22 @@ class SessionStream implements ComputerSessionStream {
     );
   }
 
+  /** @internal Calls `settled` once the open is answered or ends. */
+  onSettled(settled: () => void): void {
+    if (this.#answered || this.#done || this.#gaveUp) settled();
+    else this.#settled.push(settled);
+  }
+
+  /** Calls each settled callback once. */
+  #settle(): void {
+    const settled = this.#settled;
+    this.#settled = [];
+    for (const call of settled) call();
+  }
+
   /** Stops the wait for the endpoint's first frame. */
   #stopAnswerTimer(): void {
+    this.#settle();
     if (this.#answerTimer === undefined) return;
     clearTimeout(this.#answerTimer);
     this.#answerTimer = undefined;

@@ -18,10 +18,6 @@ use rustls::{ClientConfig, ClientConnection};
 
 use crate::identity::{ClientIdentity, ClientKey, IdentityVerifier, ServerIdentity};
 
-/// The most plaintext held for the caller before the link stops reading
-/// TLS records; the caller drains it on every read.
-pub const INBOX_LIMIT: usize = 256 << 10;
-
 /// What a service connection needs.
 pub struct ServiceConfig {
     /// The TLS server name to send; the service does not read it.
@@ -54,7 +50,9 @@ pub enum ServiceEvent {
     Ended(ServiceEnded),
 }
 
-/// One connection to one Zone service.
+/// One connection to one Zone service. The plaintext it receives is held
+/// until the caller reads it, which the caller does after every turn; the
+/// lane stream's window bounds what the service sends ahead of that.
 pub struct ServiceLink {
     conn: ClientConnection,
     out: Vec<u8>,
@@ -119,9 +117,6 @@ impl ServiceLink {
             let mut chunk = vec![0u8; state.plaintext_bytes_to_read()];
             if let Err(e) = self.conn.reader().read_exact(&mut chunk) {
                 return self.end(ServiceEnded::Tls(e.to_string()));
-            }
-            if self.inbox.len() + chunk.len() > INBOX_LIMIT {
-                return self.end(ServiceEnded::Tls("inbox full".into()));
             }
             self.inbox.extend_from_slice(&chunk);
             if !self.established && !self.conn.is_handshaking() {
