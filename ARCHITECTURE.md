@@ -373,7 +373,8 @@ session, and the idempotency key its stream names.
 
 ## Change events
 
-A connector learns that its Namespace's Computers changed from events its
+A connector learns that its own Namespace's Computers changed, and listens
+for no other Namespace, from events its
 Zone sends on the connection it already holds, and reads the API once for
 the part an event names (`computer-connection/listening.ts`). It listens
 from `ready` or its first session on, and nothing waits for it. It creates
@@ -397,9 +398,12 @@ clock of its own for the watch. A refused ticket is answered by one new
 watch.
 
 An attempt to listen succeeds when its stream delivers its first `reread`
-within 30 s. A stream that ends after it carried events is opened again at
-once; an attempt that fails is tried again after 0.5 s, 1, 2, 4, 8, 15,
-then every 30 s. A watch create refused for the caller's sign-in or
+within 30 s. An attempt that fails is tried again after 0.5 s, 1, 2, 4, 8,
+15, then every 30 s. A stream that ends after it carried events is opened
+again, on a new lane, no sooner than the current step after its own attempt
+began: at once when it lived longer than the step, which starts the steps
+again from the first, and otherwise after the step, as a failure. A wait on
+a Computer of another Namespace pauses as with no event stream. A watch create refused for the caller's sign-in or
 permission is tried again only on the connector's next dock or use.
 `listen` tells the caller each change and whether the connector has an
 event stream: `false` from a failed attempt or a dock whose Zone serves no

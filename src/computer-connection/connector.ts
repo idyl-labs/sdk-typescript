@@ -498,8 +498,10 @@ export interface ComputerConnector {
    */
   readonly listening: boolean;
   /**
-   * Calls `listener` with each change to the Namespace's Computers and
-   * each start and stop of the event stream. The connector listens from
+   * Calls `listener` with each change to the Computers of the connector's
+   * own Namespace, and of no other, and each start and stop of the event
+   * stream. A wait on a Computer of another Namespace pauses as with no
+   * event stream. The connector listens from
    * {@link ComputerConnector.ready} or its first session on; nothing waits
    * for it.
    *

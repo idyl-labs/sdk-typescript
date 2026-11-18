@@ -1,16 +1,20 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
-// How a connector listens for changes to its Namespace's Computers: it
+// How a connector listens for changes to its own Namespace's Computers,
+// and to no other Namespace's: it
 // creates a Computer watch, opens one client service lane to its Zone's
 // event service and one stream on it, presents the watch's ticket, and
 // hands each event to its listeners and to the waits in progress. Nothing
 // waits for any of it.
 //
 // An attempt to listen succeeds when the stream delivers its first frame,
-// the `reread` that answers an accepted ticket, within OPEN_WAIT_MS. A
-// stream that ends after it carried events is opened again at once; an
+// the `reread` that answers an accepted ticket, within OPEN_WAIT_MS. An
 // attempt that fails is tried again after 0.5 s, 1, 2, 4, 8, 15, then every
-// 30 s. The connector has no event stream from a failed attempt, or from a
+// 30 s. A stream that ends after it carried events is opened again no
+// sooner than the current step after its own attempt began: one that lived
+// longer than the step is opened again at once and the steps start from the
+// first again; one that ended sooner counts as a failure, so the steps
+// climb. The connector has no event stream from a failed attempt, or from a
 // dock whose Zone serves no events, until a stream delivers its first
 // `reread`; meanwhile waits pause as with no stream and a page reads on its
 // fallback schedule. A first attempt still in flight is not that state.
@@ -46,8 +50,10 @@ export const CLIENT_SERVICE_LANE_PROFILE = "client-service-lanes/1";
  */
 export const OPEN_WAIT_MS = 30_000;
 
-/** The pauses before each attempt to listen again after a failed one, in milliseconds; the last repeats. */
-const RETRY_MS = [500, 1_000, 2_000, 4_000, 8_000, 15_000, 30_000] as const;
+/** The pauses before each attempt to listen again after a failed one, in milliseconds. */
+const RETRY_MS: readonly number[] = [500, 1_000, 2_000, 4_000, 8_000, 15_000];
+/** The pause the retry schedule stays at once its steps are spent, in milliseconds. */
+const LAST_RETRY_MS = 30_000;
 
 /** A change to one of the Namespace's Computers, as its event names it. */
 export interface ComputerChange {
@@ -149,6 +155,8 @@ interface Stream {
   carried: boolean;
   /** Ends the attempt unless the first `reread` arrives in time. */
   deadline: ReturnType<typeof setTimeout> | undefined;
+  /** When the stream's attempt began, in milliseconds since the epoch. */
+  readonly began: number;
   stop(): void;
 }
 
@@ -261,6 +269,7 @@ export class Listening {
   /** One attempt to open the lane and the stream and present a ticket. */
   async #attempt(): Promise<void> {
     this.#attempting = true;
+    const began = Date.now();
     let stream: Stream | undefined;
     try {
       const docked = await this.#port.docked();
@@ -283,7 +292,7 @@ export class Listening {
       }
       this.#watch = watch;
       if (!this.#started) return;
-      stream = this.#open(docked.dock);
+      stream = this.#open(docked.dock, began);
       const lane = await this.#laneReady(stream, service.principal);
       const opened = (await this.#port.request({
         type: "open-service",
@@ -307,8 +316,9 @@ export class Listening {
    * Starts a stream on `dock`, following the Worker's events for it, with
    * the attempt's bound on its first `reread`.
    */
-  #open(dock: number): Stream {
+  #open(dock: number, began: number): Stream {
     const stream: Stream = {
+      began,
       dock,
       lane: undefined,
       service: undefined,
@@ -484,7 +494,6 @@ export class Listening {
       stream.carried = true;
       clearTimeout(stream.deadline);
       stream.deadline = undefined;
-      this.#failures = 0;
       this.#state = "listening";
       this.#report(true);
     }
@@ -533,7 +542,29 @@ export class Listening {
     }
     this.#end();
     this.#state = "opening";
-    this.#kick();
+    const step = this.#step();
+    if (Date.now() - stream.began >= step) {
+      // The stream outlived its step: open again at once, from the first.
+      this.#failures = 0;
+      this.#kick();
+      return;
+    }
+    // A stream that ended sooner is a failure: wait out the step from when
+    // its attempt began, and the steps climb.
+    this.#failures += 1;
+    if (!this.#started || this.#retry !== undefined) return;
+    this.#retry = setTimeout(
+      () => {
+        this.#retry = undefined;
+        this.#kick();
+      },
+      stream.began + step - Date.now(),
+    );
+  }
+
+  /** The pause the retry schedule is at, in milliseconds. */
+  #step(): number {
+    return RETRY_MS[this.#failures] ?? LAST_RETRY_MS;
   }
 
   /** The attempt failed: no event stream until one delivers its `reread`. */
@@ -541,7 +572,7 @@ export class Listening {
     this.#end();
     this.#down();
     if (!this.#started || this.#retry !== undefined) return;
-    const wait = RETRY_MS[Math.min(this.#failures, RETRY_MS.length - 1)];
+    const wait = this.#step();
     this.#failures += 1;
     this.#retry = setTimeout(() => {
       this.#retry = undefined;

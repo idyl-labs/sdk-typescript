@@ -55,6 +55,10 @@ class FakePort implements ListeningPort {
   readonly tickets: { watch: string; ticket: string }[] = [];
   readonly closed: number[] = [];
   readonly lanes: string[] = [];
+  /** When each lane was asked for, in milliseconds since the epoch. */
+  readonly laneAt: number[] = [];
+  /** A service that accepts each ticket and then ends the stream at once. */
+  churn = false;
   released = 0;
   profile = "client-service-lanes/1";
   watches = 0;
@@ -82,6 +86,7 @@ class FakePort implements ListeningPort {
       case "open-service-lane": {
         const lane = this.#handle++;
         this.lanes.push(request.principal);
+        this.laneAt.push(Date.now());
         queueMicrotask(() => {
           this.emit({ type: "lane-ready", dock: 1, lane });
         });
@@ -95,6 +100,22 @@ class FakePort implements ListeningPort {
         this.tickets.push(
           JSON.parse(text) as { watch: string; ticket: string },
         );
+        if (this.churn) {
+          const service = request.service;
+          queueMicrotask(() => {
+            this.send({
+              type: "event",
+              namespaceId: NAMESPACE,
+              part: "reread",
+            });
+            this.emit({
+              type: "service-ended",
+              dock: 1,
+              service,
+              reason: "closed",
+            });
+          });
+        }
         return Promise.resolve(undefined);
       }
       case "close-service":
@@ -343,13 +364,16 @@ describe("listening", () => {
   // at once with the watch in hand; the connector is not without a stream
   // meanwhile, and listening resumes with the new stream's reread.
   it("opens the stream again at once after it ends", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     const port = new FakePort();
     const listening = new Listening(port);
     const states: boolean[] = [];
     listening.subscribe({ onListening: (on) => states.push(on) });
     listening.start();
-    await settle();
+    await vi.advanceTimersByTimeAsync(0);
     port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    // The stream outlives the first step, so it is opened again at once.
+    await vi.advanceTimersByTimeAsync(1_000);
     const first = port.service;
     port.emit({
       type: "service-ended",
@@ -358,7 +382,7 @@ describe("listening", () => {
       reason: "closed",
     });
     expect(listening.listening).toBe(false);
-    await settle();
+    await vi.advanceTimersByTimeAsync(0);
     expect(port.closed).toEqual([first]);
     expect(port.lanes).toHaveLength(2);
     expect(port.tickets.map((t) => t.watch)).toEqual([
@@ -369,6 +393,43 @@ describe("listening", () => {
     port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
     expect(listening.listening).toBe(true);
     expect(states).toEqual([true]);
+  });
+
+  // Contract: a service that accepts each ticket and ends the stream at
+  // once is met on the retry steps, 0.5 s, 1, 2, 4 and on, each counted
+  // from when the last attempt began, never in a tight loop.
+  it("meets a stream that ends at once on the retry steps", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const port = new FakePort();
+    port.churn = true;
+    new Listening(port).start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(port.lanes).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(500 + 1_000 + 2_000 + 4_000 + 8_000);
+    const gaps = port.laneAt
+      .slice(1)
+      .map((at, i) => at - (port.laneAt[i] ?? 0));
+    expect(gaps).toEqual([500, 1_000, 2_000, 4_000, 8_000]);
+  });
+
+  // Contract: a stream that outlives its step is opened again at once,
+  // and the steps start from the first again.
+  it("opens a stream that outlived its step again at once", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const port = new FakePort();
+    new Listening(port).start();
+    await vi.advanceTimersByTimeAsync(0);
+    port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    await vi.advanceTimersByTimeAsync(60_000);
+    port.emit({
+      type: "service-ended",
+      dock: 1,
+      service: port.service,
+      reason: "closed",
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(port.lanes).toHaveLength(2);
+    expect((port.laneAt[1] ?? 0) - (port.laneAt[0] ?? 0)).toBe(60_000);
   });
 
   // Contract: an attempt that fails is tried again after 0.5 s, 1, 2, 4,
