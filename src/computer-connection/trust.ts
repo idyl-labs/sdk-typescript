@@ -60,6 +60,15 @@ export interface SessionTrust {
     readonly serverRoots: readonly Uint8Array[];
     readonly browserEndpoint?: string;
   };
+  /**
+   * The event service: its exact SPIFFE ID and the DER roots of its
+   * certificate. `undefined` when the bundle names none: no change events
+   * are served, and a client reads on its fallback schedule.
+   */
+  readonly events?: {
+    readonly principal: string;
+    readonly roots: readonly Uint8Array[];
+  };
 }
 
 /** What a bundle must satisfy. */

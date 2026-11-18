@@ -277,6 +277,9 @@ pub enum EdgeMessage {
     Welcome {
         generation: DockGen,
         keepalive_ms: u32,
+        /// The client service lane profile the edge serves; empty when it
+        /// serves none.
+        service_lane_profile: String,
     },
     /// The edge asks the client to redock elsewhere.
     Drain { reason: String, deadline_unix: u64 },
@@ -345,6 +348,7 @@ fn decode_edge_message(bytes: &[u8]) -> Result<EdgeMessage, ControlError> {
         Some(edge_to_client::Msg::Welcome(welcome)) => EdgeMessage::Welcome {
             generation: welcome.gen_.ok_or(ControlError::WelcomeWithoutGeneration)?,
             keepalive_ms: welcome.keepalive_ms,
+            service_lane_profile: welcome.service_lane_profile,
         },
         Some(edge_to_client::Msg::Drain(drain)) => EdgeMessage::Drain {
             reason: drain.reason,

@@ -13,7 +13,9 @@ import {
   type CommandOutput,
 } from "../errors.js";
 import { abortable } from "../internal/abort.js";
-import { pollUntil, saveResultPauses } from "../wait.js";
+import { pollUntil, saveResultPauses, type WaitEvents } from "../wait.js";
+import { connectorWaitEvents } from "../computer-connection/connector.js";
+import { sessionChange } from "./changes.js";
 import type { CallOptions } from "./common.js";
 import { optionalNumber } from "./records.js";
 
@@ -190,7 +192,15 @@ export async function runCommand(
       throw new CommandSessionError("no_exit", output());
     }
     const state: SaveState =
-      saved ?? (await sessionSave(id, readSession, signal));
+      saved ??
+      (await sessionSave(
+        id,
+        readSession,
+        signal,
+        id === undefined
+          ? undefined
+          : connectorWaitEvents(connector, undefined, sessionChange(id)),
+      ));
     if (state.outcome === "failed") {
       throw new CommandSaveError(state.reason, exit.code, output());
     }
@@ -226,6 +236,7 @@ async function sessionSave(
   session: string | undefined,
   read: SaveRead,
   signal: AbortSignal | undefined,
+  events: WaitEvents | undefined,
 ): Promise<SaveState> {
   if (session === undefined) return { outcome: "unconfirmed" };
   let stated: SaveState | undefined;
@@ -234,6 +245,7 @@ async function sessionSave(
       { timeoutMs: SAVE_WAIT_MS, ...(signal === undefined ? {} : { signal }) },
       {
         pauses: saveResultPauses(),
+        ...(events === undefined ? {} : { events }),
         read: async (readSignal) => {
           try {
             stated = statedSave((await read(session, readSignal)).status.save);

@@ -29,7 +29,15 @@ import {
   isComputerSessionId,
   type ComputerSessionId,
 } from "../resource/uuid-id.js";
-import { pollUntil, sessionPlacementPauses } from "../wait.js";
+import { pollUntil, sessionPlacementPauses, type WaitEvents } from "../wait.js";
+import type { ComputerWatch } from "../api/computer-watch.js";
+import {
+  Listening,
+  OPEN_WAIT_MS,
+  type ChangeListener,
+  type ComputerChange,
+  type EventService,
+} from "./listening.js";
 import type { ComputerSessionEndpoint } from "../api/computer-session-endpoint.js";
 import {
   FrameError,
@@ -134,6 +142,8 @@ export interface ConnectorApi {
   ): Promise<readonly string[]>;
   /** Cancels one session of a Computer; cancelling an ended one is a no-op. */
   cancelSession(computer: string, session: string): Promise<void>;
+  /** Creates the Computer watch of the connector's Namespace. */
+  createWatch(): Promise<ComputerWatch>;
 }
 
 /**
@@ -373,14 +383,6 @@ const BIND_WAIT_MS = 30_000;
  */
 const READY_BY_GRACE_MS = 30_000;
 
-/**
- * How long one attempt to connect a session waits, in milliseconds: from
- * the moment it connects to the place it knows or the create answered,
- * until the Computer connection is established and the endpoint answered
- * the session's open with its first frame.
- */
-const OPEN_WAIT_MS = 30_000;
-
 /** A request to the Worker, before its `ref`. */
 type Request = PageToWorker extends infer T
   ? T extends { readonly ref: number }
@@ -397,6 +399,8 @@ interface Docked {
   readonly dock: number;
   readonly trust: SessionTrust;
   readonly chain: readonly Uint8Array[];
+  /** The client service lane profile the dock's edge serves; empty for none. */
+  readonly serviceLaneProfile: string;
 }
 
 interface Connection {
@@ -487,8 +491,39 @@ export interface ComputerConnector {
     computer: string,
     handlers: FilesSessionHandlers,
   ): Promise<ComputerFilesSession>;
-  /** Ends every connection. */
+  /**
+   * Whether the connector's event stream carries changes to its
+   * Namespace's Computers now. While it does, waits pause only as a guard
+   * against a lost event, and a page reads on the events alone.
+   */
+  readonly listening: boolean;
+  /**
+   * Calls `listener` with each change to the Namespace's Computers and
+   * each start and stop of the event stream. The connector listens from
+   * {@link ComputerConnector.ready} or its first session on; nothing waits
+   * for it.
+   *
+   * @returns the function that removes the listener
+   */
+  listen(listener: ChangeListener): () => void;
+  /** Ends every connection, and the event stream. */
   close(): void;
+}
+
+/**
+ * The events that end a wait's pause for a change `matches` accepts, from
+ * `connector`'s event stream, counted as carrying them only while its watch
+ * is of `namespace` when one is named; `undefined` for a connector this
+ * package did not build.
+ */
+export function connectorWaitEvents(
+  connector: ComputerConnector,
+  namespace: string | undefined,
+  matches: (change: ComputerChange) => boolean,
+): WaitEvents | undefined {
+  return connector instanceof Connector
+    ? connector.waitEvents(matches, namespace)
+    : undefined;
 }
 
 /** Builds a connector. */
@@ -525,9 +560,27 @@ class Connector implements ComputerConnector {
   #renewer: ReturnType<typeof setInterval> | undefined;
   // Aborted by close, which ends every read of an unbound session.
   #closing = new AbortController();
+  readonly #changes: Listening;
 
   constructor(options: ComputerConnectorOptions) {
     this.#o = options;
+    this.#changes = new Listening({
+      docked: async () => {
+        const { dock, trust, chain, serviceLaneProfile } = await this.#state();
+        return {
+          dock,
+          chain,
+          serviceLaneProfile,
+          service: eventService(trust),
+        };
+      },
+      request: (request) => this.#request(request),
+      listen: (listener) => {
+        this.#listeners.add(listener);
+        return () => this.#listeners.delete(listener);
+      },
+      createWatch: () => this.#o.api.createWatch(),
+    });
     // The default floor opens its database now, at page load, so a dock's
     // floor read is one transaction.
     this.#floor = options.trustFloor ?? defaultTrustFloor();
@@ -553,7 +606,34 @@ class Connector implements ComputerConnector {
    * it, and nothing here happens on a click unless the dock has ended.
    */
   ready(): Promise<void> {
-    return this.#state().then(() => undefined);
+    const ready = this.#state().then(() => undefined);
+    // Listening follows the dock and never holds it up.
+    void ready.then(
+      () => {
+        this.#changes.start();
+      },
+      () => undefined,
+    );
+    return ready;
+  }
+
+  get listening(): boolean {
+    return this.#changes.listening;
+  }
+
+  listen(listener: ChangeListener): () => void {
+    return this.#changes.subscribe(listener);
+  }
+
+  /**
+   * The events that end a wait's pause for a change `matches` accepts, and
+   * for every `reread`, for the waits of the Computer client.
+   */
+  waitEvents(
+    matches: (change: ComputerChange) => boolean,
+    namespace?: string,
+  ): WaitEvents {
+    return this.#changes.waitEvents(matches, namespace);
   }
 
   #state(): Promise<Docked> {
@@ -697,117 +777,6 @@ class Connector implements ComputerConnector {
       if (error instanceof ComputerSessionEndedError) session.fail(error);
     });
     return session;
-  }
-
-  /**
-   * Reads `session`, which its create answered pending without its
-   * endpoint, until it is bound or in another phase, and resolves to it
-   * then. The platform holds a session unbound while the Computer's
-   * previous Activation is released, as after the Computer went to sleep,
-   * and while the Computer's wake runs, as while its files are fetched; it
-   * fails a session still pending at the session's `readyBy`, which moves
-   * forward while the wake makes progress. The reads therefore go on until
-   * the latest `readyBy` read has passed by {@link READY_BY_GRACE_MS}, and
-   * never end before {@link BIND_WAIT_MS}, which is also the bound when no
-   * answer states a `readyBy`. They pause by
-   * {@link sessionPlacementPauses}; a read that meets a network
-   * failure, HTTP 429 or a server error is tried again at the next pause,
-   * and any other refusal rejects at once. A session still unbound once the
-   * bound passed rejects with a `TimeoutError` `DOMException`, and `close`
-   * ends the reads at once with an `AbortError`.
-   */
-  async #bound(
-    computer: string,
-    session: ServedSession,
-  ): Promise<ServedSession> {
-    const started = Date.now();
-    let current = session;
-    let readyBy = instant(session.status.readyBy);
-    let until = boundBy(readyBy, started);
-    const pauses = sessionPlacementPauses();
-    for (;;) {
-      try {
-        await pollUntil<ServedSession>(
-          {
-            timeoutMs: Math.max(0, until - Date.now()),
-            signal: this.#closing.signal,
-          },
-          {
-            initial: current,
-            read: async (signal) => {
-              try {
-                current = await this.#o.api.readSession(
-                  computer,
-                  session.id,
-                  signal,
-                );
-              } catch (error) {
-                if (signal.aborted || !passing(error)) throw error;
-              }
-              return current;
-            },
-            met: (read) => !unbound(read),
-            timeoutMessage: () =>
-              readyBy === undefined
-                ? `computer session ${session.id} was not bound to an Activation within ${String(BIND_WAIT_MS)} ms`
-                : `computer session ${session.id} was not bound to an Activation by its ready-by time ${rfc3339Seconds(readyBy)}`,
-            pauses: (streaming, elapsedMs) =>
-              Math.max(
-                0,
-                Math.min(pauses(streaming, elapsedMs), until - Date.now()),
-              ),
-          },
-        );
-        return current;
-      } catch (error) {
-        // A wait that ran out goes on only when a read moved the session's
-        // readyBy, and with it the bound, forward.
-        if (!(error instanceof DOMException) || error.name !== "TimeoutError")
-          throw error;
-        const moved = instant(current.status.readyBy);
-        if (moved === undefined || (readyBy !== undefined && moved <= readyBy))
-          throw error;
-        readyBy = moved;
-        const next = boundBy(readyBy, started);
-        if (next <= until) throw error;
-        until = next;
-      }
-    }
-  }
-
-  /** Ends every connection and the dock. */
-  close(): void {
-    if (this.#renewer !== undefined) clearInterval(this.#renewer);
-    this.#closing.abort();
-    this.#closing = new AbortController();
-    void this.#ready?.then(({ dock }) =>
-      this.#request({ type: "close-dock", dock }),
-    );
-  }
-
-  /** Starts the Worker once; resolves to its certificate request. */
-  #start(): Promise<Uint8Array> {
-    if (this.#started === undefined) {
-      const started = (async () => {
-        const key = new Promise<Uint8Array>((resolve) => {
-          const listener = (m: WorkerToPage): void => {
-            if (m.type === "key") {
-              this.#listeners.delete(listener);
-              resolve(m.certificateRequest);
-            }
-          };
-          this.#listeners.add(listener);
-        });
-        this.#account = await this.#o.account();
-        await this.#request({ type: "start", module: this.#o.module });
-        return key;
-      })();
-      this.#started = started;
-      started.catch(() => {
-        if (this.#started === started) this.#started = undefined;
-      });
-    }
-    return this.#started;
   }
 
   /**
@@ -973,6 +942,121 @@ class Connector implements ComputerConnector {
   }
 
   /**
+   * Reads `session`, which its create answered pending without its
+   * endpoint, until it is bound or in another phase, and resolves to it
+   * then. The platform holds a session unbound while the Computer's
+   * previous Activation is released, as after the Computer went to sleep,
+   * and while the Computer's wake runs, as while its files are fetched; it
+   * fails a session still pending at the session's `readyBy`, which moves
+   * forward while the wake makes progress. The reads therefore go on until
+   * the latest `readyBy` read has passed by {@link READY_BY_GRACE_MS}, and
+   * never end before {@link BIND_WAIT_MS}, which is also the bound when no
+   * answer states a `readyBy`. They pause by
+   * {@link sessionPlacementPauses}; a read that meets a network
+   * failure, HTTP 429 or a server error is tried again at the next pause,
+   * and any other refusal rejects at once. A session still unbound once the
+   * bound passed rejects with a `TimeoutError` `DOMException`, and `close`
+   * ends the reads at once with an `AbortError`.
+   */
+  async #bound(
+    computer: string,
+    session: ServedSession,
+  ): Promise<ServedSession> {
+    const started = Date.now();
+    let current = session;
+    let readyBy = instant(session.status.readyBy);
+    let until = boundBy(readyBy, started);
+    const pauses = sessionPlacementPauses();
+    for (;;) {
+      try {
+        await pollUntil<ServedSession>(
+          {
+            timeoutMs: Math.max(0, until - Date.now()),
+            signal: this.#closing.signal,
+          },
+          {
+            events: this.#changes.waitEvents(
+              (change) => change.part === "session" && change.id === session.id,
+            ),
+            initial: current,
+            read: async (signal) => {
+              try {
+                current = await this.#o.api.readSession(
+                  computer,
+                  session.id,
+                  signal,
+                );
+              } catch (error) {
+                if (signal.aborted || !passing(error)) throw error;
+              }
+              return current;
+            },
+            met: (read) => !unbound(read),
+            timeoutMessage: () =>
+              readyBy === undefined
+                ? `computer session ${session.id} was not bound to an Activation within ${String(BIND_WAIT_MS)} ms`
+                : `computer session ${session.id} was not bound to an Activation by its ready-by time ${rfc3339Seconds(readyBy)}`,
+            pauses: (streaming, elapsedMs) =>
+              Math.max(
+                0,
+                Math.min(pauses(streaming, elapsedMs), until - Date.now()),
+              ),
+          },
+        );
+        return current;
+      } catch (error) {
+        // A wait that ran out goes on only when a read moved the session's
+        // readyBy, and with it the bound, forward.
+        if (!(error instanceof DOMException) || error.name !== "TimeoutError")
+          throw error;
+        const moved = instant(current.status.readyBy);
+        if (moved === undefined || (readyBy !== undefined && moved <= readyBy))
+          throw error;
+        readyBy = moved;
+        const next = boundBy(readyBy, started);
+        if (next <= until) throw error;
+        until = next;
+      }
+    }
+  }
+
+  /** Ends every connection, the event stream and the dock. */
+  close(): void {
+    this.#changes.stop();
+    if (this.#renewer !== undefined) clearInterval(this.#renewer);
+    this.#closing.abort();
+    this.#closing = new AbortController();
+    void this.#ready?.then(({ dock }) =>
+      this.#request({ type: "close-dock", dock }),
+    );
+  }
+
+  /** Starts the Worker once; resolves to its certificate request. */
+  #start(): Promise<Uint8Array> {
+    if (this.#started === undefined) {
+      const started = (async () => {
+        const key = new Promise<Uint8Array>((resolve) => {
+          const listener = (m: WorkerToPage): void => {
+            if (m.type === "key") {
+              this.#listeners.delete(listener);
+              resolve(m.certificateRequest);
+            }
+          };
+          this.#listeners.add(listener);
+        });
+        this.#account = await this.#o.account();
+        await this.#request({ type: "start", module: this.#o.module });
+        return key;
+      })();
+      this.#started = started;
+      started.catch(() => {
+        if (this.#started === started) this.#started = undefined;
+      });
+    }
+    return this.#started;
+  }
+
+  /**
    * Holds a verified bundle to the trust floor of its Network and the Zone
    * the client's placement chose, which the bundle was verified to name:
    * an older version is refused, and a newer one raises the floor, in one
@@ -1045,6 +1129,8 @@ class Connector implements ComputerConnector {
       this.#ended(outcome);
       throw new Error(`the dock ended: ${outcome.reason}`);
     }
+    const serviceLaneProfile =
+      outcome.type === "docked" ? outcome.serviceLaneProfile : "";
     const ending = (m: WorkerToPage): void => {
       if (m.type !== "dock-ended" || m.dock !== dock) return;
       this.#listeners.delete(ending);
@@ -1054,7 +1140,12 @@ class Connector implements ComputerConnector {
     this.#renewer ??= setInterval(() => {
       this.#renew();
     }, this.#o.renewEveryMs ?? RENEW_EVERY_MS);
-    return { dock, trust: verified, chain: certificate.chain };
+    return {
+      dock,
+      trust: verified,
+      chain: certificate.chain,
+      serviceLaneProfile,
+    };
   }
 
   /**
@@ -1372,11 +1463,32 @@ function boundBy(readyBy: number | undefined, started: number): number {
     : Math.max(least, readyBy + READY_BY_GRACE_MS);
 }
 
+/**
+ * The event service as the verified session trust names it, or
+ * `undefined` when the trust names none: the connector then does not
+ * listen.
+ */
+function eventService(trust: SessionTrust): EventService | undefined {
+  return trust.events;
+}
+
 /** `ms` as an RFC 3339 UTC timestamp to the second, as the reference contract writes one. */
 function rfc3339Seconds(ms: number): string {
   return new Date(Math.floor(ms / 1_000) * 1_000)
     .toISOString()
     .replace(".000Z", "Z");
+}
+
+/**
+ * A session's create that failed, or answered the session ended, while its
+ * connection was being established: the open ends with `cause`, the
+ * create's own failure.
+ */
+class CreateFailure extends Error {
+  constructor(cause: unknown) {
+    super("the session's create failed", { cause });
+    this.name = "CreateFailure";
+  }
 }
 
 /**
@@ -1514,18 +1626,6 @@ export interface ComputerSessionStream {
   closeInput(): void;
   /** Ends the session on purpose. */
   close(): void;
-}
-
-/**
- * A session's create that failed, or answered the session ended, while its
- * connection was being established: the open ends with `cause`, the
- * create's own failure.
- */
-class CreateFailure extends Error {
-  constructor(cause: unknown) {
-    super("the session's create failed", { cause });
-    this.name = "CreateFailure";
-  }
 }
 
 /**

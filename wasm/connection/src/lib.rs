@@ -11,7 +11,10 @@
 //!   dock/3 admission.
 //! - [`computer`]: the connection to one Computer: TLS to its endpoint and
 //!   yamux, one stream per session.
-//! - [`lane`]: lanes to a machine's data dock and the stream headers on them.
+//! - [`lane`]: lanes to a machine's data dock or a Zone service, and the
+//!   stream headers on them.
+//! - [`service`]: the connection to one Zone service on a client service
+//!   lane: TLS to its exact identity, carrying one byte stream.
 //! - [`client`]: one client identity's dock, lanes and Computer
 //!   connections together, by handle.
 //! - [`identity`]: the client's key and certificate request, and the
@@ -25,5 +28,6 @@ pub mod edge;
 pub mod identity;
 pub mod lane;
 pub mod mux;
+pub mod service;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;

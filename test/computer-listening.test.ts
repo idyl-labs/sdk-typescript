@@ -1,0 +1,452 @@
+// Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
+
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import type { ComputerWatch } from "../src/api/computer-watch.js";
+import {
+  EventFrameReader,
+  encodeTicketFrame,
+} from "../src/computer-connection/events.js";
+import { FrameError } from "../src/computer-connection/frames.js";
+import { ApiError } from "../src/errors.js";
+import {
+  Listening,
+  type ComputerChange,
+  type ListeningPort,
+} from "../src/computer-connection/listening.js";
+import type { WorkerToPage } from "../src/computer-connection/messages.js";
+import type { ComputerWatchId, NamespaceId } from "../src/resource/uuid-id.js";
+
+const NAMESPACE = "01954e20-7540-7ec4-93ec-14f783e6ab10" as NamespaceId;
+const OTHER_NAMESPACE = "01954e20-7540-7ec4-93ec-14f783e6ab11";
+const COMPUTER = "01954e20-7540-7ec4-93ec-14f783e6ab41";
+const SERVICE = "spiffe://zone-a.zone.example.test/service/computers";
+
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+/** One length-prefixed frame holding `json`. */
+function frame(json: unknown): Uint8Array {
+  const body = enc.encode(JSON.stringify(json));
+  const out = new Uint8Array(4 + body.length);
+  new DataView(out.buffer).setUint32(0, body.length);
+  out.set(body, 4);
+  return out;
+}
+
+function watch(n: number, expiresInMs = 3_600_000): ComputerWatch {
+  return {
+    id: `01954e20-7540-7ec4-93ec-14f783e6ab7${String(n)}` as ComputerWatchId,
+    namespaceId: NAMESPACE,
+    namespace: "default",
+    subnet: "550000000002",
+    expiresAt: new Date(Date.now() + expiresInMs).toISOString(),
+    ticket: `ticket-${String(n)}`,
+  };
+}
+
+/**
+ * A connector's side of listening: a dock whose edge serves the profile, a
+ * Worker that opens each lane and service at once, and the tickets the
+ * page wrote. The test delivers the service's frames.
+ */
+class FakePort implements ListeningPort {
+  readonly #listeners = new Set<(m: WorkerToPage) => void>();
+  readonly tickets: { watch: string; ticket: string }[] = [];
+  readonly closed: number[] = [];
+  readonly lanes: string[] = [];
+  profile = "client-service-lanes/1";
+  watches = 0;
+  #handle = 1;
+  service = 0;
+
+  docked = (): ReturnType<ListeningPort["docked"]> =>
+    Promise.resolve({
+      dock: 1,
+      chain: [Uint8Array.of(5)],
+      serviceLaneProfile: this.profile,
+      service: { principal: SERVICE, roots: [Uint8Array.of(2)] },
+    });
+
+  createWatch = (): Promise<ComputerWatch> =>
+    Promise.resolve(watch(++this.watches));
+
+  listen = (listener: (m: WorkerToPage) => void): (() => void) => {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  };
+
+  request: ListeningPort["request"] = (request) => {
+    switch (request.type) {
+      case "open-service-lane": {
+        const lane = this.#handle++;
+        this.lanes.push(request.principal);
+        queueMicrotask(() => {
+          this.emit({ type: "lane-ready", dock: 1, lane });
+        });
+        return Promise.resolve(lane);
+      }
+      case "open-service":
+        this.service = this.#handle++;
+        return Promise.resolve(this.service);
+      case "service-write": {
+        const text = dec.decode(request.bytes.subarray(4));
+        this.tickets.push(
+          JSON.parse(text) as { watch: string; ticket: string },
+        );
+        return Promise.resolve(undefined);
+      }
+      case "close-service":
+        this.closed.push(request.service);
+        return Promise.resolve(undefined);
+    }
+  };
+
+  emit(m: WorkerToPage): void {
+    for (const listener of [...this.#listeners]) listener(m);
+  }
+
+  /** The service sends `json` as one frame on the stream in hand. */
+  send(json: unknown): void {
+    this.emit({
+      type: "service-data",
+      dock: 1,
+      service: this.service,
+      bytes: frame(json),
+    });
+  }
+}
+
+async function settle(): Promise<void> {
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+}
+
+describe("event stream frames", () => {
+  // Contract: a ticket frame is the 4-byte big-endian length of one JSON
+  // object naming its type, its watch and its ticket.
+  it("encodes a ticket frame", () => {
+    const bytes = encodeTicketFrame({
+      type: "ticket",
+      watch: "w",
+      ticket: "t",
+    });
+    const length = new DataView(bytes.buffer).getUint32(0);
+    expect(length).toBe(bytes.length - 4);
+    expect(JSON.parse(dec.decode(bytes.subarray(4)))).toEqual({
+      type: "ticket",
+      watch: "w",
+      ticket: "t",
+    });
+  });
+
+  // Contract: service frames are read as they arrive, whole frames only,
+  // members this SDK does not know carried no further, and a frame of an
+  // unknown type skipped.
+  it("reads service frames across chunks and skips unknown types", () => {
+    const reader = new EventFrameReader();
+    const bytes = new Uint8Array([
+      ...frame({
+        type: "event",
+        namespaceId: NAMESPACE,
+        computer: COMPUTER,
+        part: "computer",
+        extra: 1,
+      }),
+      ...frame({ type: "hello" }),
+      ...frame({ type: "ended", watch: "w" }),
+      ...frame({
+        type: "error",
+        code: "COMPUTER_WATCH_TICKET_REFUSED",
+        watch: "w",
+      }),
+    ]);
+    expect(reader.push(bytes.subarray(0, 7))).toEqual([]);
+    expect(reader.push(bytes.subarray(7))).toEqual([
+      {
+        type: "event",
+        part: "computer",
+        namespaceId: NAMESPACE,
+        computer: COMPUTER,
+      },
+      { type: "ended", watch: "w" },
+      { type: "error", code: "COMPUTER_WATCH_TICKET_REFUSED", watch: "w" },
+    ]);
+  });
+
+  // Contract: a frame declaring no bytes or more than 4096 ends the stream
+  // before its body is read.
+  it("refuses a frame length out of bounds", () => {
+    const zero = new Uint8Array(4);
+    expect(() => new EventFrameReader().push(zero)).toThrow(FrameError);
+    const large = new Uint8Array(4);
+    new DataView(large.buffer).setUint32(0, 4097);
+    expect(() => new EventFrameReader().push(large)).toThrow(FrameError);
+  });
+});
+
+describe("listening", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // Contract: listening creates a watch, opens a client service lane to the
+  // exact service, presents the watch's ticket, and counts as listening
+  // from the first frame the service sends, its `reread`.
+  it("presents its ticket and listens from the reread", async () => {
+    const port = new FakePort();
+    const listening = new Listening(port);
+    const states: boolean[] = [];
+    const changes: ComputerChange[] = [];
+    listening.subscribe({
+      onListening: (on) => states.push(on),
+      onChange: (change) => changes.push(change),
+    });
+    listening.start();
+    await settle();
+    expect(port.lanes).toEqual([SERVICE]);
+    expect(port.tickets).toEqual([
+      { type: "ticket", watch: watch(1).id, ticket: "ticket-1" },
+    ]);
+    expect(listening.listening).toBe(false);
+    port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    port.send({
+      type: "event",
+      namespaceId: NAMESPACE,
+      computer: COMPUTER,
+      part: "version",
+    });
+    expect(listening.listening).toBe(true);
+    expect(states).toEqual([true]);
+    expect(changes).toEqual([
+      { part: "reread" },
+      { part: "version", computer: COMPUTER },
+    ]);
+  });
+
+  // Contract: an event of another Namespace is not delivered, and a part
+  // this SDK does not name is delivered as reread.
+  it("drops other Namespaces and reads an unknown part as reread", async () => {
+    const port = new FakePort();
+    const listening = new Listening(port);
+    const changes: ComputerChange[] = [];
+    listening.subscribe({ onChange: (change) => changes.push(change) });
+    listening.start();
+    await settle();
+    port.send({
+      type: "event",
+      namespaceId: OTHER_NAMESPACE,
+      computer: COMPUTER,
+      part: "computer",
+    });
+    port.send({
+      type: "event",
+      namespaceId: NAMESPACE,
+      computer: COMPUTER,
+      part: "notebook",
+    });
+    expect(changes).toEqual([{ part: "reread" }]);
+  });
+
+  // Contract: an edge whose welcome names no client service lane profile
+  // is never asked for a lane, and no watch is created.
+  it("does not ask an edge that serves no profile", async () => {
+    const port = new FakePort();
+    port.profile = "";
+    const listening = new Listening(port);
+    const states: boolean[] = [];
+    listening.subscribe({ onListening: (on) => states.push(on) });
+    listening.start();
+    await settle();
+    expect(port.lanes).toEqual([]);
+    expect(port.watches).toBe(0);
+    expect(states).toEqual([false]);
+  });
+
+  // Contract: at a ticket's end the service's ended frame makes the
+  // connector create the watch again and present the new ticket on the
+  // stream it holds, keeping no clock of its own.
+  it("creates the watch again when the service says its ticket ended", async () => {
+    const port = new FakePort();
+    const listening = new Listening(port);
+    listening.start();
+    await settle();
+    port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    port.send({ type: "ended", watch: watch(1).id });
+    await settle();
+    expect(port.watches).toBe(2);
+    expect(port.tickets.map((t) => t.watch)).toEqual([
+      watch(1).id,
+      watch(2).id,
+    ]);
+    expect(port.lanes).toHaveLength(1);
+    expect(listening.listening).toBe(true);
+  });
+
+  // Contract: an attempt whose stream delivers no reread within 30 s
+  // fails: the connector has no event stream, and tries again after 0.5 s.
+  it("fails an attempt with no reread within 30 s", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const port = new FakePort();
+    const listening = new Listening(port);
+    const states: boolean[] = [];
+    listening.subscribe({ onListening: (on) => states.push(on) });
+    listening.start();
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(states).toEqual([]);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(states).toEqual([false]);
+    expect(port.closed).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(port.lanes).toHaveLength(2);
+  });
+
+  // Contract: a watch create refused for the caller's sign-in is not tried
+  // again on a timer, only on the connector's next use.
+  it("does not retry a refused sign-in on a timer", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const port = new FakePort();
+    let creates = 0;
+    port.createWatch = () => {
+      creates += 1;
+      return Promise.reject(
+        new ApiError({ status: 401, message: "", code: "UNAUTHENTICATED" }),
+      );
+    };
+    const listening = new Listening(port);
+    listening.start();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(creates).toBe(1);
+    listening.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(creates).toBe(2);
+  });
+
+  // Contract: a stream that ends after it carried events is opened again
+  // at once with the watch in hand; the connector is not without a stream
+  // meanwhile, and listening resumes with the new stream's reread.
+  it("opens the stream again at once after it ends", async () => {
+    const port = new FakePort();
+    const listening = new Listening(port);
+    const states: boolean[] = [];
+    listening.subscribe({ onListening: (on) => states.push(on) });
+    listening.start();
+    await settle();
+    port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    const first = port.service;
+    port.emit({
+      type: "service-ended",
+      dock: 1,
+      service: first,
+      reason: "closed",
+    });
+    expect(listening.listening).toBe(false);
+    await settle();
+    expect(port.closed).toEqual([first]);
+    expect(port.lanes).toHaveLength(2);
+    expect(port.tickets.map((t) => t.watch)).toEqual([
+      watch(1).id,
+      watch(1).id,
+    ]);
+    expect(port.watches).toBe(1);
+    port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    expect(listening.listening).toBe(true);
+    expect(states).toEqual([true]);
+  });
+
+  // Contract: an attempt that fails is tried again after 0.5 s, 1, 2, 4,
+  // 8, 15, then every 30 s.
+  it("tries a failed attempt again on the retry schedule", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const port = new FakePort();
+    let attempts = 0;
+    port.createWatch = () => {
+      attempts += 1;
+      return Promise.reject(new Error("unavailable"));
+    };
+    new Listening(port).start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(attempts).toBe(1);
+    for (const [pause, total] of [
+      [500, 2],
+      [1_000, 3],
+      [2_000, 4],
+      [4_000, 5],
+      [8_000, 6],
+      [15_000, 7],
+      [30_000, 8],
+      [30_000, 9],
+    ] as const) {
+      await vi.advanceTimersByTimeAsync(pause - 1);
+      expect(attempts).toBe(total - 1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(attempts).toBe(total);
+    }
+  });
+
+  // Contract: a refused ticket is answered once with a new watch, whose
+  // ticket the same stream carries; a second refusal stops listening.
+  it("creates the watch again once when its ticket is refused", async () => {
+    const port = new FakePort();
+    const listening = new Listening(port);
+    listening.start();
+    await settle();
+    port.send({
+      type: "error",
+      code: "COMPUTER_WATCH_TICKET_REFUSED",
+      watch: watch(1).id,
+    });
+    await settle();
+    expect(port.watches).toBe(2);
+    expect(port.tickets.map((t) => t.watch)).toEqual([
+      watch(1).id,
+      watch(2).id,
+    ]);
+    port.send({
+      type: "error",
+      code: "COMPUTER_WATCH_TICKET_REFUSED",
+      watch: watch(2).id,
+    });
+    await settle();
+    expect(port.closed).toHaveLength(1);
+  });
+
+  // Contract: a wait's events wake it for a change it matches and for
+  // every reread, and the stream counts as carrying its events only while
+  // the watch is of the wait's Namespace.
+  it("wakes a wait for its change and for reread", async () => {
+    const port = new FakePort();
+    const listening = new Listening(port);
+    listening.start();
+    await settle();
+    port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    const events = listening.waitEvents(
+      (c) => c.part === "operation" && c.id === "op-1",
+      "default",
+    );
+    let wakes = 0;
+    const stop = events.listen(() => (wakes += 1));
+    port.send({
+      type: "event",
+      namespaceId: NAMESPACE,
+      computer: COMPUTER,
+      part: "operation",
+      id: "op-2",
+    });
+    port.send({
+      type: "event",
+      namespaceId: NAMESPACE,
+      computer: COMPUTER,
+      part: "operation",
+      id: "op-1",
+    });
+    port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    expect(wakes).toBe(2);
+    expect(events.streaming()).toBe(true);
+    expect(listening.waitEvents(() => true, "research").streaming()).toBe(
+      false,
+    );
+    stop();
+    port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    expect(wakes).toBe(2);
+  });
+});

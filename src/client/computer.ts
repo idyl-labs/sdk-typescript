@@ -35,6 +35,7 @@ import {
   waitForDeletion,
   type WaitOptions,
 } from "../wait.js";
+import { changesOf, computerChange, operationChange } from "./changes.js";
 import {
   boundedCountOf,
   clientOf,
@@ -575,6 +576,7 @@ export class Computer {
     await service.deleteById(record.id, signalOf(options));
     if (options.wait !== true) return;
     await waitForDeletion(wait, {
+      ...changesOf(state, computerChange(record.id)),
       kind: "Computer",
       name: record.name,
       read: async (signal) =>
@@ -616,6 +618,7 @@ export class Computer {
     const settled =
       (await pollUntil(wait, {
         pauses: operationPauses(),
+        ...changesOf(state, operationChange(created.id)),
         initial: created,
         read: async (signal) =>
           await service.getCommitById(record.id, created.id, { signal }),
@@ -679,6 +682,7 @@ export class Computer {
     const settled =
       (await pollUntil(wait, {
         pauses: operationPauses(),
+        ...changesOf(state, operationChange(created.id)),
         initial: observed(created),
         read: async (signal) =>
           observed(
@@ -741,6 +745,7 @@ export class Computer {
     const settled =
       (await pollUntil(wait, {
         pauses: operationPauses(),
+        ...changesOf(state, operationChange(created.id)),
         initial: observed(created),
         read: async (signal) =>
           observed(
@@ -1102,6 +1107,7 @@ export class Computer {
     const settled =
       (await pollUntil(wait, {
         pauses: operationPauses(),
+        ...changesOf(state, operationChange(created.id)),
         initial: created,
         read: async (signal) =>
           await service.getRestoreById(record.id, created.id, { signal }),
@@ -1162,6 +1168,7 @@ export class Computer {
     const settled =
       (await pollUntil(wait, {
         pauses: operationPauses(),
+        ...changesOf(state, computerChange(computer.id)),
         initial: computer,
         read: async (signal) =>
           (await service.getById(computer.id, { signal })).computer,

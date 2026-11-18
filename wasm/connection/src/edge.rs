@@ -69,8 +69,12 @@ pub enum EdgeEnded {
 /// Something the caller acts on.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EdgeEvent {
-    /// The dock is admitted.
-    Docked { generation: DockGen },
+    /// The dock is admitted. `service_lane_profile` is the client service
+    /// lane profile the edge serves, empty when it serves none.
+    Docked {
+        generation: DockGen,
+        service_lane_profile: String,
+    },
     /// The edge asks the client to redock.
     Drain { reason: String },
     /// A lane to this dock exists.
@@ -358,6 +362,7 @@ impl EdgeLink {
                 EdgeMessage::Welcome {
                     generation,
                     keepalive_ms,
+                    service_lane_profile,
                 },
                 false,
             ) => {
@@ -366,7 +371,10 @@ impl EdgeLink {
                 }
                 self.state = State::Docked { control };
                 self.next_ping_ms = Some(now_ms + self.ping_delay());
-                self.events.push_back(EdgeEvent::Docked { generation });
+                self.events.push_back(EdgeEvent::Docked {
+                    generation,
+                    service_lane_profile,
+                });
             }
             (EdgeMessage::Overloaded { retry_after_ms }, false) => {
                 self.end(EdgeEnded::Overloaded { retry_after_ms });

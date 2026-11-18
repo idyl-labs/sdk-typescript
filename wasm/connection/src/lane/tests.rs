@@ -116,3 +116,41 @@ fn uuids_parse_only_in_canonical_form() {
     assert!(uuid_bytes("0b1e6f0c7f6e4a439d1c3a8f5d2e6b71").is_none());
     assert!(uuid_bytes("0b1e6f0c-7f6e-4a43-9d1c-3a8f5d2e6b7g").is_none());
 }
+
+// The client service lane verb is one `RequesterToEdge` whose field 9
+// carries the exact service principal and no metadata, after the delivery
+// stream kind and the length prefix.
+#[test]
+fn the_client_service_lane_verb_names_the_exact_service() {
+    #[derive(Clone, PartialEq, Message)]
+    struct Requester {
+        #[prost(message, optional, tag = "9")]
+        open_client_service_lane: Option<OpenClientServiceLane>,
+        #[prost(message, optional, tag = "7")]
+        open_data_dock_lane: Option<OpenDataDockLane>,
+    }
+    let principal = "spiffe://zone-a.zone.example.test/service/computers";
+    let bytes = open_client_service_lane(principal);
+    assert_eq!(bytes[0], STREAM_KIND_DELIVERY);
+    let len = u32::from_be_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as usize;
+    assert_eq!(bytes.len(), 5 + len);
+    let decoded = Requester::decode(&bytes[5..]).unwrap();
+    assert_eq!(decoded.open_data_dock_lane, None);
+    assert_eq!(
+        decoded.open_client_service_lane,
+        Some(OpenClientServiceLane {
+            service_principal: principal.into(),
+            metadata: Vec::new(),
+        })
+    );
+}
+
+// The event stream's attribution header carries the stream profile's
+// ASCII name as its header bytes.
+#[test]
+fn the_event_stream_header_names_its_profile() {
+    let header = lane_stream_header(9, STREAM_CLASS_E2E_MTLS, b"computer-events/json-v1");
+    let mut expected = vec![STREAM_KIND_LANE, 9, STREAM_CLASS_E2E_MTLS, 0, 23];
+    expected.extend_from_slice(b"computer-events/json-v1");
+    assert_eq!(header, expected);
+}

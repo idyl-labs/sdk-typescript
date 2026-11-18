@@ -88,7 +88,7 @@ Review holds every change to these properties:
   runtimes. It never imports a Node.js module.
 - **No runtime dependencies.** A capability the platform does not provide is
   written here, small and tested, or not offered.
-- **Within budget.** The whole package fits in 70 kB minified and
+- **Within budget.** The whole package fits in 75 kB minified and
   compressed. The budget is a tripwire against accidental growth: a change
   that would break it is a design question, and raising it is a decision the
   change states.

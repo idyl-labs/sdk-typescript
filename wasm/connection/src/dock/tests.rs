@@ -139,6 +139,7 @@ fn edge_frames_decode() {
                     nonce: seq::<12>(0x70).to_vec(),
                 },
                 keepalive_ms: 15000,
+                service_lane_profile: String::new(),
             },
             EdgeMessage::LaneAttached {
                 lane_id: 42,

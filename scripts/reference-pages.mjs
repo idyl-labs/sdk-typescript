@@ -148,7 +148,7 @@ export const PAGES = [
     title: "Browser connection",
     intro: "computer-connection/index.ts",
     sources: ["computer-connection/"],
-    claims: ["ConnectorOptions"],
+    claims: ["ConnectorOptions", "ComputerEventPart"],
   },
 ];
 

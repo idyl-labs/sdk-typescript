@@ -3,11 +3,18 @@
 // The platform requests of Computer connections, on the Subnet API that
 // serves the Account: the client certificate for the connection's key, the
 // signed session trust, endpoint session creates, reads and
-// cancels, and their renewal, each session on its own renew route.
+// cancels, and their renewal, each session on its own renew route; and the
+// Computer watch of the connector's Namespace, whose ticket its event
+// stream presents.
 // Each request carries the client's credential and its proof.
 
 import type { PlacementContext } from "../internal/context.js";
-import { accountSubnet } from "../internal/apipath.js";
+import { accountSubnet, computerWatches } from "../internal/apipath.js";
+import {
+  MAX_COMPUTER_WATCH_TICKET_BYTES,
+  type ComputerWatch,
+} from "../api/computer-watch.js";
+import { isComputerWatchId, isNamespaceId } from "../resource/uuid-id.js";
 import { resolvePlacement } from "../internal/routing.js";
 import { TransportError } from "../errors.js";
 import { decodeBase64, encodeBase64 } from "../resource/base64.js";
@@ -78,6 +85,17 @@ export function computerEndpointApi(
         sessions,
       );
     },
+    async createWatch() {
+      const c = await context();
+      const resolved = await resolvePlacement(c);
+      const answer = await c.state.transport.json<unknown>(
+        "POST",
+        resolved.endpoint,
+        computerWatches(resolved.scope),
+        { body: {} },
+      );
+      return watchOf(answer);
+    },
     async cancelSession(computer, session) {
       await cancelSession(
         await context(),
@@ -118,4 +136,34 @@ function issued(answer: unknown): IssuedCertificate {
     admissionLease: decodeBase64(lease),
     notAfterMs: notAfter,
   };
+}
+
+/**
+ * Reads a watch's create answer: its ID and Namespace ID canonical, its
+ * Namespace and Subnet named, its end an instant, and its ticket within
+ * {@link MAX_COMPUTER_WATCH_TICKET_BYTES} of base64url characters and `.`.
+ */
+function watchOf(answer: unknown): ComputerWatch {
+  const a = (
+    typeof answer === "object" && answer !== null ? answer : {}
+  ) as Record<string, unknown>;
+  const { id, namespaceId, namespace, subnet, expiresAt, ticket } = a;
+  if (
+    !isComputerWatchId(id) ||
+    !isNamespaceId(namespaceId) ||
+    typeof namespace !== "string" ||
+    typeof subnet !== "string" ||
+    typeof expiresAt !== "string" ||
+    Number.isNaN(Date.parse(expiresAt)) ||
+    typeof ticket !== "string" ||
+    ticket.length === 0 ||
+    ticket.length > MAX_COMPUTER_WATCH_TICKET_BYTES ||
+    !/^[A-Za-z0-9_.-]+$/.test(ticket)
+  ) {
+    throw new TransportError(
+      "invalid_response",
+      "computer watch response is invalid",
+    );
+  }
+  return { id, namespaceId, namespace, subnet, expiresAt, ticket };
 }

@@ -591,7 +591,12 @@ fn computer_config(
 #[test]
 fn a_session_reaches_the_endpoint_through_the_edge_and_the_data_dock() {
     let (mut w, pod_roots, chain) = world(12, 0);
-    assert_eq!(w.pump(), vec![Event::Docked]);
+    assert_eq!(
+        w.pump(),
+        vec![Event::Docked {
+            service_lane_profile: String::new()
+        }]
+    );
     let lane = w.client.open_lane(DATA_DOCK).unwrap();
     assert_eq!(w.pump(), vec![Event::LaneReady { lane }]);
 

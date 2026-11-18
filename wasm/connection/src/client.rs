@@ -1,7 +1,9 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
 //! One client identity's connections: one dock to the edge, the lanes on
-//! it to machines' data docks, and the Computer connections on those lanes.
+//! it to machines' data docks and to Zone services, the Computer
+//! connections on data dock lanes, and the service connections on client
+//! service lanes.
 //! Sans-IO: the caller moves the edge's bytes in and out and gives the time;
 //! everything else is handles and events.
 //!
@@ -18,13 +20,15 @@ use crate::dock::LaneCloseCause;
 use crate::edge::{EdgeConfig, EdgeEnded, EdgeEvent, EdgeLink};
 use crate::identity::ClientKey;
 use crate::lane::{self, DataDockReply, LaneAnswer};
+use crate::service::{ServiceConfig, ServiceEnded, ServiceEvent, ServiceLink};
 
 /// Something the caller acts on. Handles name lanes and Computer
 /// connections; they are never reused within a `Client`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
-    /// The dock is admitted.
-    Docked,
+    /// The dock is admitted. `service_lane_profile` is the client service
+    /// lane profile the edge serves, empty when it serves none.
+    Docked { service_lane_profile: String },
     /// The edge asks for a redock.
     Drain { reason: String },
     /// The dock ended; every lane and Computer connection on it ended.
@@ -38,6 +42,22 @@ pub enum Event {
     ComputerEstablished { computer: u32, epoch: u64 },
     /// The Computer connection ended.
     ComputerEnded { computer: u32, reason: ComputerEnd },
+    /// TLS with the Zone service the lane names is established.
+    ServiceEstablished { service: u32 },
+    /// The service connection ended.
+    ServiceEnded { service: u32, reason: ServiceEnd },
+}
+
+/// Why a service connection ended.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ServiceEnd {
+    /// TLS ended it, or the service closed it.
+    Link(ServiceEnded),
+    /// Its lane or the dock ended, or the edge reset its stream with this
+    /// code.
+    Transport,
+    /// The caller closed it.
+    Closed,
 }
 
 /// Why a lane ended.
@@ -82,6 +102,10 @@ pub enum ClientError {
     Config,
     /// A stream operation failed.
     Stream(StreamError),
+    /// The edge's welcome named no client service lane profile.
+    Unserved,
+    /// No such service connection, or it has ended.
+    Service,
 }
 
 enum LaneState {
@@ -110,6 +134,12 @@ struct Computer {
     reply: Reply,
 }
 
+struct Service {
+    lane: u32,
+    sid: u32,
+    link: ServiceLink,
+}
+
 /// One client identity's connections.
 pub struct Client {
     key: Arc<ClientKey>,
@@ -117,6 +147,8 @@ pub struct Client {
     lanes: BTreeMap<u32, LaneState>,
     attached: BTreeSet<u64>,
     computers: BTreeMap<u32, Computer>,
+    services: BTreeMap<u32, Service>,
+    service_lane_profile: String,
     next_handle: u32,
     events: VecDeque<Event>,
 }
@@ -131,6 +163,8 @@ impl Client {
             lanes: BTreeMap::new(),
             attached: BTreeSet::new(),
             computers: BTreeMap::new(),
+            services: BTreeMap::new(),
+            service_lane_profile: String::new(),
             next_handle: 1,
             events: VecDeque::new(),
         })
@@ -167,6 +201,12 @@ impl Client {
                 let _ = self.edge.mux().write(computer.sid, &bytes);
             }
         }
+        for service in self.services.values_mut() {
+            let bytes = service.link.take_output();
+            if !bytes.is_empty() {
+                let _ = self.edge.mux().write(service.sid, &bytes);
+            }
+        }
         self.edge.take_output()
     }
 
@@ -179,14 +219,28 @@ impl Client {
     /// Asks for a lane to the data dock named `principal`. The lane is
     /// usable at [`Event::LaneReady`].
     pub fn open_lane(&mut self, principal: &str) -> Result<u32, ClientError> {
+        self.request_lane(principal, &lane::open_data_dock_lane(principal, &[]))
+    }
+
+    /// Asks for a client service lane to the Zone service named exactly
+    /// `principal`, which the edge serves only when its welcome named
+    /// [`lane::CLIENT_SERVICE_LANE_PROFILE`]. The lane is usable at
+    /// [`Event::LaneReady`].
+    pub fn open_service_lane(&mut self, principal: &str) -> Result<u32, ClientError> {
+        if self.edge.docked() && self.service_lane_profile != lane::CLIENT_SERVICE_LANE_PROFILE {
+            return Err(ClientError::Unserved);
+        }
+        self.request_lane(principal, &lane::open_client_service_lane(principal))
+    }
+
+    /// Sends the lane verb `verb` for `principal` on a delivery stream of
+    /// its own.
+    fn request_lane(&mut self, principal: &str, verb: &[u8]) -> Result<u32, ClientError> {
         if !self.edge.docked() {
             return Err(ClientError::NotDocked);
         }
         let sid = self.edge.mux().open().map_err(|_| ClientError::NotDocked)?;
-        let _ = self
-            .edge
-            .mux()
-            .write(sid, &lane::open_data_dock_lane(principal, &[]));
+        let _ = self.edge.mux().write(sid, verb);
         let _ = self.edge.mux().finish(sid);
         let handle = self.handle();
         self.lanes.insert(
@@ -248,6 +302,74 @@ impl Client {
         }
     }
 
+    /// Opens the one stream of a ready client service lane, whose header
+    /// bytes `profile` name the stream's profile, and starts TLS with the
+    /// service on it. The ClientHello follows the stream header at once.
+    pub fn open_service(
+        &mut self,
+        lane: u32,
+        profile: &[u8],
+        config: ServiceConfig,
+    ) -> Result<u32, ClientError> {
+        let Some(LaneState::Ready { lane_id }) = self.lanes.get(&lane) else {
+            return Err(ClientError::Lane);
+        };
+        let lane_id = *lane_id;
+        if profile.len() > usize::from(u16::MAX) {
+            return Err(ClientError::Config);
+        }
+        let link = ServiceLink::new(config, &self.key).map_err(|_| ClientError::Config)?;
+        let sid = self.edge.mux().open().map_err(|_| ClientError::NotDocked)?;
+        let _ = self.edge.mux().write(
+            sid,
+            &lane::lane_stream_header(lane_id, lane::STREAM_CLASS_E2E_MTLS, profile),
+        );
+        let handle = self.handle();
+        self.services.insert(handle, Service { lane, sid, link });
+        Ok(handle)
+    }
+
+    /// Queues plaintext for a service connection.
+    pub fn service_write(&mut self, service: u32, bytes: &[u8]) -> Result<(), ClientError> {
+        let s = self
+            .services
+            .get_mut(&service)
+            .filter(|s| !s.link.ended())
+            .ok_or(ClientError::Service)?;
+        s.link.write(bytes).map_err(|_| ClientError::Service)
+    }
+
+    /// Takes the plaintext a service connection received. What arrived
+    /// before the connection ended is kept for this read until
+    /// [`Client::close_service`] forgets the connection.
+    pub fn service_read(&mut self, service: u32) -> Vec<u8> {
+        self.services
+            .get_mut(&service)
+            .map(|s| s.link.read())
+            .unwrap_or_default()
+    }
+
+    /// Ends a service connection: TLS sends its close notify and the lane
+    /// stream is finished. A connection that has already ended is only
+    /// forgotten, with its unread plaintext.
+    pub fn close_service(&mut self, service: u32) {
+        if let Some(mut s) = self.services.remove(&service) {
+            if s.link.ended() {
+                return;
+            }
+            s.link.close();
+            let bytes = s.link.take_output();
+            if !bytes.is_empty() {
+                let _ = self.edge.mux().write(s.sid, &bytes);
+            }
+            let _ = self.edge.mux().finish(s.sid);
+            self.events.push_back(Event::ServiceEnded {
+                service,
+                reason: ServiceEnd::Closed,
+            });
+        }
+    }
+
     /// Opens a session stream on a Computer connection.
     pub fn open_stream(&mut self, computer: u32) -> Result<u32, ClientError> {
         let c = self.computer(computer)?;
@@ -297,7 +419,15 @@ impl Client {
     fn drive(&mut self) {
         while let Some(event) = self.edge.next_event() {
             match event {
-                EdgeEvent::Docked { .. } => self.events.push_back(Event::Docked),
+                EdgeEvent::Docked {
+                    service_lane_profile,
+                    ..
+                } => {
+                    self.service_lane_profile = service_lane_profile.clone();
+                    self.events.push_back(Event::Docked {
+                        service_lane_profile,
+                    });
+                }
                 EdgeEvent::Drain { reason } => self.events.push_back(Event::Drain { reason }),
                 EdgeEvent::LaneAttached { lane_id, .. } => {
                     self.attached.insert(lane_id);
@@ -327,6 +457,52 @@ impl Client {
         }
         self.drive_lanes();
         self.drive_computers();
+        self.drive_services();
+    }
+
+    fn drive_services(&mut self) {
+        let mut ended = Vec::new();
+        for (&handle, s) in self.services.iter_mut() {
+            if s.link.ended() {
+                continue;
+            }
+            let mut broken = false;
+            loop {
+                match self.edge.mux().read(s.sid, usize::MAX) {
+                    Ok(Some(bytes)) if bytes.is_empty() => break,
+                    Ok(Some(bytes)) => s.link.receive(&bytes),
+                    Ok(None) | Err(_) => {
+                        broken = true;
+                        break;
+                    }
+                }
+            }
+            for event in s.link.take_events() {
+                match event {
+                    ServiceEvent::Established => {
+                        self.events
+                            .push_back(Event::ServiceEstablished { service: handle });
+                    }
+                    ServiceEvent::Ended(why) => ended.push((handle, ServiceEnd::Link(why))),
+                }
+            }
+            if broken && !s.link.ended() {
+                ended.push((handle, ServiceEnd::Transport));
+            }
+        }
+        for (handle, reason) in ended {
+            if let Some(s) = self.services.get_mut(&handle) {
+                if matches!(reason, ServiceEnd::Transport) {
+                    s.link.close();
+                    let _ = s.link.take_events();
+                }
+                let _ = self.edge.mux().reset(s.sid, 0);
+                self.events.push_back(Event::ServiceEnded {
+                    service: handle,
+                    reason,
+                });
+            }
+        }
     }
 
     fn drive_lanes(&mut self) {
@@ -455,6 +631,19 @@ impl Client {
             self.events.push_back(Event::ComputerEnded {
                 computer,
                 reason: ComputerEnd::Transport,
+            });
+        }
+        let services: Vec<u32> = self
+            .services
+            .iter()
+            .filter(|(_, s)| s.lane == lane)
+            .map(|(&h, _)| h)
+            .collect();
+        for service in services {
+            self.services.remove(&service);
+            self.events.push_back(Event::ServiceEnded {
+                service,
+                reason: ServiceEnd::Transport,
             });
         }
         self.events.push_back(Event::LaneEnded { lane, reason });

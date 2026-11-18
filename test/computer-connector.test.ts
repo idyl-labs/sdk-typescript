@@ -197,7 +197,7 @@ class FakeWorker implements WorkerPort {
       case "dock": {
         const dock = ++this.#dock;
         reply(dock);
-        this.#emit({ type: "docked", dock });
+        this.#emit({ type: "docked", dock, serviceLaneProfile: "" });
         return;
       }
       case "open-lane": {
@@ -400,6 +400,7 @@ async function harness(
       options.cancels?.push([computer, session]);
       return Promise.resolve();
     },
+    createWatch: () => Promise.reject(new Error("the test creates no watch")),
   };
   const known = options.known;
   const build = options.build ?? computerConnector;
