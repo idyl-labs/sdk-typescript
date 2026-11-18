@@ -332,8 +332,8 @@ ends the open with a `ComputerSessionEndedError` and its reason, and any
 other with the connection's failure, a `TimeoutError` `DOMException` when
 the 30 s passed. A stream the endpoint has not answered in time is given up
 on the same way: its output fails with the session's ending or a
-`TimeoutError`. A session given up on after 30 s is no longer renewed and is
-cancelled once its create has answered.
+`TimeoutError`. A session whose open was given up on, for any cause, is no
+longer renewed and is cancelled once its create has answered.
 
 A stream speaks `workload-session/json-v2` (`frames.ts`): each frame a
 big-endian 32-bit length and that many bytes of JSON, at most 64 KiB, with

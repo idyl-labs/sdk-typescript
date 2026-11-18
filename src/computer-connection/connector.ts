@@ -875,8 +875,9 @@ class Connector implements ComputerConnector {
    * Otherwise the session, once its create has answered, is read once: a
    * session in a final phase ends the open with a
    * {@link ComputerSessionEndedError} and its reason, and any other with
-   * `error`. A session given up on after the attempt's 30 s is cancelled,
-   * since nothing will use it; its renewals stop either way.
+   * `error`. The session is no longer renewed and is cancelled, since
+   * nothing will use it; cancelling a session already final changes
+   * nothing.
    */
   async #unopened(
     computer: string,
@@ -888,11 +889,7 @@ class Connector implements ComputerConnector {
     if (served === undefined) return error;
     this.#sessions.get(computer)?.delete(served.id);
     const ended = await this.#endedNow(computer, served.id);
-    if (error instanceof DOMException && error.name === "TimeoutError") {
-      void this.#o.api
-        .cancelSession(computer, served.id)
-        .catch(() => undefined);
-    }
+    void this.#o.api.cancelSession(computer, served.id).catch(() => undefined);
     return ended ?? error;
   }
 
@@ -923,7 +920,9 @@ class Connector implements ComputerConnector {
   /**
    * One read of the session `id`: a {@link ComputerSessionEndedError} when
    * it is in a final phase, and `undefined` when it is not or the read
-   * fails.
+   * fails. The read cannot hold an open: the client's transport bounds
+   * every request by its request timeout, 30 s unless the client states
+   * another, and a read that runs out reads as not final.
    */
   async #endedNow(
     computer: string,

@@ -1716,9 +1716,11 @@ describe("a connection attempt", () => {
   // read once when the attempt gives up, and ends the open with its reason
   // rather than the TimeoutError.
   it("ends with the platform's reason when the session failed meanwhile", async () => {
+    const cancels: string[][] = [];
     const h = await harness({
       known: { epoch: 12, sequence: 3 },
       reads: [failedByPlatform],
+      cancels,
     });
     h.worker.next.push({ silent: true });
     await h.connector.ready();
@@ -1730,6 +1732,21 @@ describe("a connection attempt", () => {
     const error = await opening;
     expect(error).toBeInstanceOf(ComputerSessionEndedError);
     expect(error).toMatchObject({ phase: "failed", reason: "WAKE_TIMEOUT" });
+    expect(cancels).toEqual([[COMPUTER, SESSION]]);
+  });
+
+  // Contract: an open whose connection fails outright on the answered place
+  // reads its session once and cancels it once the create has answered.
+  it("cancels the session of an open whose connection fails", async () => {
+    const cancels: string[][] = [];
+    const h = await harness({ cancels, reads: [(s) => s] });
+    h.worker.next.push({ refuse: "not-here" });
+    await h.connector.ready();
+    expect(
+      await refusal(h.connector.open(COMPUTER, { mode: "shell", ...TERMINAL })),
+    ).toBeInstanceOf(Error);
+    expect(h.reads).toHaveLength(1);
+    expect(cancels).toEqual([[COMPUTER, SESSION]]);
   });
 
   // Contract: a create that answers another place than the one the client
