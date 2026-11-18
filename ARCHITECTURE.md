@@ -408,10 +408,13 @@ counts as carrying events only once it outlives its step; its events are
 handed on meanwhile. A wait on
 a Computer of another Namespace pauses as with no event stream. A watch create refused for the caller's sign-in or
 permission is tried again only on the connector's next dock or use.
-`listen` tells the caller each change and whether the connector has an
-event stream: `false` from a failed attempt or a dock whose Zone serves no
-events, `true` from the next first `reread`. Every wait of a handle the
-client holds a connector for listens through it.
+`listen` tells the caller each change and the connector's
+`ListeningState`: `listening` from a stream's first `reread`; `retrying`
+from a failed attempt, which the connector tries again on its steps; and
+`unavailable` from a dock whose Zone serves no events or a watch refused
+for a cause a retry cannot change (HTTP 401, 403 or 404), which it tries
+again only on its next dock or use. It is told only when the state changes.
+Every wait of a handle the client holds a connector for listens through it.
 
 ## Errors
 

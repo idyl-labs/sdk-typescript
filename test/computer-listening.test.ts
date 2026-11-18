@@ -221,7 +221,7 @@ describe("listening", () => {
   it("presents its ticket and listens from the reread", async () => {
     const port = new FakePort();
     const listening = new Listening(port);
-    const states: boolean[] = [];
+    const states: string[] = [];
     const changes: ComputerChange[] = [];
     listening.subscribe({
       onListening: (on) => states.push(on),
@@ -233,7 +233,7 @@ describe("listening", () => {
     expect(port.tickets).toEqual([
       { type: "ticket", watch: watch(1).id, ticket: "ticket-1" },
     ]);
-    expect(listening.listening).toBe(false);
+    expect(listening.listening).toBeUndefined();
     port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
     port.send({
       type: "event",
@@ -241,8 +241,8 @@ describe("listening", () => {
       computer: COMPUTER,
       part: "version",
     });
-    expect(listening.listening).toBe(true);
-    expect(states).toEqual([true]);
+    expect(listening.listening).toBe("listening");
+    expect(states).toEqual(["listening"]);
     expect(changes).toEqual([
       { part: "reread" },
       { part: "version", computer: COMPUTER },
@@ -293,13 +293,13 @@ describe("listening", () => {
     const port = new FakePort();
     port.profile = "";
     const listening = new Listening(port);
-    const states: boolean[] = [];
+    const states: string[] = [];
     listening.subscribe({ onListening: (on) => states.push(on) });
     listening.start();
     await settle();
     expect(port.lanes).toEqual([]);
     expect(port.watches).toBe(0);
-    expect(states).toEqual([false]);
+    expect(states).toEqual(["unavailable"]);
   });
 
   // Contract: at a ticket's end the service's ended frame makes the
@@ -319,7 +319,7 @@ describe("listening", () => {
       watch(2).id,
     ]);
     expect(port.lanes).toHaveLength(1);
-    expect(listening.listening).toBe(true);
+    expect(listening.listening).toBe("listening");
   });
 
   // Contract: an attempt whose stream delivers no reread within 30 s
@@ -328,16 +328,46 @@ describe("listening", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     const port = new FakePort();
     const listening = new Listening(port);
-    const states: boolean[] = [];
+    const states: string[] = [];
     listening.subscribe({ onListening: (on) => states.push(on) });
     listening.start();
     await vi.advanceTimersByTimeAsync(29_999);
     expect(states).toEqual([]);
     await vi.advanceTimersByTimeAsync(1);
-    expect(states).toEqual([false]);
+    expect(states).toEqual(["retrying"]);
     expect(port.closed).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(500);
     expect(port.lanes).toHaveLength(2);
+  });
+
+  // Contract: a watch create refused for a cause a retry cannot change,
+  // as a Namespace not found, leaves the connector unavailable and is not
+  // tried again on a timer; one a retry can change, as HTTP 429, leaves it
+  // retrying on the steps.
+  it("reports a refusal a retry cannot change as unavailable", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    for (const [status, expected, creates] of [
+      [404, "unavailable", 1],
+      [429, "retrying", 2],
+    ] as const) {
+      const port = new FakePort();
+      let made = 0;
+      port.createWatch = () => {
+        made += 1;
+        return Promise.reject(
+          new ApiError({ status, message: "", code: "REFUSED" }),
+        );
+      };
+      const listening = new Listening(port);
+      const states: string[] = [];
+      listening.subscribe({ onListening: (state) => states.push(state) });
+      listening.start();
+      await vi.advanceTimersByTimeAsync(600);
+      expect(states).toEqual([expected]);
+      expect(listening.listening).toBe(expected);
+      expect(made).toBe(creates);
+      listening.stop();
+    }
   });
 
   // Contract: a watch create refused for the caller's sign-in is not tried
@@ -368,7 +398,7 @@ describe("listening", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     const port = new FakePort();
     const listening = new Listening(port);
-    const states: boolean[] = [];
+    const states: string[] = [];
     listening.subscribe({ onListening: (on) => states.push(on) });
     listening.start();
     await vi.advanceTimersByTimeAsync(0);
@@ -382,7 +412,7 @@ describe("listening", () => {
       service: first,
       reason: "closed",
     });
-    expect(listening.listening).toBe(false);
+    expect(listening.listening).toBe("listening");
     await vi.advanceTimersByTimeAsync(0);
     expect(port.closed).toEqual([first]);
     expect(port.lanes).toHaveLength(2);
@@ -392,8 +422,8 @@ describe("listening", () => {
     ]);
     expect(port.watches).toBe(1);
     port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
-    expect(listening.listening).toBe(true);
-    expect(states).toEqual([true]);
+    expect(listening.listening).toBe("listening");
+    expect(states).toEqual(["listening"]);
   });
 
   // Contract: a service that accepts each ticket and ends the stream at
@@ -421,7 +451,7 @@ describe("listening", () => {
     const port = new FakePort();
     port.churn = true;
     const listening = new Listening(port);
-    const states: boolean[] = [];
+    const states: string[] = [];
     const changes: ComputerChange[] = [];
     listening.subscribe({
       onListening: (on) => states.push(on),
@@ -429,20 +459,20 @@ describe("listening", () => {
     });
     listening.start();
     await vi.advanceTimersByTimeAsync(0);
-    expect(states).toEqual([true, false]);
+    expect(states).toEqual(["listening", "retrying"]);
     await vi.advanceTimersByTimeAsync(500 + 1_000 + 2_000);
     expect(port.lanes).toHaveLength(4);
-    expect(states).toEqual([true, false]);
-    expect(listening.listening).toBe(false);
+    expect(states).toEqual(["listening", "retrying"]);
+    expect(listening.listening).toBe("retrying");
     // Each stream's reread was still handed on.
     expect(changes).toHaveLength(4);
     port.churn = false;
     await vi.advanceTimersByTimeAsync(4_000);
     port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
-    expect(states).toEqual([true, false]);
+    expect(states).toEqual(["listening", "retrying"]);
     await vi.advanceTimersByTimeAsync(8_000);
-    expect(states).toEqual([true, false, true]);
-    expect(listening.listening).toBe(true);
+    expect(states).toEqual(["listening", "retrying", "listening"]);
+    expect(listening.listening).toBe("listening");
   });
 
   // Contract: a stream that outlives its step is opened again at once,
