@@ -1522,7 +1522,10 @@ function boundBy(readyBy: number | undefined, started: number): number {
  * listen.
  */
 function eventService(trust: SessionTrust): EventService | undefined {
-  return trust.events;
+  const events = trust.computerEvents;
+  return events === undefined
+    ? undefined
+    : { principal: events.serverId, roots: events.serverRoots };
 }
 
 /** `ms` as an RFC 3339 UTC timestamp to the second, as the reference contract writes one. */
