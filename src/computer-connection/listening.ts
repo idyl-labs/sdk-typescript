@@ -652,7 +652,8 @@ export class Listening {
 
   /** Tells the listeners the connector's state, when it changed. */
   #report(state: ListeningState): void {
-    if (this.#told === state) return;
+    // An attempt that settles after stop() tells nothing: no retry follows.
+    if (!this.#started || this.#told === state) return;
     this.#told = state;
     this.#tell((l) => l.onListening?.(state));
   }

@@ -495,8 +495,9 @@ export interface ComputerConnector {
   /**
    * The connector's {@link ListeningState}, as its listeners were last
    * told it; `undefined` while its first attempt to listen is in flight.
-   * While it is `listening`, waits pause only as a guard against a lost
-   * event, and a page reads on the events alone.
+   * It stays `listening` while a stream that ended is opened again at once.
+   * Waits pace themselves by whether a stream carries events at that
+   * moment, not by this value.
    */
   readonly listening: ListeningState | undefined;
   /**

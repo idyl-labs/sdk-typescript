@@ -340,6 +340,27 @@ describe("listening", () => {
     expect(port.lanes).toHaveLength(2);
   });
 
+  // Contract: an attempt that settles after stop() tells its listeners
+  // nothing, and the state reads undefined until the next start().
+  it("tells nothing of an attempt that settles after stop", async () => {
+    const port = new FakePort();
+    let refuse: (error: Error) => void = () => undefined;
+    port.createWatch = () =>
+      new Promise<ComputerWatch>((_, reject) => {
+        refuse = reject;
+      });
+    const listening = new Listening(port);
+    const states: string[] = [];
+    listening.subscribe({ onListening: (state) => states.push(state) });
+    listening.start();
+    await settle();
+    listening.stop();
+    refuse(new Error("unavailable"));
+    await settle();
+    expect(states).toEqual([]);
+    expect(listening.listening).toBeUndefined();
+  });
+
   // Contract: a watch create refused for a cause a retry cannot change,
   // as a Namespace not found, leaves the connector unavailable and is not
   // tried again on a timer; one a retry can change, as HTTP 429, leaves it
