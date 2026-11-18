@@ -653,14 +653,23 @@ class Connector implements ComputerConnector {
     let connection: Connection;
     let deadline = Date.now() + OPEN_WAIT_MS;
     try {
-      connection = await this.#establish(computer, known, answered, deadline);
-    } catch (first) {
-      if (first instanceof CreateFailure) throw first.cause;
-      // The place the client knew is stale: the create says where it is.
-      const endpoint = await answered;
-      if (sameEndpoint(endpoint, known)) throw first;
-      deadline = Date.now() + OPEN_WAIT_MS;
       try {
+        // A create that answers another place ends the attempt on the
+        // remembered one at once.
+        connection = await this.#establish(
+          computer,
+          known,
+          answered,
+          deadline,
+          false,
+          (endpoint) => !sameEndpoint(endpoint, known),
+        );
+      } catch (first) {
+        if (first instanceof CreateFailure) throw first;
+        // The place the client knew is stale: the create says where it is.
+        const endpoint = await answered;
+        if (sameEndpoint(endpoint, known)) throw first;
+        deadline = Date.now() + OPEN_WAIT_MS;
         connection = await this.#establish(
           computer,
           endpoint,
@@ -668,12 +677,12 @@ class Connector implements ComputerConnector {
           deadline,
           true,
         );
-      } catch (second) {
-        throw second instanceof CreateFailure ? second.cause : second;
       }
+    } catch (error) {
+      throw await this.#unopened(computer, created, error);
     }
     const session = await this.#stream(computer, connection, requestID, open);
-    session.answerBy(deadline);
+    session.answerBy(deadline, () => this.#late(computer, created));
     created.then(
       (served) => {
         session.served(served.id);
@@ -815,6 +824,7 @@ class Connector implements ComputerConnector {
     answered: Promise<ComputerSessionEndpoint>,
     deadline: number,
     fresh = false,
+    moved?: (endpoint: ComputerSessionEndpoint) => boolean,
   ): Promise<Connection> {
     const opened = this.#connection(computer, at, fresh);
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -832,7 +842,12 @@ class Connector implements ComputerConnector {
       );
     });
     const refused = answered.then(
-      () => new Promise<never>(() => undefined),
+      (endpoint) => {
+        if (moved?.(endpoint) === true) {
+          throw new Error("the create answered another place");
+        }
+        return new Promise<never>(() => undefined);
+      },
       (cause: unknown) => {
         throw new CreateFailure(cause);
       },
@@ -847,12 +862,90 @@ class Connector implements ComputerConnector {
         refused,
       ]);
     } catch (error) {
-      if (error instanceof DOMException && error.name === "TimeoutError") {
-        this.#drop(computer, opened);
-      }
+      if (!(error instanceof CreateFailure)) this.#drop(computer, opened);
       throw error;
     } finally {
       clearTimeout(timer);
+    }
+  }
+
+  /**
+   * What an open whose connection was not made rejects with. A create that
+   * failed, or answered the session ended, ends it with its own failure.
+   * Otherwise the session, once its create has answered, is read once: a
+   * session in a final phase ends the open with a
+   * {@link ComputerSessionEndedError} and its reason, and any other with
+   * `error`. A session given up on after the attempt's 30 s is cancelled,
+   * since nothing will use it; its renewals stop either way.
+   */
+  async #unopened(
+    computer: string,
+    created: Promise<ServedSession>,
+    error: unknown,
+  ): Promise<unknown> {
+    if (error instanceof CreateFailure) return error.cause;
+    const served = await created.catch(() => undefined);
+    if (served === undefined) return error;
+    this.#sessions.get(computer)?.delete(served.id);
+    const ended = await this.#endedNow(computer, served.id);
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      void this.#o.api
+        .cancelSession(computer, served.id)
+        .catch(() => undefined);
+    }
+    return ended ?? error;
+  }
+
+  /**
+   * What a stream the endpoint did not answer in time fails with: once its
+   * create has answered, the session is read once, and a session in a final
+   * phase fails it with a {@link ComputerSessionEndedError} and its reason;
+   * otherwise a `TimeoutError` `DOMException`.
+   */
+  async #late(
+    computer: string,
+    created: Promise<ServedSession>,
+  ): Promise<unknown> {
+    const served = await created.catch(() => undefined);
+    const ended =
+      served === undefined
+        ? undefined
+        : await this.#endedNow(computer, served.id);
+    return (
+      ended ??
+      new DOMException(
+        `the endpoint did not answer the session's open within ${String(OPEN_WAIT_MS)} ms`,
+        "TimeoutError",
+      )
+    );
+  }
+
+  /**
+   * One read of the session `id`: a {@link ComputerSessionEndedError} when
+   * it is in a final phase, and `undefined` when it is not or the read
+   * fails.
+   */
+  async #endedNow(
+    computer: string,
+    id: string,
+  ): Promise<ComputerSessionEndedError | undefined> {
+    try {
+      const read = await this.#o.api.readSession(
+        computer,
+        id,
+        this.#closing.signal,
+      );
+      const phase = read.status.phase;
+      if (!isEndedPhase(phase)) return undefined;
+      return new ComputerSessionEndedError({
+        session: read.id,
+        phase,
+        ...(read.status.reason === undefined
+          ? {}
+          : { reason: read.status.reason }),
+      });
+    } catch {
+      return undefined;
     }
   }
 
@@ -1476,6 +1569,8 @@ class SessionStream implements ComputerSessionStream {
   #abandoned = false;
   // Ends the stream when the endpoint has not answered its open in time.
   #answerTimer: ReturnType<typeof setTimeout> | undefined;
+  // The open was given up on: nothing the endpoint sends reaches the output.
+  #gaveUp = false;
 
   /**
    * `abandon` cancels the session by its ID, once, when the endpoint
@@ -1553,26 +1648,29 @@ class SessionStream implements ComputerSessionStream {
 
   /**
    * @internal Ends the stream unless a frame of it arrives by `deadline`,
-   * in milliseconds since the epoch: the output fails with a
-   * `TimeoutError` `DOMException`, the Worker's stream is finished, and the
-   * session is no longer renewed, so its lease ends it. The session is not
-   * cancelled: the endpoint may have started it.
+   * in milliseconds since the epoch: the session is no longer renewed and
+   * is cancelled once its create has answered, and the output fails with
+   * what `late` resolves to, the session's ending when it is final and a
+   * `TimeoutError` `DOMException` otherwise; the Worker's stream is then
+   * finished.
    */
-  answerBy(deadline: number): void {
+  answerBy(deadline: number, late: () => Promise<unknown>): void {
     if (this.#answered || this.#done) return;
     this.#answerTimer = setTimeout(
       () => {
         this.#answerTimer = undefined;
         if (this.#answered || this.#done) return;
+        // Nothing waits for this session any more: it is no longer renewed,
+        // and is cancelled once its create has answered.
+        this.#gaveUp = true;
         this.#closed = true;
         this.#forget();
-        this.fail(
-          new DOMException(
-            `the endpoint did not answer the session's open within ${String(OPEN_WAIT_MS)} ms`,
-            "TimeoutError",
-          ),
-        );
-        this.#release();
+        this.#unstarted = true;
+        this.#abandonUnstarted();
+        void late().then((error) => {
+          this.fail(error);
+          this.#release();
+        });
       },
       Math.max(0, deadline - Date.now()),
     );
@@ -1639,7 +1737,7 @@ class SessionStream implements ComputerSessionStream {
 
   /** @internal Bytes of the stream arrived. */
   receive(bytes: Uint8Array): void {
-    if (this.#done) return;
+    if (this.#done || this.#gaveUp) return;
     try {
       for (const frame of this.#reader.push(bytes)) {
         this.#first(frame);
@@ -1659,7 +1757,8 @@ class SessionStream implements ComputerSessionStream {
   ended(broken: boolean): void {
     this.#stopAnswerTimer();
     this.#released = true;
-    if (this.#done) return;
+    // An open given up on fails with its reason once the read settles.
+    if (this.#done || this.#gaveUp) return;
     this.#done = true;
     if (broken) this.#controller.enqueue({ type: "broken" });
     this.#controller.close();

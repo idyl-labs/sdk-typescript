@@ -1639,6 +1639,25 @@ describe("session trust floor", () => {
   });
 });
 
+/** The session's ID as `served` answers it. */
+const SESSION = "01954e20-7540-7ec4-93ec-14f783e6ab20";
+
+/** `session` placed at another sandbox than the one a test remembers. */
+function moved(session: ServedSession): ServedSession {
+  const endpoint = session.status.endpoint;
+  if (endpoint === undefined) return session;
+  return {
+    ...session,
+    status: {
+      ...session.status,
+      endpoint: {
+        ...endpoint,
+        placement: { ...endpoint.placement, sequence: 4 },
+      },
+    },
+  };
+}
+
 describe("a connection attempt", () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -1656,11 +1675,17 @@ describe("a connection attempt", () => {
 
   // Contract: a connection to the place the client knows that is never
   // established ends the open 30 s after the attempt began, with a
-  // TimeoutError; the connection is closed so the next open connects
-  // afresh, and the create's endpoint, the same place, is not dialled
-  // again.
+  // TimeoutError once one read finds the session not final; the
+  // connection is closed so the next open connects afresh, the create's
+  // endpoint, the same place, is not dialled again, and the session is
+  // cancelled.
   it("ends 30 s after it began when the connection is never established", async () => {
-    const h = await harness({ known: { epoch: 12, sequence: 3 } });
+    const cancels: string[][] = [];
+    const h = await harness({
+      known: { epoch: 12, sequence: 3 },
+      cancels,
+      reads: [(s) => s],
+    });
     h.worker.next.push({ silent: true });
     await h.connector.ready();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
@@ -1683,6 +1708,62 @@ describe("a connection attempt", () => {
     expect(h.worker.requests.some((r) => r.type === "close-computer")).toBe(
       true,
     );
+    expect(h.reads).toHaveLength(1);
+    expect(cancels).toEqual([[COMPUTER, SESSION]]);
+  });
+
+  // Contract: a session the platform failed after its create answered is
+  // read once when the attempt gives up, and ends the open with its reason
+  // rather than the TimeoutError.
+  it("ends with the platform's reason when the session failed meanwhile", async () => {
+    const h = await harness({
+      known: { epoch: 12, sequence: 3 },
+      reads: [failedByPlatform],
+    });
+    h.worker.next.push({ silent: true });
+    await h.connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const opening = refusal(
+      h.connector.open(COMPUTER, { mode: "shell", ...TERMINAL }),
+    );
+    await vi.advanceTimersByTimeAsync(30_000);
+    const error = await opening;
+    expect(error).toBeInstanceOf(ComputerSessionEndedError);
+    expect(error).toMatchObject({ phase: "failed", reason: "WAKE_TIMEOUT" });
+  });
+
+  // Contract: a create that answers another place than the one the client
+  // remembered ends the attempt there at once; the answered place is
+  // connected to with 30 s of its own, so a stale place never holds the
+  // open past the create's answer.
+  it("leaves a remembered place the create contradicts at once", async () => {
+    const h = await harness({
+      known: { epoch: 12, sequence: 3 },
+      holdCreate: true,
+      answer: (s) => moved(s),
+    });
+    h.worker.next.push({ silent: true });
+    await h.connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    let opened = false;
+    const opening = h.connector
+      .open(COMPUTER, { mode: "shell", ...TERMINAL })
+      .then((session) => {
+        opened = true;
+        return session;
+      });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(opened).toBe(false);
+    h.release?.();
+    await vi.advanceTimersByTimeAsync(0);
+    const session = await opening;
+    expect(
+      h.worker.requests.filter((r) => r.type === "open-computer"),
+    ).toHaveLength(2);
+    expect(h.worker.requests.some((r) => r.type === "close-computer")).toBe(
+      true,
+    );
+    session.close();
   });
 
   // Contract: the session's create is watched beside the attempt: a
@@ -1728,12 +1809,12 @@ describe("a connection attempt", () => {
   });
 
   // Contract: a stream whose open the endpoint does not answer within the
-  // attempt's 30 s fails its output with a TimeoutError, finishes the
-  // Worker's stream; the session is not cancelled, since the endpoint may
-  // have started it.
+  // attempt's 30 s is given up on: the session is cancelled, read once, and
+  // the output fails with a TimeoutError when it is not final; the
+  // Worker's stream is finished.
   it("fails a stream the endpoint does not answer within 30 s", async () => {
     const cancels: string[][] = [];
-    const h = await harness({ cancels });
+    const h = await harness({ cancels, reads: [(s) => s] });
     h.worker.answerOpen = undefined;
     await h.connector.ready();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
@@ -1748,7 +1829,24 @@ describe("a connection attempt", () => {
       message: "the endpoint did not answer the session's open within 30000 ms",
     });
     expect(h.worker.requests.some((r) => r.type === "finish")).toBe(true);
-    expect(cancels).toEqual([]);
+    expect(h.reads).toHaveLength(1);
+    expect(cancels).toEqual([[COMPUTER, SESSION]]);
+  });
+
+  // Contract: a stream given up on whose session the platform failed fails
+  // with the platform's reason.
+  it("fails an unanswered stream with the platform's reason", async () => {
+    const h = await harness({ reads: [failedByPlatform] });
+    h.worker.answerOpen = undefined;
+    await h.connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    const reading = refusal(first(session.output, 1));
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(await reading).toBeInstanceOf(ComputerSessionEndedError);
   });
 
   // Contract: an answered open stops the attempt's timer: the stream is

@@ -321,13 +321,19 @@ fails a stream already sent as soon as the answer arrives.
 One attempt to connect a session lasts at most 30 s: from connecting to the
 place the client knows, or to the endpoint the create answered, until the
 Computer connection is established and the endpoint has answered the
-session's open with its first frame. A connection not established in time
-rejects the open with a `TimeoutError` `DOMException` and is closed, so the
-next open connects afresh; a stream the endpoint has not answered in time
-fails its output with a `TimeoutError` and is no longer renewed, and the
-session is left to its lease. The create is watched beside the attempt: a
-create the platform refuses, or answers the session ended, ends the open at
-once with that refusal or a `ComputerSessionEndedError`.
+session's open with its first frame. The create is watched beside the
+attempt: a create the platform refuses, or answers the session ended, ends
+the open at once with that refusal or a `ComputerSessionEndedError`, and a
+create that answers another place than the remembered one ends the attempt
+there at once, so the answered place is connected to with 30 s of its own.
+A connection not made, in time or at all, is closed, so the next open
+connects afresh, and the session is read once: a session in a final phase
+ends the open with a `ComputerSessionEndedError` and its reason, and any
+other with the connection's failure, a `TimeoutError` `DOMException` when
+the 30 s passed. A stream the endpoint has not answered in time is given up
+on the same way: its output fails with the session's ending or a
+`TimeoutError`. A session given up on after 30 s is no longer renewed and is
+cancelled once its create has answered.
 
 A stream speaks `workload-session/json-v2` (`frames.ts`): each frame a
 big-endian 32-bit length and that many bytes of JSON, at most 64 KiB, with
