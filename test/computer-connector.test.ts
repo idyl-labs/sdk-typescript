@@ -117,13 +117,18 @@ function frame(json: unknown): Uint8Array {
 class FakeWorker implements WorkerPort {
   readonly requests: PageToWorker[] = [];
   /**
-   * What the next Computer connections reach, in order: an epoch or a
-   * refusal; after the list, epoch 12.
+   * What the next Computer connections reach, in order: an epoch, a
+   * refusal, or silence, a connection that is never established; after
+   * the list, epoch 12.
    */
-  readonly next: ({ epoch: number } | { refuse: string })[] = [];
+  readonly next: ({ epoch: number } | { refuse: string } | { silent: true })[] =
+    [];
   /** The frames each stream was sent, as JSON, by stream handle. */
   readonly sent = new Map<number, unknown[]>();
-  /** The frame the endpoint answers each `open` with. */
+  /**
+   * The frame the endpoint answers each `open` with; `undefined` leaves the
+   * open unanswered.
+   */
   answerOpen: unknown = { type: "opened", session: "s-1" };
   #listener: ((event: MessageEvent<WorkerToPage>) => void) | undefined;
   #last: { dock: number; computer: number; stream: number } | undefined;
@@ -205,6 +210,7 @@ class FakeWorker implements WorkerPort {
         const computer = this.#handle++;
         reply(computer);
         const next = this.next.shift() ?? { epoch: 12 };
+        if ("silent" in next) return;
         if ("epoch" in next) {
           this.#emit({
             type: "computer-established",
@@ -237,6 +243,7 @@ class FakeWorker implements WorkerPort {
         this.sent.set(m.stream, log);
         if (sent.type === "open") {
           this.#last = { dock: m.dock, computer: m.computer, stream: m.stream };
+          if (this.answerOpen === undefined) return;
           this.#emit({
             type: "data",
             dock: m.dock,
@@ -830,11 +837,13 @@ describe("a pending answer without its endpoint", () => {
     const h = await harness({
       known: { epoch: 12, sequence: 3 },
       answer: putToSleep,
+      holdCreate: true,
     });
     const session = await h.connector.open(COMPUTER, {
       mode: "shell",
       ...TERMINAL,
     });
+    h.release?.();
     const reader = session.output.getReader();
     const ending = await (async (): Promise<unknown> => {
       for (;;) {
@@ -1076,22 +1085,24 @@ describe("computer files sessions", () => {
     expect(worker.requests.filter((r) => r.type === "finish")).toHaveLength(1);
   });
 
-  // Contract: a Computer that is not awake refuses the session; it ends
-  // failed with the typed refusal.
-  it("ends failed when the Computer is not awake", async () => {
-    const refusal = new ComputerNotAwakeError({
+  // Contract: a Computer that is not awake refuses the session; a refusal
+  // that arrives while the connection is made rejects the open with the
+  // typed refusal.
+  it("rejects with the refusal when the Computer is not awake", async () => {
+    const notAwake = new ComputerNotAwakeError({
       status: 409,
       message: "",
       code: "COMPUTER_NOT_AWAKE",
     });
     const { connector } = await harness({
       known: { epoch: 12, sequence: 3 },
-      refuseCreate: refusal,
+      refuseCreate: notAwake,
     });
-    const files = await connector.openFiles(COMPUTER, {
-      onListing: () => undefined,
-    });
-    expect(await files.ended).toEqual({ reason: "failed", error: refusal });
+    expect(
+      await refusal(
+        connector.openFiles(COMPUTER, { onListing: () => undefined }),
+      ),
+    ).toBe(notAwake);
   });
 
   // Contract: a files session is renewed with the connector's sessions
@@ -1625,5 +1636,135 @@ describe("session trust floor", () => {
       message: "the client's placement names no session trust scope",
     });
     expect(docks(none.worker)).toBe(0);
+  });
+});
+
+describe("a connection attempt", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** `session` failed by the platform before it started: no endpoint. */
+  const failedByPlatform = (session: ServedSession): ServedSession => ({
+    ...session,
+    status: {
+      phase: "failed",
+      reason: "WAKE_TIMEOUT",
+      readyBy: session.status.readyBy,
+    },
+  });
+
+  // Contract: a connection to the place the client knows that is never
+  // established ends the open 30 s after the attempt began, with a
+  // TimeoutError; the connection is closed so the next open connects
+  // afresh, and the create's endpoint, the same place, is not dialled
+  // again.
+  it("ends 30 s after it began when the connection is never established", async () => {
+    const h = await harness({ known: { epoch: 12, sequence: 3 } });
+    h.worker.next.push({ silent: true });
+    await h.connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    let settled = false;
+    const opening = refusal(
+      h.connector.open(COMPUTER, { mode: "shell", ...TERMINAL }).finally(() => {
+        settled = true;
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await opening).toMatchObject({
+      name: "TimeoutError",
+      message: "the Computer connection was not established within 30000 ms",
+    });
+    expect(
+      h.worker.requests.filter((r) => r.type === "open-computer"),
+    ).toHaveLength(1);
+    expect(h.worker.requests.some((r) => r.type === "close-computer")).toBe(
+      true,
+    );
+  });
+
+  // Contract: the session's create is watched beside the attempt: a
+  // session the platform failed ends the open at once with the
+  // platform's reason, without waiting for the connection.
+  it("ends at once when the platform fails the session", async () => {
+    const h = await harness({
+      known: { epoch: 12, sequence: 3 },
+      holdCreate: true,
+      answer: failedByPlatform,
+    });
+    h.worker.next.push({ silent: true });
+    await h.connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const opening = refusal(
+      h.connector.open(COMPUTER, { mode: "shell", ...TERMINAL }),
+    );
+    await vi.advanceTimersByTimeAsync(1_000);
+    h.release?.();
+    await vi.advanceTimersByTimeAsync(0);
+    const error = await opening;
+    expect(error).toBeInstanceOf(ComputerSessionEndedError);
+    expect(error).toMatchObject({ phase: "failed", reason: "WAKE_TIMEOUT" });
+  });
+
+  // Contract: a create the platform refuses while the connection is being
+  // established ends the open at once with that refusal.
+  it("ends at once when the create is refused", async () => {
+    const refused = new ApiError({
+      status: 409,
+      message: "",
+      code: "OUT_OF_USAGE",
+    });
+    const h = await harness({
+      known: { epoch: 12, sequence: 3 },
+      refuseCreate: refused,
+    });
+    h.worker.next.push({ silent: true });
+    await h.connector.ready();
+    expect(
+      await refusal(h.connector.open(COMPUTER, { mode: "shell", ...TERMINAL })),
+    ).toBe(refused);
+  });
+
+  // Contract: a stream whose open the endpoint does not answer within the
+  // attempt's 30 s fails its output with a TimeoutError, finishes the
+  // Worker's stream; the session is not cancelled, since the endpoint may
+  // have started it.
+  it("fails a stream the endpoint does not answer within 30 s", async () => {
+    const cancels: string[][] = [];
+    const h = await harness({ cancels });
+    h.worker.answerOpen = undefined;
+    await h.connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    const reading = refusal(first(session.output, 1));
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(await reading).toMatchObject({
+      name: "TimeoutError",
+      message: "the endpoint did not answer the session's open within 30000 ms",
+    });
+    expect(h.worker.requests.some((r) => r.type === "finish")).toBe(true);
+    expect(cancels).toEqual([]);
+  });
+
+  // Contract: an answered open stops the attempt's timer: the stream is
+  // not failed after 30 s.
+  it("keeps a stream whose open the endpoint answered", async () => {
+    const h = await harness();
+    await h.connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    const [opened] = await first(session.output, 1);
+    expect(opened).toMatchObject({ type: "opened" });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(h.worker.requests.some((r) => r.type === "finish")).toBe(false);
+    session.close();
   });
 });

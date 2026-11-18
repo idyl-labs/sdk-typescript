@@ -176,8 +176,8 @@ the one addressed is refused. A Computer read, a listing and a wake never read
 it.
 
 Operations that settle on the platform, a save, a restore, a wake, a
-sleep, a fork's copy and a delete with `wait`, are read until they settle;
-no request is held open.
+sleep, a fork's copy, an upload and a delete with `wait`, are read until
+they settle; no request is held open.
 
 ## Files
 
@@ -306,8 +306,8 @@ connection's handshake overlaps the end of the Computer's wake.
 The platform holds a session pending and not yet bound, with no endpoint,
 while the Computer's previous Activation is released, as just after the
 Computer went to sleep. Only a create that answers so is read again: the
-session's read route, after pauses that start at 100 ms and double to 1 s,
-until the session names its endpoint, which is then used as if the create
+session's read route, after the pauses of `sessionPlacementPauses`, which
+start at 100 ms and double to 1 s, until the session names its endpoint, which is then used as if the create
 had answered it, or is in another phase. A read that meets a network
 failure, HTTP 429 or a server error is tried again at the next pause; any
 other refusal fails the open. A session still unbound after 30 s fails the
@@ -317,6 +317,17 @@ create that answers the session already final without its endpoint, as
 `cancelled` with `PutToSleep` when the Computer was put to sleep before the
 session started, rejects the open with a `ComputerSessionEndedError`, and
 fails a stream already sent as soon as the answer arrives.
+
+One attempt to connect a session lasts at most 30 s: from connecting to the
+place the client knows, or to the endpoint the create answered, until the
+Computer connection is established and the endpoint has answered the
+session's open with its first frame. A connection not established in time
+rejects the open with a `TimeoutError` `DOMException` and is closed, so the
+next open connects afresh; a stream the endpoint has not answered in time
+fails its output with a `TimeoutError` and is no longer renewed, and the
+session is left to its lease. The create is watched beside the attempt: a
+create the platform refuses, or answers the session ended, ends the open at
+once with that refusal or a `ComputerSessionEndedError`.
 
 A stream speaks `workload-session/json-v2` (`frames.ts`): each frame a
 big-endian 32-bit length and that many bytes of JSON, at most 64 KiB, with
@@ -522,10 +533,18 @@ uploads run under the caller's signal alone.
 
 The evaluators in `src/api/wait.ts`, one per kind, judge an observed object
 against a condition and answer `pending`, `met`, or `failed` with a
-message. Deletion waits share one loop, `waitForDeletion` in `src/wait.ts`:
-it reads the object at once and then again each interval, and ends when the
-evaluator reports `deleted` met or a read answers 404, which is the
-caller's judgement that absence is the condition. An exhausted timeout ends
+message. Every wait runs one loop, `pollUntil` in `src/wait.ts`: it judges,
+pauses, reads and judges again. Its pauses follow the wait's schedule, and
+an event the wait's `WaitEvents` report ends the pause under way so the
+next read is made at once. With no event stream a wake, sleep, save,
+restore, fork, upload or deletion pauses 500 ms for the first 10 s, then
+1 s, 2 s and 4 s, then 5 s; with one, 500 ms doubling to 5 s, each read a
+guard against a lost event. A session not yet placed pauses 100 ms doubling
+to 1 s with no stream and to 5 s with one; a command's save result pauses
+250 ms with no stream, and 250 ms doubling to 5 s with one. Deletion waits,
+`waitForDeletion`, read the object at once and end when the evaluator
+reports `deleted` met or a read answers 404, which is the caller's
+judgement that absence is the condition. An exhausted timeout ends
 a wait with a `TimeoutError` `DOMException` and cancellation with the
 signal's reason; the listener and the timer a wait holds are released
 however it ends, and a wait never deletes anything.
