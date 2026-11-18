@@ -66,18 +66,31 @@ export interface ComputerChange {
   readonly id?: string;
 }
 
+/**
+ * Whether a connector's event stream carries changes:
+ *
+ * - `listening`: a stream carries them.
+ * - `retrying`: no stream does, and the connector tries again by itself on
+ *   its retry steps.
+ * - `unavailable`: no stream does, and the connector does not try again
+ *   until it docks again or is used again: no change events are served to
+ *   its dock, or its watch was refused for a cause a retry cannot change.
+ */
+export type ListeningState = "listening" | "retrying" | "unavailable";
+
 /** What a page or program is told of its connector's listening. */
 export interface ChangeListener {
   /** A change arrived. Called in order, never while another call runs. */
   readonly onChange?: (change: ComputerChange) => void;
   /**
-   * Whether the connector has an event stream: `true` once a stream
-   * delivers its first `reread`; `false` once an attempt to open one
-   * fails, or when the platform serves no change events to the dock.
-   * Called only when the answer changes, and not while a first attempt is in flight or a stream
-   * that ended is opened again.
+   * The connector's {@link ListeningState}: `listening` once a stream
+   * delivers its first `reread`; `retrying` once an attempt to open one
+   * fails and will be tried again; `unavailable` when no change events are
+   * served to the dock, or the watch was refused for a cause a retry
+   * cannot change. Called only when the state changes, and not while a
+   * first attempt is in flight or a stream that ended is opened again.
    */
-  readonly onListening?: (listening: boolean) => void;
+  readonly onListening?: (state: ListeningState) => void;
 }
 
 /** The event service, and how its certificate is verified. */
@@ -163,10 +176,14 @@ interface Stream {
   stop(): void;
 }
 
-/** Whether `error` refuses the caller's sign-in or permission. */
+/**
+ * Whether `error` is a refusal a retry cannot change: the caller's sign-in
+ * or permission, or a Namespace that is not there.
+ */
 function refusedCaller(error: unknown): boolean {
   return (
-    error instanceof ApiError && (error.status === 401 || error.status === 403)
+    error instanceof ApiError &&
+    (error.status === 401 || error.status === 403 || error.status === 404)
   );
 }
 
@@ -179,7 +196,7 @@ export class Listening {
   #stream: Stream | undefined;
   #state: "opening" | "listening" | "down" = "opening";
   /** What listeners were last told, `undefined` before the first answer. */
-  #told: boolean | undefined;
+  #told: ListeningState | undefined;
   #started = false;
   #attempting = false;
   #failures = 0;
@@ -190,9 +207,12 @@ export class Listening {
     this.#port = port;
   }
 
-  /** Whether a stream carries the Namespace's events now. */
-  get listening(): boolean {
-    return this.#state === "listening";
+  /**
+   * The state listeners were last told, `undefined` while the first
+   * attempt is in flight.
+   */
+  get listening(): ListeningState | undefined {
+    return this.#told;
   }
 
   /**
@@ -282,7 +302,7 @@ export class Listening {
         service === undefined
       ) {
         // The Zone serves no events on this dock; the next dock looks again.
-        this.#down();
+        this.#down("unavailable");
         return;
       }
       let watch: ComputerWatch;
@@ -290,7 +310,7 @@ export class Listening {
         watch = this.#watch ?? (await this.#port.createWatch());
       } catch (error) {
         if (!refusedCaller(error)) throw error;
-        this.#down();
+        this.#down("unavailable");
         return;
       }
       this.#watch = watch;
@@ -569,7 +589,7 @@ export class Listening {
     // A stream that ended sooner is a failed attempt: the connector has no
     // event stream, the next attempt waits out the step from when this one
     // began, and the steps climb.
-    this.#down();
+    this.#down("retrying");
     this.#failures += 1;
     if (!this.#started || this.#retry !== undefined) return;
     this.#retry = setTimeout(
@@ -589,7 +609,7 @@ export class Listening {
   /** The attempt failed: no event stream until one delivers its `reread`. */
   #fail(): void {
     this.#end();
-    this.#down();
+    this.#down("retrying");
     if (!this.#started || this.#retry !== undefined) return;
     const wait = this.#step();
     this.#failures += 1;
@@ -602,13 +622,13 @@ export class Listening {
   /** A stream carries the Namespace's events. */
   #listening(): void {
     this.#state = "listening";
-    this.#report(true);
+    this.#report("listening");
   }
 
-  /** The connector has no event stream. */
-  #down(): void {
+  /** The connector has no event stream, and tries again by itself or not. */
+  #down(state: "retrying" | "unavailable"): void {
     this.#state = "down";
-    this.#report(false);
+    this.#report(state);
   }
 
   /** Forgets the stream in hand, closing what the Worker holds of it. */
@@ -630,11 +650,12 @@ export class Listening {
     }
   }
 
-  /** Tells the listeners whether a stream carries events, when that changed. */
-  #report(listening: boolean): void {
-    if (this.#told === listening) return;
-    this.#told = listening;
-    this.#tell((l) => l.onListening?.(listening));
+  /** Tells the listeners the connector's state, when it changed. */
+  #report(state: ListeningState): void {
+    // An attempt that settles after stop() tells nothing: no retry follows.
+    if (!this.#started || this.#told === state) return;
+    this.#told = state;
+    this.#tell((l) => l.onListening?.(state));
   }
 
   #tell(call: (listener: ChangeListener) => void): void {

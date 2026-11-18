@@ -187,6 +187,7 @@ const PUBLIC_SURFACE = [
   "ListFilesOptions",
   "ListFilesPageOptions",
   "ListOptions",
+  "ListeningState",
   "MICROS_PER_DOLLAR",
   "OpenSession",
   "Page",

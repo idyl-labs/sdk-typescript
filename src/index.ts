@@ -84,6 +84,7 @@ export {
 export type {
   ChangeListener,
   ComputerChange,
+  ListeningState,
 } from "./computer-connection/listening.js";
 export type { ComputerEventPart } from "./api/computer-watch.js";
 export type {

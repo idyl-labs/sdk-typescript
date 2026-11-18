@@ -37,6 +37,7 @@ import {
   type ChangeListener,
   type ComputerChange,
   type EventService,
+  type ListeningState,
 } from "./listening.js";
 import type { ComputerSessionEndpoint } from "../api/computer-session-endpoint.js";
 import {
@@ -492,11 +493,13 @@ export interface ComputerConnector {
     handlers: FilesSessionHandlers,
   ): Promise<ComputerFilesSession>;
   /**
-   * Whether the connector's event stream carries changes to its
-   * Namespace's Computers now. While it does, waits pause only as a guard
-   * against a lost event, and a page reads on the events alone.
+   * The connector's {@link ListeningState}, as its listeners were last
+   * told it; `undefined` while its first attempt to listen is in flight.
+   * It stays `listening` while a stream that ended is opened again at once.
+   * Waits pace themselves by whether a stream carries events at that
+   * moment, not by this value.
    */
-  readonly listening: boolean;
+  readonly listening: ListeningState | undefined;
   /**
    * Calls `listener` with each change to the Computers of the connector's
    * own Namespace, and of no other, and each start and stop of the event
@@ -619,7 +622,7 @@ class Connector implements ComputerConnector {
     return ready;
   }
 
-  get listening(): boolean {
+  get listening(): ListeningState | undefined {
     return this.#changes.listening;
   }
 
