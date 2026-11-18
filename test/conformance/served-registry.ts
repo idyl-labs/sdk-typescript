@@ -21,6 +21,7 @@
  * A `<kind>.refusals` fixture is a list of documents the kind's validation
  * refuses, each with the refusal; its codec lives in `servedRefusals`.
  */
+import { eventsRegistry } from "./events-registry.js";
 import {
   decodeComputerSecretUsageResponse,
   decodeVaultSecretUsageResponse,
@@ -333,6 +334,7 @@ export const servedRegistry: ReadonlyMap<
 > = new Map<string, ServedCodec<unknown>>([
   ...storageRegistry,
   ...billingRegistry,
+  ...eventsRegistry,
   ["namespace", namespace],
   ["network", network],
   ["computer", computer],

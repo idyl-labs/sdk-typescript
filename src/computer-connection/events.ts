@@ -4,8 +4,9 @@
 // to its Zone's Computer service: each frame is a 4-byte big-endian length,
 // then that many bytes of one JSON object with a `type` member, at least
 // one byte and at most MAX_COMPUTER_EVENT_FRAME_BYTES. The client sends
-// `ticket` frames; the service sends `event`, `ended` and `error` frames. A service
-// frame is read leniently: members this SDK does not know are carried, and
+// `ticket` frames; the service sends `event`, `ended` and `error` frames. A
+// service frame is read leniently: parsed once and carried as it is,
+// members this SDK does not know included, once its own members are judged;
 // a frame of a `type` it does not know is skipped.
 
 import {
@@ -74,9 +75,11 @@ export class EventFrameReader {
 }
 
 /**
- * One service frame from its body: an `event` with a string `part`, an
- * `ended` with a string `watch`, or an `error` with a string `code`; `undefined` for a `type` this SDK does not
- * name. Optional members that are not strings read as absent.
+ * One service frame from its body, carried as parsed with every member it
+ * holds: an `event` with a string `part`, an `ended` with a string `watch`,
+ * or an `error` with a string `code`; `undefined` for a `type` this SDK does
+ * not name. An optional member that is not a string, or is empty, is left
+ * out.
  */
 function serviceFrame(body: Uint8Array): ComputerEventServiceFrame | undefined {
   let value: unknown;
@@ -93,9 +96,15 @@ function serviceFrame(body: Uint8Array): ComputerEventServiceFrame | undefined {
   if (typeof type !== "string") {
     throw new FrameError("event stream frame names no type");
   }
-  const text = (key: string): Record<string, string> => {
-    const member = o[key];
-    return typeof member === "string" && member !== "" ? { [key]: member } : {};
+  const carried = (optional: readonly string[]): Record<string, unknown> => {
+    const out: Record<string, unknown> = { ...o };
+    for (const key of optional) {
+      const member = out[key];
+      if (typeof member !== "string" || member === "") {
+        Reflect.deleteProperty(out, key);
+      }
+    }
+    return out;
   };
   switch (type) {
     case "event": {
@@ -104,11 +113,9 @@ function serviceFrame(body: Uint8Array): ComputerEventServiceFrame | undefined {
         throw new FrameError("event frame names no part");
       }
       return {
+        ...carried(["namespaceId", "computer", "id"]),
         type: "event",
         part,
-        ...text("namespaceId"),
-        ...text("computer"),
-        ...text("id"),
       };
     }
     case "ended": {
@@ -116,14 +123,14 @@ function serviceFrame(body: Uint8Array): ComputerEventServiceFrame | undefined {
       if (typeof watch !== "string" || watch === "") {
         throw new FrameError("ended frame names no watch");
       }
-      return { type: "ended", watch };
+      return { ...o, type: "ended", watch };
     }
     case "error": {
       const code = o["code"];
       if (typeof code !== "string" || code === "") {
         throw new FrameError("error frame names no code");
       }
-      return { type: "error", code, ...text("watch"), ...text("message") };
+      return { ...carried(["watch", "message"]), type: "error", code };
     }
     default:
       return undefined;

@@ -302,25 +302,7 @@ export async function verifySessionTrust(
       "session trust names a browser endpoint that is not a wss URL",
     );
   }
-  const events = b["computerEvents"];
-  let computerEvents: SessionTrust["computerEvents"];
-  if (events !== undefined && events !== null) {
-    const e = events as Record<string, unknown>;
-    const id = e["serverId"];
-    const pem = e["serverRoots"];
-    if (typeof id !== "string" || !isZoneServiceId(id, zone, policy.network)) {
-      throw new SessionTrustError(
-        "session trust names an event service that is not one service of its Zone",
-      );
-    }
-    const eventRoots = pemCertificates(typeof pem === "string" ? pem : "");
-    if (eventRoots.length === 0) {
-      throw new SessionTrustError(
-        "session trust names no roots for its event service",
-      );
-    }
-    computerEvents = { serverId: id, serverRoots: eventRoots };
-  }
+  const computerEvents = readComputerEvents(b, zone, policy.network);
   return {
     network: policy.network,
     zone,
@@ -338,9 +320,39 @@ export async function verifySessionTrust(
 }
 
 /**
+ * The event service a verified bundle's payload `b` names for `zone` in
+ * `network`, or `undefined` when it names none. Throws a
+ * `SessionTrustError` when it names one that is not one service of that
+ * Zone, or without roots.
+ */
+export function readComputerEvents(
+  b: Readonly<Record<string, unknown>>,
+  zone: string,
+  network: string,
+): SessionTrust["computerEvents"] {
+  const events = b["computerEvents"];
+  if (events === undefined || events === null) return undefined;
+  const e = events as Record<string, unknown>;
+  const id = e["serverId"];
+  const pem = e["serverRoots"];
+  if (typeof id !== "string" || !isZoneServiceId(id, zone, network)) {
+    throw new SessionTrustError(
+      "session trust names an event service that is not one service of its Zone",
+    );
+  }
+  const serverRoots = pemCertificates(typeof pem === "string" ? pem : "");
+  if (serverRoots.length === 0) {
+    throw new SessionTrustError(
+      "session trust names no roots for its event service",
+    );
+  }
+  return { serverId: id, serverRoots };
+}
+
+/**
  * Whether `id` is the SPIFFE ID of one service of `zone` in `network`:
- * `spiffe://{zone}.zone.{network}/service/{name}`, the trust domain
- * compared without regard to case, with one name and nothing after it, no
+ * `spiffe://{zone}.zone.{network}/service/{name}`, the trust domain spelt
+ * exactly as the bundle spells it, with one name and nothing after it, no
  * escapes, query, fragment, user or white space.
  */
 function isZoneServiceId(id: string, zone: string, network: string): boolean {
@@ -352,9 +364,7 @@ function isZoneServiceId(id: string, zone: string, network: string): boolean {
   const slash = rest.indexOf("/");
   if (slash < 0) return false;
   const host = rest.slice(0, slash);
-  if (host.toLowerCase() !== `${zone}.zone.${network}`.toLowerCase()) {
-    return false;
-  }
+  if (host !== `${zone}.zone.${network}`) return false;
   const path = rest.slice(slash);
   if (!path.startsWith("/service/")) return false;
   const name = path.slice("/service/".length);

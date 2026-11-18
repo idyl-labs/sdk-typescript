@@ -39,6 +39,8 @@ export const SELECTED = [
   /^api\/testdata\/golden\/(?:commit|file|files|files-watch|restore|upload|upload-replaced|version)\.[a-z0-9-]+\.json$/u,
   /^api\/testdata\/golden\/computer(?:-awake|-cell|-images|-journal|-notebook|-operation|-secrets|-session|-sessions|-sizes|-sleep|-wake)?\.[a-z0-9-]+\.json$/u,
   /^api\/testdata\/golden\/computers\.by-secret(?:-empty)?\.json$/u,
+  /^api\/testdata\/golden\/computer-(?:watch|event)\.[a-z0-9-]+\.json$/u,
+  /^api\/testdata\/golden\/session-trust\.bundle-computer-events\.json$/u,
   /^api\/testdata\/golden\/journal\.(?:computer-to-computer|copied|repeated-copy|version)-[a-z0-9-]+\.json$/u,
   /^api\/testdata\/golden\/namespace\.[a-z0-9-]+\.json$/u,
   /^api\/testdata\/golden\/network\.[a-z0-9-]+\.json$/u,

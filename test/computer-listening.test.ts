@@ -192,6 +192,7 @@ describe("event stream frames", () => {
         part: "computer",
         namespaceId: NAMESPACE,
         computer: COMPUTER,
+        extra: 1,
       },
       { type: "ended", watch: "w" },
       { type: "error", code: "COMPUTER_WATCH_TICKET_REFUSED", watch: "w" },

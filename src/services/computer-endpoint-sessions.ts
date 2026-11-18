@@ -11,10 +11,9 @@
 import type { PlacementContext } from "../internal/context.js";
 import { accountSubnet, computerWatches } from "../internal/apipath.js";
 import {
-  MAX_COMPUTER_WATCH_TICKET_BYTES,
+  validateComputerWatch,
   type ComputerWatch,
 } from "../api/computer-watch.js";
-import { isComputerWatchId, isNamespaceId } from "../resource/uuid-id.js";
 import { resolvePlacement } from "../internal/routing.js";
 import { TransportError } from "../errors.js";
 import { decodeBase64, encodeBase64 } from "../resource/base64.js";
@@ -139,31 +138,22 @@ function issued(answer: unknown): IssuedCertificate {
 }
 
 /**
- * Reads a watch's create answer: its ID and Namespace ID canonical, its
- * Namespace and Subnet named, its end an instant, and its ticket within
- * {@link MAX_COMPUTER_WATCH_TICKET_BYTES} of base64url characters and `.`.
+ * Reads a watch's create answer, carried as it is, and judges it with
+ * {@link validateComputerWatch}; an answer it refuses is an invalid
+ * response.
  */
 function watchOf(answer: unknown): ComputerWatch {
-  const a = (
+  const watch = (
     typeof answer === "object" && answer !== null ? answer : {}
-  ) as Record<string, unknown>;
-  const { id, namespaceId, namespace, subnet, expiresAt, ticket } = a;
-  if (
-    !isComputerWatchId(id) ||
-    !isNamespaceId(namespaceId) ||
-    typeof namespace !== "string" ||
-    typeof subnet !== "string" ||
-    typeof expiresAt !== "string" ||
-    Number.isNaN(Date.parse(expiresAt)) ||
-    typeof ticket !== "string" ||
-    ticket.length === 0 ||
-    ticket.length > MAX_COMPUTER_WATCH_TICKET_BYTES ||
-    !/^[A-Za-z0-9_.-]+$/.test(ticket)
-  ) {
+  ) as ComputerWatch;
+  try {
+    validateComputerWatch(watch);
+  } catch (cause) {
     throw new TransportError(
       "invalid_response",
       "computer watch response is invalid",
+      { cause },
     );
   }
-  return { id, namespaceId, namespace, subnet, expiresAt, ticket };
+  return watch;
 }

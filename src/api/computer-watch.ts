@@ -15,7 +15,12 @@
  * stream it holds. No row is kept for a watch: it is never read, listed or
  * deleted.
  */
-import type { ComputerWatchId, NamespaceId } from "../resource/uuid-id.js";
+import {
+  isComputerWatchId,
+  isNamespaceId,
+  type ComputerWatchId,
+  type NamespaceId,
+} from "../resource/uuid-id.js";
 
 /** Asks for a Computer watch of the Namespace the route names; it states nothing else. */
 export type CreateComputerWatchRequest = Readonly<Record<never, never>>;
@@ -46,6 +51,43 @@ export interface ComputerWatch {
 
 /** The most bytes a watch's ticket holds. */
 export const MAX_COMPUTER_WATCH_TICKET_BYTES = 1024;
+
+/**
+ * Judges a watch as its create answers it: its ID and its Namespace's ID
+ * canonical, its Namespace and Subnet named, its end an RFC 3339 instant,
+ * and its ticket 1 to {@link MAX_COMPUTER_WATCH_TICKET_BYTES} base64url
+ * characters and `.`. Throws a `TypeError` naming the member.
+ */
+export function validateComputerWatch(watch: ComputerWatch): void {
+  if (!isComputerWatchId(watch.id)) {
+    throw new TypeError("computer watch id must be a canonical UUID");
+  }
+  if (!isNamespaceId(watch.namespaceId)) {
+    throw new TypeError("computer watch namespaceId must be a canonical UUID");
+  }
+  if (typeof watch.namespace !== "string" || watch.namespace === "") {
+    throw new TypeError("computer watch namespace is required");
+  }
+  if (typeof watch.subnet !== "string" || watch.subnet === "") {
+    throw new TypeError("computer watch subnet is required");
+  }
+  if (
+    typeof watch.expiresAt !== "string" ||
+    Number.isNaN(Date.parse(watch.expiresAt))
+  ) {
+    throw new TypeError("computer watch expiresAt must be an instant");
+  }
+  if (
+    typeof watch.ticket !== "string" ||
+    watch.ticket.length === 0 ||
+    watch.ticket.length > MAX_COMPUTER_WATCH_TICKET_BYTES ||
+    !/^[A-Za-z0-9_.-]+$/u.test(watch.ticket)
+  ) {
+    throw new TypeError(
+      `computer watch ticket must be 1 to ${String(MAX_COMPUTER_WATCH_TICKET_BYTES)} base64url characters and dots`,
+    );
+  }
+}
 
 /** The profile of the event stream, which the lane stream's header names. */
 export const COMPUTER_EVENTS_STREAM_PROFILE = "computer-events/json-v1";

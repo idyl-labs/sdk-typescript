@@ -149,7 +149,8 @@ describe("session trust", () => {
   });
 
   // Contract: an event service that is not one service of the bundle's own
-  // Zone, or that names no roots, refuses the bundle.
+  // Zone, its trust domain spelt exactly as the bundle spells it, or that
+  // names no roots, refuses the bundle.
   it("refuses an event service outside its Zone or without roots", async () => {
     const pinned = await signer("k1");
     const policy = {
@@ -160,6 +161,7 @@ describe("session trust", () => {
     };
     for (const serverId of [
       "spiffe://zone-b.zone.example.test/service/computer",
+      "spiffe://Zone-A.zone.example.test/service/computer",
       "spiffe://zone-a.zone.example.test/node/computer",
       "spiffe://zone-a.zone.example.test/service/",
       "spiffe://zone-a.zone.example.test/service/computer/extra",
