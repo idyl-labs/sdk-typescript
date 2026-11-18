@@ -77,6 +77,17 @@ export type PageToWorker =
       readonly dock: number;
       readonly service: number;
     }
+  /**
+   * The page has handled the last `service-data` of a service connection:
+   * the Worker reads its stream again. Until then it reads none, so the
+   * stream's sender is held by its receive window.
+   */
+  | {
+      readonly type: "service-release";
+      readonly ref: number;
+      readonly dock: number;
+      readonly service: number;
+    }
   | {
       readonly type: "close-computer";
       readonly ref: number;

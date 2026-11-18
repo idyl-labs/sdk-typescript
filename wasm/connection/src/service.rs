@@ -51,8 +51,9 @@ pub enum ServiceEvent {
 }
 
 /// One connection to one Zone service. The plaintext it receives is held
-/// until the caller reads it, which the caller does after every turn; the
-/// lane stream's window bounds what the service sends ahead of that.
+/// until the caller reads it; the client reads no more TLS from the stream
+/// until the caller has handled what it read, so the lane stream's receive
+/// window bounds what is held.
 pub struct ServiceLink {
     conn: ClientConnection,
     out: Vec<u8>,
@@ -149,6 +150,11 @@ impl ServiceLink {
             .writer()
             .write_all(bytes)
             .map_err(|e| ServiceEnded::Tls(e.to_string()))
+    }
+
+    /// Whether plaintext the service sent is waiting to be read.
+    pub fn has_unread(&self) -> bool {
+        !self.inbox.is_empty()
     }
 
     /// Takes the plaintext the service sent.

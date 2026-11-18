@@ -107,6 +107,11 @@ type ListeningRequest =
       readonly type: "close-service";
       readonly dock: number;
       readonly service: number;
+    }
+  | {
+      readonly type: "service-release";
+      readonly dock: number;
+      readonly service: number;
     };
 
 /** What listening needs from its connector. */
@@ -421,8 +426,26 @@ export class Listening {
     }
   }
 
-  /** The service's bytes: each frame in order. */
+  /**
+   * One batch of the service's bytes: each frame in order, handed on at
+   * once; then the Worker is told to read the stream again. The page keeps
+   * no queue: each change is handed to its listeners as it is read.
+   */
   #data(stream: Stream, bytes: Uint8Array): void {
+    this.#frames(stream, bytes);
+    if (this.#stream === stream && stream.service !== undefined) {
+      void this.#port
+        .request({
+          type: "service-release",
+          dock: stream.dock,
+          service: stream.service,
+        })
+        .catch(() => undefined);
+    }
+  }
+
+  /** The frames of one batch, in order. */
+  #frames(stream: Stream, bytes: Uint8Array): void {
     let frames: ComputerEventServiceFrame[];
     try {
       frames = stream.reader.push(bytes);

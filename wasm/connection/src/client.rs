@@ -138,6 +138,9 @@ struct Service {
     lane: u32,
     sid: u32,
     link: ServiceLink,
+    /// A batch was handed to the caller and not yet released: nothing more
+    /// is read from the stream, so the edge is granted no more credit.
+    held: bool,
 }
 
 /// One client identity's connections.
@@ -325,7 +328,15 @@ impl Client {
             &lane::lane_stream_header(lane_id, lane::STREAM_CLASS_E2E_MTLS, profile),
         );
         let handle = self.handle();
-        self.services.insert(handle, Service { lane, sid, link });
+        self.services.insert(
+            handle,
+            Service {
+                lane,
+                sid,
+                link,
+                held: false,
+            },
+        );
         Ok(handle)
     }
 
@@ -339,14 +350,31 @@ impl Client {
         s.link.write(bytes).map_err(|_| ClientError::Service)
     }
 
-    /// Takes the plaintext a service connection received. What arrived
-    /// before the connection ended is kept for this read until
+    /// Takes the plaintext a service connection received, as one batch.
+    /// Once a batch is taken nothing more is read from the stream until
+    /// [`Client::service_release`]: bytes not read grant the edge no credit,
+    /// so the stream's receive window is all a sender can have in flight,
+    /// and the other streams of the dock keep their own credit. What
+    /// arrived before the connection ended is kept for this read until
     /// [`Client::close_service`] forgets the connection.
     pub fn service_read(&mut self, service: u32) -> Vec<u8> {
-        self.services
-            .get_mut(&service)
-            .map(|s| s.link.read())
-            .unwrap_or_default()
+        let Some(s) = self.services.get_mut(&service) else {
+            return Vec::new();
+        };
+        let batch = s.link.read();
+        if !batch.is_empty() {
+            s.held = true;
+        }
+        batch
+    }
+
+    /// The caller has handled the last batch of a service connection: its
+    /// stream is read again.
+    pub fn service_release(&mut self, service: u32) {
+        if let Some(s) = self.services.get_mut(&service) {
+            s.held = false;
+        }
+        self.drive();
     }
 
     /// Ends a service connection: TLS sends its close notify and the lane
@@ -463,7 +491,9 @@ impl Client {
     fn drive_services(&mut self) {
         let mut ended = Vec::new();
         for (&handle, s) in self.services.iter_mut() {
-            if s.link.ended() {
+            // The next bytes are read only once the caller has taken and
+            // handled the ones before.
+            if s.link.ended() || s.held || s.link.has_unread() {
                 continue;
             }
             let mut broken = false;

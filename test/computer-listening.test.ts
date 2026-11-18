@@ -55,6 +55,7 @@ class FakePort implements ListeningPort {
   readonly tickets: { watch: string; ticket: string }[] = [];
   readonly closed: number[] = [];
   readonly lanes: string[] = [];
+  released = 0;
   profile = "client-service-lanes/1";
   watches = 0;
   #handle = 1;
@@ -98,6 +99,9 @@ class FakePort implements ListeningPort {
       }
       case "close-service":
         this.closed.push(request.service);
+        return Promise.resolve(undefined);
+      case "service-release":
+        this.released += 1;
         return Promise.resolve(undefined);
     }
   };
@@ -221,6 +225,20 @@ describe("listening", () => {
       { part: "reread" },
       { part: "version", computer: COMPUTER },
     ]);
+  });
+
+  // Contract: each batch the Worker hands over is handled at once, and
+  // only then is the Worker told to read the stream again.
+  it("releases the stream after handing on each batch", async () => {
+    const port = new FakePort();
+    const listening = new Listening(port);
+    const seen: number[] = [];
+    listening.subscribe({ onChange: () => seen.push(port.released) });
+    listening.start();
+    await settle();
+    port.send({ type: "event", namespaceId: NAMESPACE, part: "reread" });
+    expect(seen).toEqual([0]);
+    expect(port.released).toBe(1);
   });
 
   // Contract: an event of another Namespace is not delivered, and a part

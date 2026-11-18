@@ -348,6 +348,12 @@ export function serveComputerConnections(scope: WorkerScope): void {
         turn(request.dock, dock);
         return undefined;
       }
+      case "service-release": {
+        const dock = docked(request.dock);
+        dock.client.serviceRelease(request.service);
+        turn(request.dock, dock);
+        return undefined;
+      }
       case "close-service": {
         const dock = docked(request.dock);
         dock.client.closeService(request.service);

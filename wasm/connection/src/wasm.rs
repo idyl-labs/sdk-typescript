@@ -303,11 +303,19 @@ impl WorkerClient {
             .map_err(|e| JsError::new(&format!("service write: {e:?}")))
     }
 
-    /// The plaintext a service connection received since the last read,
-    /// possibly empty.
+    /// The plaintext a service connection received since the last read, as
+    /// one batch, possibly empty; after a batch nothing more is read until
+    /// `serviceRelease`.
     #[wasm_bindgen(js_name = serviceRead)]
     pub fn service_read(&mut self, service: u32) -> Uint8Array {
         Uint8Array::from(self.client.service_read(service).as_slice())
+    }
+
+    /// The page has handled the last batch of a service connection; its
+    /// stream is read again.
+    #[wasm_bindgen(js_name = serviceRelease)]
+    pub fn service_release(&mut self, service: u32) {
+        self.client.service_release(service);
     }
 
     /// Ends a service connection.
