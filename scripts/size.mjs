@@ -2,7 +2,7 @@
 
 // Holds the built package to its size budget: the whole ES module build,
 // every product on the client included, minified and compressed with gzip at
-// level 9, must fit in 75 kB (75 000 bytes). The CommonJS build carries the
+// level 9, must fit in 80 kB (80 000 bytes). The CommonJS build carries the
 // same code and is not counted twice. The budget is a tripwire against
 // accidental growth, set a little above the package's size: a change that
 // crosses it raises it deliberately, in the same change, or cuts elsewhere.
@@ -13,7 +13,7 @@ import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { transform } from "esbuild";
 
-export const BUDGET_BYTES = 75_000;
+export const BUDGET_BYTES = 80_000;
 
 /**
  * Returns the minified and compressed size of an ES module's source.

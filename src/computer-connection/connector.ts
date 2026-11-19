@@ -15,6 +15,7 @@
 // session is bound.
 
 import {
+  COMPUTER_SESSION_LEASE_MS,
   isComputerSessionPhaseTerminal,
   isZeroInstant,
   validateComputerSessionReason,
@@ -51,6 +52,7 @@ import { filesSession } from "./files.js";
 import type { ComputerFilesSession, FilesSessionHandlers } from "./files.js";
 import type {
   EndpointFrame,
+  OpenedFrame,
   OpenFrame,
   SessionFeature,
   SessionMode,
@@ -95,6 +97,9 @@ export interface IssuedCertificate {
   readonly chain: readonly Uint8Array[];
   /** The dock admission lease, exactly as issued. */
   readonly admissionLease: Uint8Array;
+  /** The leaf's `notBefore`, in milliseconds since the epoch. */
+  readonly notBeforeMs: number;
+  /** The leaf's `notAfter`, in milliseconds since the epoch. */
   readonly notAfterMs: number;
 }
 
@@ -186,7 +191,11 @@ export interface ComputerConnectorOptions {
   readonly client?: ComputerSessionClient;
   /** The edge's browser listener; derived from the Zone when absent. */
   readonly edgeUrl?: (zone: string) => string;
-  /** The renewal interval of open sessions, in milliseconds. */
+  /**
+   * The interval, in milliseconds, of the connector's upkeep: the renewal
+   * of open sessions, and of the client certificate once half its life has
+   * passed.
+   */
   readonly renewEveryMs?: number;
   /**
    * Where the highest accepted session trust version is kept per Network
@@ -361,14 +370,34 @@ function validateCommand(command: readonly string[]): void {
 }
 
 /**
- * The features an open asks for, by mode: an exec asks for its save result
- * after exit. The endpoint refuses a feature its mode does not take: a shell
- * takes no save result, and a files stream takes no feature.
+ * The features an open asks for, by mode: a shell and an exec ask for a
+ * session that survives the loss of its stream, and an exec also for its
+ * save result after exit. The endpoint refuses a feature its mode does not
+ * take: a shell takes no save result, and a files stream takes no feature.
  */
 function featuresFor(mode: StreamOpen["mode"]): readonly SessionFeature[] {
-  return mode === "exec" ? ["save-result"] : [];
+  switch (mode) {
+    case "exec":
+      return ["save-result", "reattach"];
+    case "shell":
+      return ["reattach"];
+    case "files":
+      return [];
+  }
 }
 const RENEW_EVERY_MS = 60_000;
+/**
+ * The first and the longest pause between attempts to resume a lost
+ * stream, in milliseconds; each pause doubles the last.
+ */
+const REATTACH_BACKOFF_MS = 100;
+const REATTACH_BACKOFF_MAX_MS = 2_000;
+/**
+ * How long a resume keeps trying the grant one create installed before it
+ * creates again, in milliseconds, so a Computer placed anew is found while
+ * a lost path costs no create per attempt.
+ */
+const REATTACH_CREATE_EVERY_MS = 30_000;
 const KEEPALIVE_MS = 20_000;
 /**
  * The least time an open reads a session its create answered pending
@@ -402,6 +431,10 @@ interface Docked {
   readonly chain: readonly Uint8Array[];
   /** The client service lane profile the dock's edge serves; empty for none. */
   readonly serviceLaneProfile: string;
+  /** The client certificate's `notBefore`, in milliseconds since the epoch. */
+  readonly notBeforeMs: number;
+  /** The client certificate's `notAfter`, in milliseconds since the epoch. */
+  readonly notAfterMs: number;
 }
 
 interface Connection {
@@ -409,7 +442,7 @@ interface Connection {
   readonly dock: number;
   readonly node: string;
   readonly established: Promise<number>;
-  readonly streams: Map<number, SessionStream>;
+  readonly streams: Map<number, Leg>;
   readonly listener: (m: WorkerToPage) => void;
 }
 
@@ -423,6 +456,15 @@ export interface ComputerConnector {
    * Network's signed trust, and connects. Call it when the page loads: a
    * session waits for it, and none of it happens when a session opens. A
    * call after a failure starts again.
+   *
+   * From then until {@link ComputerConnector.close}, once a minute, the
+   * connector renews its client certificate once half the certificate's
+   * life has passed and connects again under the renewed one, in the
+   * background: sessions opened after that use the new connection, and the
+   * old one carries its streams until its certificate expires, when they
+   * are resumed on the new one. When the Network's edge asks a connection to
+   * drain, the connector connects again at once, in the background, and new
+   * sessions wait for that connection instead.
    *
    * @throws {@link SessionTrustError} the Network's session trust fails
    *   verification or is older than the trust floor, or the floor cannot
@@ -445,7 +487,8 @@ export interface ComputerConnector {
   /**
    * Opens a session on the Computer `computer` (its ID). Resolves once its
    * stream is open; its output, exit and save result arrive on the
-   * stream's `output`. An `opened` that does not answer the open's mode,
+   * stream's `output`. A `shell` or an `exec` session survives the loss of
+   * its stream, as {@link ComputerSessionStream} describes. An `opened` that does not answer the open's mode,
    * as one carrying an SSH host key does for any mode but `ssh`, errors the
    * output with a `FrameError`, finishes the stream, and stops the
    * session's renewals, leaving it to its lease. An `ssh` session's stream carries raw SSH bytes
@@ -557,9 +600,26 @@ class Connector implements ComputerConnector {
   // The Worker's certificate request, once the Worker has started. The
   // Worker's key outlives every dock.
   #started: Promise<Uint8Array> | undefined;
-  // The dock in use. It is dropped when the dock ends or fails to dock, so
-  // the next session docks again.
+  // The dock new sessions use, live or in flight. It is dropped when the
+  // dock ends or fails to dock, so the next session docks again; it is
+  // replaced at once when the edge asks the dock to drain, and by the dock
+  // under a renewed certificate once that one has docked.
   #ready: Promise<Docked> | undefined;
+  // The dock #ready last resolved to, until it ends.
+  #current: Docked | undefined;
+  // The one dock in flight, for sessions or for a renewal: every caller
+  // that needs a dock while one is in flight joins it.
+  #docking: Promise<Docked> | undefined;
+  // The docks the connector holds open, each with the timer that closes it
+  // at its certificate's notAfter once a later dock replaced it.
+  readonly #docks = new Map<
+    number,
+    { retire: ReturnType<typeof setTimeout> | undefined }
+  >();
+  // The docks the edge asked to drain.
+  readonly #draining = new Set<number>();
+  // Counts closes, so a dock that docks after a close is closed.
+  #generation = 0;
   // The edge's earliest time to dock again, from the last dock's end.
   #notBeforeMs = 0;
   #renewer: ReturnType<typeof setInterval> | undefined;
@@ -641,15 +701,112 @@ class Connector implements ComputerConnector {
     return this.#changes.waitEvents(matches, namespace);
   }
 
+  /** The dock new sessions use, docking when there is none. */
   #state(): Promise<Docked> {
-    if (this.#ready === undefined) {
-      const ready = this.#dock();
-      this.#ready = ready;
-      ready.catch(() => {
-        if (this.#ready === ready) this.#ready = undefined;
-      });
-    }
+    this.#ready ??= this.#redock();
     return this.#ready;
+  }
+
+  /**
+   * Docks under a client certificate issued for the dock, or joins the dock
+   * already in flight. Once docked, the dock is the one new sessions use,
+   * and the dock it replaces is closed at its certificate's `notAfter`: its
+   * connections carry on until then, and their streams are then resumed on
+   * a live dock. A dock that docks after `close` is closed.
+   */
+  #redock(): Promise<Docked> {
+    if (this.#docking !== undefined) return this.#docking;
+    const generation = this.#generation;
+    const next = this.#dock();
+    this.#docking = next;
+    next.then(
+      (docked) => {
+        if (this.#docking === next) this.#docking = undefined;
+        if (generation !== this.#generation) {
+          void this.#request({ type: "close-dock", dock: docked.dock }).catch(
+            () => undefined,
+          );
+          return;
+        }
+        if (!this.#docks.has(docked.dock)) {
+          // It ended before it was used.
+          if (this.#ready === next) this.#ready = undefined;
+          return;
+        }
+        const previous = this.#current;
+        this.#current = docked;
+        this.#ready = next;
+        if (previous !== undefined) this.#retire(previous);
+      },
+      () => {
+        if (this.#docking === next) this.#docking = undefined;
+        if (this.#ready === next) this.#ready = undefined;
+      },
+    );
+    return next;
+  }
+
+  /** Closes `docked` at its certificate's `notAfter`, or at once if that has passed. */
+  #retire(docked: Docked): void {
+    const held = this.#docks.get(docked.dock);
+    if (held === undefined || held.retire !== undefined) return;
+    held.retire = setTimeout(
+      () => {
+        held.retire = undefined;
+        void this.#request({ type: "close-dock", dock: docked.dock }).catch(
+          () => undefined,
+        );
+      },
+      Math.max(0, docked.notAfterMs - Date.now()),
+    );
+  }
+
+  /**
+   * The connector's upkeep, on its renewal tick: it docks when no dock is
+   * live or in flight, and docks again under a renewed certificate once half
+   * the live dock's certificate's life has passed.
+   */
+  #maintain(): void {
+    if (this.#docking !== undefined) return;
+    const current = this.#current;
+    if (
+      this.#ready === undefined ||
+      current === undefined ||
+      this.#draining.has(current.dock)
+    ) {
+      this.#ready = this.#redock();
+      this.#ready.catch(() => undefined);
+      return;
+    }
+    const half =
+      current.notBeforeMs + (current.notAfterMs - current.notBeforeMs) / 2;
+    if (Date.now() >= half) void this.#redock().catch(() => undefined);
+  }
+
+  /**
+   * The edge asked the dock `dock` to drain: its Computer connections serve
+   * no new session, and when it is the dock new sessions use, a new dock is
+   * docked at once, in the background, which new sessions join.
+   */
+  #drained(dock: number): void {
+    if (this.#draining.has(dock) || !this.#docks.has(dock)) return;
+    this.#draining.add(dock);
+    for (const [computer, opened] of [...this.#connections]) {
+      void opened.then(
+        (connection) => {
+          if (
+            connection.dock === dock &&
+            this.#connections.get(computer) === opened
+          ) {
+            this.#connections.delete(computer);
+          }
+        },
+        () => undefined,
+      );
+    }
+    if (this.#current?.dock !== dock) return;
+    this.#ready = this.#redock();
+    this.#ready.catch(() => undefined);
   }
 
   /**
@@ -704,29 +861,12 @@ class Connector implements ComputerConnector {
     // ready one does; the endpoint holds the stream until the grant is
     // installed, so either is connected to at once. Only a pending answer
     // without its endpoint is read again, until the session is bound.
-    const placed = (session: ServedSession): ComputerSessionEndpoint => {
-      const endpoint = session.status.endpoint;
-      if (endpoint === undefined) {
-        const phase = session.status.phase;
-        if (isEndedPhase(phase)) {
-          throw new ComputerSessionEndedError({
-            session: session.id,
-            phase,
-            ...(session.status.reason === undefined
-              ? {}
-              : { reason: session.status.reason }),
-          });
-        }
-        throw new Error("the session was created without its endpoint");
-      }
-      this.#remember(computer, endpoint);
-      this.#track(computer, session.id);
-      return endpoint;
-    };
     const answered = created.then((session) =>
       unbound(session)
-        ? this.#bound(computer, session).then(placed)
-        : placed(session),
+        ? this.#bound(computer, session).then((bound) =>
+            this.#placed(computer, bound, true),
+          )
+        : this.#placed(computer, session, true),
     );
     answered.catch(() => undefined);
     // A session event for this session makes the read that tells whether it
@@ -792,6 +932,36 @@ class Connector implements ComputerConnector {
       if (error instanceof ComputerSessionEndedError) session.fail(error);
     });
     return session;
+  }
+
+  /**
+   * Where the grant of `session`, as its create answered or a read found
+   * it, is installed, remembered as the Computer's place; with `track`, the
+   * session is renewed from then on. A session answered final without its
+   * endpoint is a {@link ComputerSessionEndedError}.
+   */
+  #placed(
+    computer: string,
+    session: ServedSession,
+    track: boolean,
+  ): ComputerSessionEndpoint {
+    const endpoint = session.status.endpoint;
+    if (endpoint === undefined) {
+      const phase = session.status.phase;
+      if (isEndedPhase(phase)) {
+        throw new ComputerSessionEndedError({
+          session: session.id,
+          phase,
+          ...(session.status.reason === undefined
+            ? {}
+            : { reason: session.status.reason }),
+        });
+      }
+      throw new Error("the session was created without its endpoint");
+    }
+    this.#remember(computer, endpoint);
+    if (track) this.#track(computer, session.id);
+    return endpoint;
   }
 
   /**
@@ -1078,15 +1248,22 @@ class Connector implements ComputerConnector {
     }
   }
 
-  /** Ends every connection, the event stream and the dock. */
+  /** Ends every connection, the event stream and every dock. */
   close(): void {
     this.#changes.stop();
     if (this.#renewer !== undefined) clearInterval(this.#renewer);
+    this.#renewer = undefined;
     this.#closing.abort();
     this.#closing = new AbortController();
-    void this.#ready?.then(({ dock }) =>
-      this.#request({ type: "close-dock", dock }),
-    );
+    this.#generation++;
+    this.#ready = undefined;
+    this.#docking = undefined;
+    this.#current = undefined;
+    for (const [dock, held] of this.#docks) {
+      clearTimeout(held.retire);
+      held.retire = undefined;
+      void this.#request({ type: "close-dock", dock }).catch(() => undefined);
+    }
   }
 
   /** Starts the Worker once; resolves to its certificate request. */
@@ -1190,38 +1367,49 @@ class Connector implements ComputerConnector {
     const serviceLaneProfile =
       outcome.type === "docked" ? outcome.serviceLaneProfile : "";
     const ending = (m: WorkerToPage): void => {
-      if (m.type !== "dock-ended" || m.dock !== dock) return;
-      this.#listeners.delete(ending);
-      this.#ended(m);
+      if (!onDock(m, dock)) return;
+      if (m.type === "drain") {
+        this.#drained(dock);
+      } else if (m.type === "dock-ended") {
+        this.#listeners.delete(ending);
+        this.#ended(m);
+      }
     };
+    this.#docks.set(dock, { retire: undefined });
     this.#listeners.add(ending);
     this.#renewer ??= setInterval(() => {
       this.#renew();
+      this.#maintain();
     }, this.#o.renewEveryMs ?? RENEW_EVERY_MS);
     return {
       dock,
       trust: verified,
       chain: certificate.chain,
       serviceLaneProfile,
+      notBeforeMs: certificate.notBeforeMs,
+      notAfterMs: certificate.notAfterMs,
     };
   }
 
   /**
    * Forgets a dock that ended, its lanes and its Computer connections, and
-   * ends their streams as broken: the Worker no longer holds any of them.
-   * The next session docks again, no earlier than the edge asked.
+   * ends their streams as lost: the Worker no longer holds any of them, and
+   * a session that survives the loss of its stream resumes on a live dock.
+   * The next session uses the dock in flight or docks again, no earlier
+   * than the edge asked.
    */
   #ended(m: Extract<WorkerToPage, { type: "dock-ended" }>): void {
     if (m.retryAfterMs !== undefined) {
       this.#notBeforeMs = Date.now() + m.retryAfterMs;
     }
-    const ready = this.#ready;
-    void ready?.then(
-      ({ dock }) => {
-        if (dock === m.dock && this.#ready === ready) this.#ready = undefined;
-      },
-      () => undefined,
-    );
+    clearTimeout(this.#docks.get(m.dock)?.retire);
+    this.#docks.delete(m.dock);
+    this.#draining.delete(m.dock);
+    if (this.#current?.dock === m.dock) {
+      this.#current = undefined;
+      // New sessions wait for the dock in flight, if any, or dock again.
+      this.#ready = this.#docking;
+    }
     for (const key of [...this.#lanes.keys()]) {
       if (key.startsWith(`${String(m.dock)} `)) this.#lanes.delete(key);
     }
@@ -1286,8 +1474,8 @@ class Connector implements ComputerConnector {
     }
   }
 
-  async #lane(node: string): Promise<number> {
-    const { dock, trust } = await this.#state();
+  async #lane(docked: Docked, node: string): Promise<number> {
+    const { dock, trust } = docked;
     const principal = `spiffe://${trust.zone}.zone.${this.#o.network}/node/${node}/data-dock`;
     // Lanes are the dock's: keyed by it, so a later dock opens its own.
     const key = `${String(dock)} ${principal}`;
@@ -1330,8 +1518,9 @@ class Connector implements ComputerConnector {
     const current = this.#connections.get(computer);
     if (current !== undefined && !fresh) return current;
     const opened = (async () => {
-      const { dock, trust, chain } = await this.#state();
-      const lane = await this.#lane(at.placement.node);
+      const docked = await this.#state();
+      const { dock, trust, chain } = docked;
+      const lane = await this.#lane(docked, at.placement.node);
       const since = this.#mark();
       const handle = (await this.#request({
         type: "open-computer",
@@ -1347,7 +1536,7 @@ class Connector implements ComputerConnector {
         computer: computer,
         minEpoch: String(at.epoch),
       })) as number;
-      const streams = new Map<number, SessionStream>();
+      const streams = new Map<number, Leg>();
       const established = this.#event(
         (m) =>
           onDock(m, dock) &&
@@ -1407,54 +1596,204 @@ class Connector implements ComputerConnector {
     requestID: string,
     open: StreamOpen,
   ): Promise<SessionStream> {
-    const { dock } = await this.#state();
-    const stream = (await this.#request({
-      type: "open-stream",
-      dock,
-      computer: connection.handle,
-    })) as number;
-    const send = (bytes: Uint8Array): void => {
-      void this.#request(
-        { type: "write", dock, computer: connection.handle, stream, bytes },
-        [bytes.buffer],
-      ).catch(() => undefined);
-    };
-    const session = new SessionStream(
-      requestID,
-      open.mode,
-      send,
-      () => {
-        void this.#request({
-          type: "finish",
-          dock,
-          computer: connection.handle,
-          stream,
-        }).catch(() => undefined);
-      },
-      () => {
-        this.#sessions.get(computer)?.delete(session.id ?? "");
-      },
-      (id) => {
-        // A cancel that fails leaves the session to its attach
-        // deadline; the stream's error is what the caller acts on.
-        this.#sessions.get(computer)?.delete(id);
-        void this.#o.api.cancelSession(computer, id).catch(() => undefined);
-      },
-    );
-    connection.streams.set(stream, session);
-    const frame: OpenFrame = {
+    const features = featuresFor(open.mode);
+    const leg = await this.#openLeg(connection, {
       requestID,
       mode: open.mode,
       tty: open.tty ?? false,
-      features: featuresFor(open.mode),
+      features,
       ...(open.shell === undefined ? {} : { shell: open.shell }),
       ...(open.command === undefined ? {} : { command: open.command }),
       ...(open.size === undefined ? {} : { size: open.size }),
       ...(open.term === undefined ? {} : { term: open.term }),
       ...(open.locale === undefined ? {} : { locale: open.locale }),
-    };
-    send(encodeFrame({ type: "open", ...frame }));
+    });
+    const session: SessionStream = new SessionStream({
+      requestId: requestID,
+      mode: open.mode,
+      leg,
+      savesResult: features.includes("save-result"),
+      forget: () => {
+        this.#sessions.get(computer)?.delete(session.id ?? "");
+      },
+      abandon: (id) => {
+        // A cancel that fails leaves the session to its attach
+        // deadline; the stream's error is what the caller acts on.
+        this.#sessions.get(computer)?.delete(id);
+        void this.#o.api.cancelSession(computer, id).catch(() => undefined);
+      },
+      ...(features.includes("reattach")
+        ? { resume: this.#reattacher(computer, features) }
+        : {}),
+    });
+    session.begin();
     return session;
+  }
+
+  /**
+   * Opens a stream on `connection`, on the connection's own dock, and sends
+   * its open frame.
+   */
+  async #openLeg(connection: Connection, frame: OpenFrame): Promise<Leg> {
+    const { dock, handle } = connection;
+    const stream = (await this.#request({
+      type: "open-stream",
+      dock,
+      computer: handle,
+    })) as number;
+    const leg = new Leg(
+      (bytes) => {
+        void this.#request(
+          { type: "write", dock, computer: handle, stream, bytes },
+          [bytes.buffer],
+        ).catch(() => undefined);
+      },
+      () => {
+        void this.#request({
+          type: "finish",
+          dock,
+          computer: handle,
+          stream,
+        }).catch(() => undefined);
+      },
+    );
+    connection.streams.set(stream, leg);
+    leg.send(encodeFrame({ type: "open", ...frame }));
+    return leg;
+  }
+
+  /**
+   * The resume of one session on `computer`, which asked for `features`:
+   * each call reopens the session from a cursor, in a stream of mode
+   * `reattach` under a create of its own. It keeps trying the grant one
+   * create installed while the endpoint cannot be reached, and creates again
+   * once the endpoint answers that the grant is gone, once the create
+   * failed, or after {@link REATTACH_CREATE_EVERY_MS}. Calls come one at a
+   * time, from the stream's resume.
+   */
+  #reattacher(computer: string, features: readonly SessionFeature[]): Resume {
+    let answer: Promise<ComputerSessionEndpoint> | undefined;
+    let failed = false;
+    let requestID = "";
+    let createdAt = 0;
+    return async (session, cursor, signal, until) => {
+      if (
+        answer === undefined ||
+        Date.now() - createdAt > REATTACH_CREATE_EVERY_MS
+      ) {
+        requestID = crypto.randomUUID();
+        const request: CreateComputerSessionRequest = {
+          operation: "shell",
+          attachment: "endpoint",
+          endpoint: { mode: "reattach", session },
+          idempotencyKey: requestID,
+          client: this.#o.client ?? "sdk",
+        };
+        validateCreateComputerSessionRequest(request);
+        const created = this.#o.api
+          .createSession(computer, request)
+          .then((served) =>
+            unbound(served) ? this.#bound(computer, served) : served,
+          )
+          .then((served) => this.#placed(computer, served, false));
+        failed = false;
+        created.catch(() => {
+          if (answer === created) failed = true;
+        });
+        answer = created;
+        createdAt = Date.now();
+      }
+      const attempt = answer;
+      try {
+        const resumed = await this.#resumeOn(
+          computer,
+          {
+            requestID,
+            mode: "reattach",
+            tty: false,
+            session,
+            cursor,
+            features,
+          },
+          attempt,
+          signal,
+          until,
+        );
+        answer = undefined;
+        return resumed;
+      } catch (error) {
+        if (
+          (answer === attempt && failed) ||
+          (error instanceof EndpointRefusal && error.code === "not_granted")
+        ) {
+          answer = undefined;
+        }
+        throw error;
+      }
+    };
+  }
+
+  /**
+   * One attempt to reattach a session with `frame`, whose create `answer`
+   * answers: on the open connection to `computer`, or one made to where it
+   * was last seen or where the create answers, each wait bounded by
+   * {@link OPEN_WAIT_MS} and by `until`. A create that answers a later
+   * Activation than the connection's endpoint serves is followed once, to
+   * the answered endpoint. Resolves to the stream once the endpoint
+   * answered `opened`.
+   */
+  async #resumeOn(
+    computer: string,
+    frame: OpenFrame,
+    answer: Promise<ComputerSessionEndpoint>,
+    signal: AbortSignal,
+    until: number,
+  ): Promise<Resumed> {
+    const deadline = (): number => Math.min(Date.now() + OPEN_WAIT_MS, until);
+    const known = this.#known.get(computer) ?? (await answer);
+    let connection: Connection;
+    try {
+      connection = await this.#establish(
+        computer,
+        known,
+        answer,
+        deadline(),
+        false,
+        (endpoint) => !sameEndpoint(endpoint, known),
+      );
+    } catch (first) {
+      if (first instanceof CreateFailure) throw first.cause;
+      const endpoint = await answer;
+      if (sameEndpoint(endpoint, known)) throw first;
+      connection = await this.#establish(
+        computer,
+        endpoint,
+        answer,
+        deadline(),
+        true,
+      );
+    }
+    for (let followed = false; ; followed = true) {
+      const leg = await this.#openLeg(connection, frame);
+      try {
+        return await firstFrame(
+          leg,
+          answer,
+          await connection.established,
+          deadline(),
+          signal,
+        );
+      } catch (error) {
+        if (!(error instanceof Superseded) || followed) throw error;
+        connection = await this.#establish(
+          computer,
+          error.endpoint,
+          answer,
+          deadline(),
+          true,
+        );
+      }
+    }
   }
 
   #request(request: Request, transfer: Transferable[] = []): Promise<unknown> {
@@ -1659,12 +1998,30 @@ function knownReason(reason: string): boolean {
   }
 }
 
-/** What a session's output carries: the endpoint's frames, as read. */
+/**
+ * What a session's output carries: the endpoint's frames, as read, and
+ * `broken`, the last item of a stream that was lost and could not be
+ * resumed.
+ */
 export type SessionOutput = EndpointFrame | { readonly type: "broken" };
 
-/** One session on a Computer connection. */
+/**
+ * One session on a Computer connection.
+ *
+ * A `shell` or `exec` session survives the loss of its stream, as when its
+ * connection or the dock under it ends: the stream is resumed from the
+ * output already delivered, on a live connection, and `output` carries on
+ * as if the stream had not been lost. Input sent while the stream was lost
+ * may be lost with it. When output the Computer no longer held was lost
+ * with the stream, `output` carries one `opened` frame with `dropped: true`
+ * before the output that follows; its `cursor` counts the output bytes,
+ * stdout and stderr in the order sent, after which that output resumes. A
+ * stream that no resume reaches within one session lease, 180 seconds, of
+ * the loss, or whose resume the Computer or IDYL refuses, ends with
+ * `broken`.
+ */
 export interface ComputerSessionStream {
-  /** The request ID the session's grant and stream name. */
+  /** The request ID the session's first open names. */
   readonly requestId: string;
   /** The endpoint's frames, in order; it closes after the stream ends. */
   readonly output: ReadableStream<SessionOutput>;
@@ -1685,7 +2042,10 @@ export interface ComputerSessionStream {
   resize(size: TerminalSize): void;
   /** Ends the input; the process sees end of file. */
   closeInput(): void;
-  /** Ends the session on purpose. */
+  /**
+   * Ends the session on purpose: a `shell` or `exec` session is sent its
+   * `end`, so it ends on the Computer at once, and the stream is finished.
+   */
   close(): void;
 }
 
@@ -1701,26 +2061,299 @@ const UNSTARTED_CODES: ReadonlySet<string> = new Set([
   "not_granted",
 ]);
 
+/** What a stream's reader is told: the bytes that arrived, and the end. */
+interface LegReader {
+  bytes(bytes: Uint8Array): void;
+  ended(broken: boolean): void;
+}
+
+/**
+ * One Worker stream of a session on a Computer connection. Bytes and the
+ * end that arrive while no reader is set are held for the next reader.
+ */
+class Leg {
+  /** The frames of this stream, which start with its first byte. */
+  readonly frames = new FrameReader();
+  readonly #write: (bytes: Uint8Array) => void;
+  readonly #finish: () => void;
+  #reader: LegReader | undefined;
+  #held: Uint8Array[] = [];
+  // How the stream ended, while no reader has been told.
+  #ending: boolean | undefined;
+  // The page finished the stream or the Worker ended it.
+  #released = false;
+
+  constructor(write: (bytes: Uint8Array) => void, finish: () => void) {
+    this.#write = write;
+    this.#finish = finish;
+  }
+
+  /** Sends bytes, unless the stream has ended. */
+  send(bytes: Uint8Array): void {
+    if (!this.#released) this.#write(bytes);
+  }
+
+  /** Finishes the Worker's stream once. */
+  release(): void {
+    if (this.#released) return;
+    this.#released = true;
+    this.#finish();
+  }
+
+  /** Sets the reader, or unsets it, and gives it what was held. */
+  read(reader: LegReader | undefined): void {
+    this.#reader = reader;
+    if (reader === undefined) return;
+    const held = this.#held;
+    this.#held = [];
+    for (const bytes of held) {
+      if (this.#reader !== reader) return;
+      reader.bytes(bytes);
+    }
+    const ending = this.#ending;
+    if (ending !== undefined && this.#reader === reader) {
+      this.#ending = undefined;
+      reader.ended(ending);
+    }
+  }
+
+  /** Bytes of the stream arrived. */
+  receive(bytes: Uint8Array): void {
+    if (this.#reader === undefined) this.#held.push(bytes);
+    else this.#reader.bytes(bytes);
+  }
+
+  /** The stream ended. */
+  ended(broken: boolean): void {
+    this.#released = true;
+    if (this.#reader === undefined) this.#ending = broken;
+    else this.#reader.ended(broken);
+  }
+}
+
+/** A resumed stream: its stream, its `opened`, and the frames read after it. */
+interface Resumed {
+  readonly leg: Leg;
+  readonly opened: OpenedFrame;
+  readonly rest: readonly EndpointFrame[];
+}
+
+/**
+ * One attempt to resume the session `session` from `cursor`, given up when
+ * `signal` aborts or at `until`, in milliseconds since the epoch.
+ */
+type Resume = (
+  session: ComputerSessionId,
+  cursor: number,
+  signal: AbortSignal,
+  until: number,
+) => Promise<Resumed>;
+
+/** An error frame the endpoint answered an open with. */
+class EndpointRefusal extends Error {
+  readonly code: string;
+
+  constructor(code: string) {
+    super("the endpoint refused the session's open");
+    this.name = "EndpointRefusal";
+    this.code = code;
+  }
+}
+
+/**
+ * A create that answered a later Activation than the one the connection's
+ * endpoint serves: the session's grant is installed at `endpoint`.
+ */
+class Superseded extends Error {
+  readonly endpoint: ComputerSessionEndpoint;
+
+  constructor(endpoint: ComputerSessionEndpoint) {
+    super("the session's grant is at a later Activation");
+    this.name = "Superseded";
+    this.endpoint = endpoint;
+  }
+}
+
+/**
+ * Whether a failed resume will not succeed by trying again: the endpoint
+ * refused it with any code but `not_granted`, whose grant is created again,
+ * or IDYL refused it with a status other than 408, 429 or a server error.
+ */
+function resumeFinal(error: unknown): boolean {
+  if (error instanceof EndpointRefusal) return error.code !== "not_granted";
+  if (error instanceof ApiError) {
+    return !(
+      error.status === 408 ||
+      error.status === 429 ||
+      error.status >= 500
+    );
+  }
+  return false;
+}
+
+/**
+ * The first frame of a reattach stream `leg`: resolves once it is an
+ * `opened` answering mode `reattach`, and rejects with an
+ * {@link EndpointRefusal} for an error frame, with a {@link Superseded} as
+ * soon as `answer` names a later Activation than `epoch`, the one the
+ * stream's endpoint serves, with the create's failure as soon as it fails,
+ * with a `TimeoutError` `DOMException` at `deadline`, and with `signal`'s
+ * reason when it aborts. A rejected stream is finished.
+ */
+function firstFrame(
+  leg: Leg,
+  answer: Promise<ComputerSessionEndpoint>,
+  epoch: number,
+  deadline: number,
+  signal: AbortSignal,
+): Promise<Resumed> {
+  return new Promise<Resumed>((resolve, reject) => {
+    let settled = false;
+    const settle = (then: () => void): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal.removeEventListener("abort", aborted);
+      leg.read(undefined);
+      then();
+    };
+    const fail = (error: unknown): void => {
+      settle(() => {
+        leg.release();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      });
+    };
+    const timer = setTimeout(
+      () => {
+        fail(
+          new DOMException(
+            `the endpoint did not answer the session's open within ${String(OPEN_WAIT_MS)} ms`,
+            "TimeoutError",
+          ),
+        );
+      },
+      Math.max(0, deadline - Date.now()),
+    );
+    const aborted = (): void => {
+      fail(signal.reason);
+    };
+    signal.addEventListener("abort", aborted, { once: true });
+    if (signal.aborted) {
+      aborted();
+      return;
+    }
+    answer.then(
+      (endpoint) => {
+        if (endpoint.epoch > epoch) fail(new Superseded(endpoint));
+      },
+      (error: unknown) => {
+        fail(error);
+      },
+    );
+    leg.read({
+      bytes: (bytes) => {
+        let frames: EndpointFrame[];
+        try {
+          frames = leg.frames.push(bytes);
+        } catch (error) {
+          fail(error);
+          return;
+        }
+        const [first, ...rest] = frames;
+        if (first === undefined) return;
+        if (first.type === "error") {
+          fail(new EndpointRefusal(first.code));
+          return;
+        }
+        if (first.type !== "opened") {
+          fail(new FrameError("the session's first frame is not opened"));
+          return;
+        }
+        try {
+          validateOpenedFor(first, "reattach");
+        } catch (cause) {
+          fail(
+            new FrameError(
+              "the endpoint's opened does not answer the stream's mode",
+              { cause },
+            ),
+          );
+          return;
+        }
+        settle(() => {
+          resolve({ leg, opened: first, rest });
+        });
+      },
+      ended: () => {
+        fail(
+          new Error("the stream ended before the endpoint answered its open"),
+        );
+      },
+    });
+  });
+}
+
+/** Waits `ms`; resolves `false` at once when `signal` aborts first. */
+function pause(ms: number, signal: AbortSignal): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve(false);
+      return;
+    }
+    const aborted = (): void => {
+      clearTimeout(timer);
+      resolve(false);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", aborted);
+      resolve(true);
+    }, ms);
+    signal.addEventListener("abort", aborted, { once: true });
+  });
+}
+
+/** What a session stream is built from. */
+interface SessionStreamParts {
+  readonly requestId: string;
+  /** The mode the stream's open names, which its `opened` must answer. */
+  readonly mode: SessionMode;
+  /** The stream the session opened on. */
+  readonly leg: Leg;
+  /** Whether the open asked for the save result, which follows exit. */
+  readonly savesResult: boolean;
+  /** Stops the session's renewals. */
+  readonly forget: () => void;
+  /**
+   * Cancels the session by its ID, once, when the endpoint refused its open
+   * before it started; it runs as soon as both the refusal and the create's
+   * answer are in.
+   */
+  readonly abandon: (id: string) => void;
+  /** Resumes a lost stream; absent for a session that cannot be resumed. */
+  readonly resume?: Resume;
+}
+
 class SessionStream implements ComputerSessionStream {
-  /** The request ID the session's grant and stream name. */
+  /** The request ID the session's first open names. */
   readonly requestId: string;
   /** The endpoint's frames, in order; it closes after the stream ends. */
   readonly output: ReadableStream<SessionOutput>;
   /** The mode the stream's open names, which its `opened` must answer. */
   readonly #mode: SessionMode;
   #id: string | undefined;
-  readonly #send: (bytes: Uint8Array) => void;
-  readonly #finish: () => void;
   readonly #forget: () => void;
   readonly #abandon: (id: string) => void;
-  readonly #reader = new FrameReader();
+  readonly #resume: Resume | undefined;
+  readonly #savesResult: boolean;
+  // The stream the session's frames arrive on; a resume replaces it.
+  #leg: Leg;
   #controller!: ReadableStreamDefaultController<SessionOutput>;
   // The output is closed or errored.
   #done = false;
-  // The Worker's stream is finished by the page or ended by the Worker.
-  #released = false;
   // The page closed the session: it is no longer renewed.
   #closed = false;
+  // Aborted when the page closes the session, which ends a resume.
+  readonly #closing = new AbortController();
   // A frame of the stream arrived.
   #answered = false;
   // The endpoint refused the open before the session started.
@@ -1733,26 +2366,26 @@ class SessionStream implements ComputerSessionStream {
   #gaveUp = false;
   // Called once the open is answered, given up on, or the stream ends.
   #settled: (() => void)[] = [];
+  // The session the endpoint's first `opened` names, which a resume reopens.
+  #session: string | undefined;
+  // The output bytes delivered, stdout and stderr in the order sent.
+  #cursor = 0;
+  // The session has nothing more to send: its exit, and its save result
+  // when the open asked for it.
+  #finished = false;
+  // The endpoint ended the stream with an error frame.
+  #refused = false;
+  // A lost stream is being resumed.
+  #resuming = false;
 
-  /**
-   * `abandon` cancels the session by its ID, once, when the endpoint
-   * refused its open before it started; it runs as soon as both the
-   * refusal and the create's answer are in.
-   */
-  constructor(
-    requestId: string,
-    mode: SessionMode,
-    send: (bytes: Uint8Array) => void,
-    finish: () => void,
-    forget: () => void,
-    abandon: (id: string) => void,
-  ) {
-    this.requestId = requestId;
-    this.#mode = mode;
-    this.#send = send;
-    this.#finish = finish;
-    this.#forget = forget;
-    this.#abandon = abandon;
+  constructor(parts: SessionStreamParts) {
+    this.requestId = parts.requestId;
+    this.#mode = parts.mode;
+    this.#leg = parts.leg;
+    this.#savesResult = parts.savesResult;
+    this.#forget = parts.forget;
+    this.#abandon = parts.abandon;
+    this.#resume = parts.resume;
     this.output = new ReadableStream<SessionOutput>({
       start: (controller) => {
         this.#controller = controller;
@@ -1764,6 +2397,14 @@ class SessionStream implements ComputerSessionStream {
     });
   }
 
+  /**
+   * @internal Starts reading the stream the session opened on; the
+   * session's handlers then see what it held.
+   */
+  begin(): void {
+    this.#follow(this.#leg);
+  }
+
   /** The session's ID, once its create has answered. */
   get id(): string | undefined {
     return this.#id;
@@ -1771,41 +2412,44 @@ class SessionStream implements ComputerSessionStream {
 
   /** Sends input. */
   write(data: Uint8Array): void {
-    for (const frame of stdinFrames(data)) this.#send(frame);
+    for (const frame of stdinFrames(data)) this.#leg.send(frame);
   }
 
   /** Sets the terminal's size. */
   resize(size: TerminalSize): void {
     validateTerminalSize(size);
-    this.#send(encodeFrame({ type: "resize", size }));
+    this.#leg.send(encodeFrame({ type: "resize", size }));
   }
 
   /** Ends the input; the process sees end of file. */
   closeInput(): void {
-    this.#send(encodeFrame({ type: "close_input" }));
+    this.#leg.send(encodeFrame({ type: "close_input" }));
   }
 
   /**
-   * Ends the session on purpose: its stream is finished, unless it has
-   * ended, and the session is no longer renewed.
+   * Ends the session on purpose: a session that survives the loss of its
+   * stream is sent its `end`, its stream is finished, unless it has ended,
+   * and the session is no longer renewed. A resume under way stops, and the
+   * output closes.
    */
   close(): void {
     this.#stopAnswerTimer();
     this.#closed = true;
-    this.#release();
+    this.#closing.abort();
+    if (this.#resume !== undefined) {
+      this.#leg.send(encodeFrame({ type: "end" }));
+    }
+    this.#leg.release();
     this.#forget();
+    if (this.#resuming) {
+      this.#resuming = false;
+      this.#close();
+    }
   }
 
   /** @internal Sends one encoded frame, unless the stream has ended. */
   sendFrame(frame: Uint8Array): void {
-    if (!this.#released) this.#send(frame);
-  }
-
-  /** Finishes the Worker's stream once. */
-  #release(): void {
-    if (this.#released) return;
-    this.#released = true;
-    this.#finish();
+    this.#leg.send(frame);
   }
 
   /**
@@ -1832,7 +2476,7 @@ class SessionStream implements ComputerSessionStream {
         this.#abandonUnstarted();
         void late().then((error) => {
           this.fail(error);
-          this.#release();
+          this.#leg.release();
         });
       },
       Math.max(0, deadline - Date.now()),
@@ -1890,6 +2534,7 @@ class SessionStream implements ComputerSessionStream {
           { cause },
         );
       }
+      this.#session = frame.session;
     }
     if (frame.type === "error" && UNSTARTED_CODES.has(frame.code)) {
       this.#unstarted = true;
@@ -1909,35 +2554,169 @@ class SessionStream implements ComputerSessionStream {
     this.#stopAnswerTimer();
     if (this.#done) return;
     this.#done = true;
+    this.#resuming = false;
     this.#controller.error(error);
   }
 
-  /** @internal Bytes of the stream arrived. */
-  receive(bytes: Uint8Array): void {
-    if (this.#done || this.#gaveUp) return;
+  /** Reads `leg`'s bytes and end as the session's. */
+  #follow(leg: Leg): void {
+    leg.read({
+      bytes: (bytes) => {
+        this.#receive(leg, bytes);
+      },
+      ended: (broken) => {
+        this.#ended(leg, broken);
+      },
+    });
+  }
+
+  /** Bytes of `leg` arrived. */
+  #receive(leg: Leg, bytes: Uint8Array): void {
+    if (leg !== this.#leg || this.#done || this.#gaveUp) return;
     try {
-      for (const frame of this.#reader.push(bytes)) {
+      for (const frame of leg.frames.push(bytes)) {
         this.#first(frame);
-        this.#controller.enqueue(frame);
+        this.#deliver(frame);
       }
     } catch (error) {
       if (error instanceof FrameError) {
         this.fail(error);
-        this.#release();
+        leg.release();
         return;
       }
       throw error;
     }
   }
 
-  /** @internal The stream ended. */
-  ended(broken: boolean): void {
+  /** Notes what `frame` says of the session, and passes it on. */
+  #deliver(frame: EndpointFrame): void {
+    switch (frame.type) {
+      case "stdout":
+      case "stderr":
+        this.#cursor += frame.data.length;
+        break;
+      case "exit":
+        this.#finished ||= !this.#savesResult;
+        break;
+      case "saved":
+        this.#finished = true;
+        break;
+      case "error":
+        this.#refused = true;
+        break;
+      default:
+        break;
+    }
+    if (!this.#done) this.#controller.enqueue(frame);
+  }
+
+  /** `leg` ended. */
+  #ended(leg: Leg, broken: boolean): void {
+    if (leg !== this.#leg) return;
     this.#stopAnswerTimer();
-    this.#released = true;
     // An open given up on fails with its reason once the read settles.
     if (this.#done || this.#gaveUp) return;
-    this.#done = true;
+    const session = this.#session;
+    if (
+      this.#resume !== undefined &&
+      session !== undefined &&
+      isComputerSessionId(session) &&
+      !this.#finished &&
+      !this.#refused &&
+      !this.#closed
+    ) {
+      void this.#resumeFrom(this.#resume, session);
+      return;
+    }
     if (broken) this.#controller.enqueue({ type: "broken" });
+    this.#close();
+  }
+
+  /**
+   * Resumes the lost stream of `session` from the output delivered, trying
+   * again after a pause of {@link REATTACH_BACKOFF_MS}, doubling up to
+   * {@link REATTACH_BACKOFF_MAX_MS}, until one session lease has passed
+   * since the loss or the resume is refused for good; the output then ends
+   * with `broken`. Closing the session ends the resume.
+   */
+  async #resumeFrom(resume: Resume, session: ComputerSessionId): Promise<void> {
+    this.#resuming = true;
+    const signal = this.#closing.signal;
+    const until = Date.now() + COMPUTER_SESSION_LEASE_MS;
+    let backoff = REATTACH_BACKOFF_MS;
+    for (;;) {
+      let failure: unknown;
+      try {
+        const resumed = await resume(session, this.#cursor, signal, until);
+        if (!this.#isResuming()) {
+          // Closed or failed while the stream reopened.
+          resumed.leg.send(encodeFrame({ type: "end" }));
+          resumed.leg.release();
+          return;
+        }
+        this.#adopt(resumed);
+        return;
+      } catch (error) {
+        failure = error;
+      }
+      if (!this.#isResuming()) return;
+      const wait = Math.min(backoff, until - Date.now());
+      if (
+        resumeFinal(failure) ||
+        wait <= 0 ||
+        !(await pause(wait, signal)) ||
+        Date.now() >= until
+      ) {
+        break;
+      }
+      backoff = Math.min(2 * backoff, REATTACH_BACKOFF_MAX_MS);
+    }
+    if (!this.#isResuming()) return;
+    this.#resuming = false;
+    this.#controller.enqueue({ type: "broken" });
+    this.#close();
+  }
+
+  /**
+   * Whether the resume under way still is: closing or failing the session
+   * ends it while an attempt is awaited.
+   */
+  #isResuming(): boolean {
+    return this.#resuming;
+  }
+
+  /**
+   * Takes the resumed stream in place of the lost one. When the endpoint
+   * no longer held output that was lost, the output first carries the
+   * resume's `opened`, with `dropped` set and the cursor the output
+   * resumes after.
+   */
+  #adopt(resumed: Resumed): void {
+    this.#resuming = false;
+    this.#leg = resumed.leg;
+    const { opened } = resumed;
+    const cursor = opened.cursor;
+    if (
+      cursor !== undefined &&
+      (opened.dropped === true || cursor > this.#cursor)
+    ) {
+      const at = Math.max(cursor, this.#cursor);
+      this.#controller.enqueue({
+        type: "opened",
+        session: opened.session,
+        cursor: at,
+        dropped: true,
+      });
+      this.#cursor = at;
+    }
+    for (const frame of resumed.rest) this.#deliver(frame);
+    this.#follow(resumed.leg);
+  }
+
+  /** Closes the output once. */
+  #close(): void {
+    if (this.#done) return;
+    this.#done = true;
     this.#controller.close();
   }
 }

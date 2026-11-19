@@ -17,6 +17,7 @@ import {
 import { resolvePlacement } from "../internal/routing.js";
 import { TransportError } from "../errors.js";
 import { decodeBase64, encodeBase64 } from "../resource/base64.js";
+import { certificateValidity } from "../internal/certificate-validity.js";
 import type {
   ConnectorApi,
   IssuedCertificate,
@@ -108,7 +109,8 @@ export function computerEndpointApi(
 
 /**
  * Reads the client certificate answer: the chain (base64 DER, leaf first),
- * the admission lease and the expiry.
+ * the admission lease and the expiry, and the leaf's validity period, from
+ * which the connector times its renewal.
  */
 function issued(answer: unknown): IssuedCertificate {
   const a = (
@@ -130,10 +132,19 @@ function issued(answer: unknown): IssuedCertificate {
       "client certificate response is invalid",
     );
   }
+  const certificates = chain.map((c: string) => decodeBase64(c));
+  const validity = certificateValidity(certificates[0] ?? new Uint8Array());
+  if (validity === undefined) {
+    throw new TransportError(
+      "invalid_response",
+      "client certificate response is invalid",
+    );
+  }
   return {
-    chain: chain.map((c: string) => decodeBase64(c)),
+    chain: certificates,
     admissionLease: decodeBase64(lease),
-    notAfterMs: notAfter,
+    notBeforeMs: validity.notBeforeMs,
+    notAfterMs: validity.notAfterMs,
   };
 }
 
