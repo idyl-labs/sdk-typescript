@@ -2366,9 +2366,15 @@ class Leg {
     if (reader === undefined) return;
     const held = this.#held;
     this.#held = [];
-    for (const bytes of held) {
-      if (this.#reader !== reader) return;
-      reader.bytes(bytes);
+    for (let i = 0; i < held.length; i++) {
+      // A reader that hands the stream on, as a resume's first-frame wait
+      // does at `opened`, leaves what it has not read for the next one.
+      if (this.#reader !== reader) {
+        this.#held = [...held.slice(i), ...this.#held];
+        return;
+      }
+      const bytes = held[i];
+      if (bytes !== undefined) reader.bytes(bytes);
     }
     const ending = this.#ending;
     if (ending !== undefined && this.#reader === reader) {
@@ -2694,6 +2700,8 @@ class SessionStream implements ComputerSessionStream {
   #session: string | undefined;
   // The output bytes delivered, stdout and stderr in the order sent.
   #cursor = 0;
+  // Output bytes a resume sends again that were delivered before it.
+  #resent = 0;
   // The session has nothing more to send: its exit, and its save result
   // when the open asked for it.
   #finished = false;
@@ -2941,6 +2949,13 @@ class SessionStream implements ComputerSessionStream {
     switch (frame.type) {
       case "stdout":
       case "stderr":
+        if (this.#resent > 0) {
+          // Output a resume sent again that the caller already has.
+          const repeated = Math.min(this.#resent, frame.data.length);
+          this.#resent -= repeated;
+          if (repeated === frame.data.length) return;
+          frame = { ...frame, data: frame.data.subarray(repeated) };
+        }
         this.#cursor += frame.data.length;
         break;
       case "exit":
@@ -3050,13 +3065,17 @@ class SessionStream implements ComputerSessionStream {
    * Takes the resumed stream in place of the lost one. When the endpoint
    * no longer held output that was lost, the output first carries the
    * resume's `opened`, with `dropped` set and the cursor the output
-   * resumes after.
+   * resumes after; output it resends from before the cursor asked for is
+   * not delivered again.
    */
   #adopt(resumed: Resumed): void {
     this.#resuming = false;
     this.#leg = resumed.leg;
     const { opened } = resumed;
     const cursor = opened.cursor;
+    // Output resent from before the cursor asked for is delivered once.
+    this.#resent =
+      cursor !== undefined && cursor < this.#cursor ? this.#cursor - cursor : 0;
     if (
       cursor !== undefined &&
       (opened.dropped === true || cursor > this.#cursor)

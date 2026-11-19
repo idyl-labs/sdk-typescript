@@ -369,13 +369,17 @@ class FakeWorker implements WorkerPort {
               ? (this.answerOpen as (open: unknown) => unknown)(sent)
               : this.answerOpen;
           if (answer === undefined) return;
-          this.#emit({
-            type: "data",
-            dock: m.dock,
-            computer: m.computer,
-            stream: m.stream,
-            bytes: frame(answer),
-          });
+          // A list is sent as one data message a frame, straight after
+          // the open, as an endpoint's replay arrives.
+          for (const each of Array.isArray(answer) ? answer : [answer]) {
+            this.#emit({
+              type: "data",
+              dock: m.dock,
+              computer: m.computer,
+              stream: m.stream,
+              bytes: frame(each),
+            });
+          }
         } else if (sent.type === "stdin") {
           this.#emit({
             type: "data",
@@ -2812,6 +2816,56 @@ describe("computer session resume", () => {
     });
     await reader.cancel();
     expect(cancels).toEqual([[COMPUTER, RESUMED]]);
+    h.connector.close();
+  });
+
+  // Contract: output the endpoint resends straight after a resume's
+  // opened, before the resume reads its stream, is delivered: the caller
+  // receives exactly the session's output from its cursor on.
+  it("delivers the output a resume resends before it reads its stream", async () => {
+    const h = await harness();
+    resuming(h.worker, (open) => [
+      { type: "opened", session: RESUMED, cursor: open["cursor"] },
+      stdout("def"),
+      stdout("ghi"),
+    ]);
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    h.worker.deliver(stdout("abc"));
+    expect(await first(session.output, 2)).toHaveLength(2);
+    h.worker.breakStream();
+    expect(await first(session.output, 2)).toEqual([
+      { type: "stdout", data: enc.encode("def") },
+      { type: "stdout", data: enc.encode("ghi") },
+    ]);
+    h.worker.deliver(stdout("jkl"));
+    expect(await first(session.output, 1)).toEqual([
+      { type: "stdout", data: enc.encode("jkl") },
+    ]);
+    h.connector.close();
+  });
+
+  // Contract: output a resume resends from before the cursor asked for is
+  // delivered once: the bytes the caller already has are not repeated.
+  it("delivers each byte once when a resume resends from an earlier cursor", async () => {
+    const h = await harness();
+    resuming(h.worker, () => [
+      { type: "opened", session: RESUMED, cursor: 1 },
+      stdout("b"),
+      stdout("cde"),
+    ]);
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    h.worker.deliver(stdout("abc"));
+    expect(await first(session.output, 2)).toHaveLength(2);
+    h.worker.breakStream();
+    expect(await first(session.output, 1)).toEqual([
+      { type: "stdout", data: enc.encode("de") },
+    ]);
     h.connector.close();
   });
 
