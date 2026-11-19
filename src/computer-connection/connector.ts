@@ -444,6 +444,11 @@ interface Connection {
   readonly established: Promise<number>;
   readonly streams: Map<number, Leg>;
   readonly listener: (m: WorkerToPage) => void;
+  /**
+   * Forgets the connection and ends its streams as lost, once: it is no
+   * longer the Computer's connection when they are told.
+   */
+  readonly end: () => void;
 }
 
 /**
@@ -554,7 +559,10 @@ export interface ComputerConnector {
    * @returns the function that removes the listener
    */
   listen(listener: ChangeListener): () => void;
-  /** Ends every connection, and the event stream. */
+  /**
+   * Ends every connection, and the event stream. Every session stream is
+   * closed as its own `close` closes it, and none is resumed.
+   */
   close(): void;
 }
 
@@ -618,6 +626,17 @@ class Connector implements ComputerConnector {
   >();
   // The docks the edge asked to drain.
   readonly #draining = new Set<number>();
+  // The client certificate held, and the request for one in flight.
+  #certificate: IssuedCertificate | undefined;
+  #certifying: Promise<IssuedCertificate> | undefined;
+  // The Zone's verified session trust held, and its fetch in flight.
+  #trust: SessionTrust | undefined;
+  #trusting: Promise<SessionTrust> | undefined;
+  // Every Computer connection the Worker holds, until it ends: a dock that
+  // ends ends each of its own, whether or not new sessions still use it.
+  readonly #held = new Set<Connection>();
+  // Every session stream the connector opened, until its output ends.
+  readonly #streams = new Set<SessionStream>();
   // Counts closes, so a dock that docks after a close is closed.
   #generation = 0;
   // The edge's earliest time to dock again, from the last dock's end.
@@ -778,14 +797,15 @@ class Connector implements ComputerConnector {
       this.#ready.catch(() => undefined);
       return;
     }
-    const half =
-      current.notBeforeMs + (current.notAfterMs - current.notBeforeMs) / 2;
-    if (Date.now() >= half) void this.#redock().catch(() => undefined);
+    if (Date.now() >= halfLife(current.notBeforeMs, current.notAfterMs)) {
+      void this.#redock().catch(() => undefined);
+    }
   }
 
   /**
    * The edge asked the dock `dock` to drain: its Computer connections serve
-   * no new session, and when it is the dock new sessions use, a new dock is
+   * no new session but stay known until the dock ends, when their streams
+   * are resumed, and when it is the dock new sessions use, a new dock is
    * docked at once, in the background, which new sessions join.
    */
   #drained(dock: number): void {
@@ -979,10 +999,19 @@ class Connector implements ComputerConnector {
     deadline: number,
     fresh = false,
     moved?: (endpoint: ComputerSessionEndpoint) => boolean,
+    signal?: AbortSignal,
   ): Promise<Connection> {
     const opened = this.#connection(computer, at, fresh);
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let aborted: (() => void) | undefined;
     const late = new Promise<never>((_, reject) => {
+      if (signal !== undefined) {
+        aborted = () => {
+          reject(abortReason(signal));
+        };
+        if (signal.aborted) aborted();
+        else signal.addEventListener("abort", aborted, { once: true });
+      }
       timer = setTimeout(
         () => {
           reject(
@@ -1020,6 +1049,7 @@ class Connector implements ComputerConnector {
       throw error;
     } finally {
       clearTimeout(timer);
+      if (aborted !== undefined) signal?.removeEventListener("abort", aborted);
     }
   }
 
@@ -1156,9 +1186,7 @@ class Connector implements ComputerConnector {
     }
     void opened.then(
       (connection) => {
-        this.#listeners.delete(connection.listener);
-        for (const s of connection.streams.values()) s.ended(true);
-        connection.streams.clear();
+        connection.end();
         void this.#request({
           type: "close-computer",
           dock: connection.dock,
@@ -1248,8 +1276,14 @@ class Connector implements ComputerConnector {
     }
   }
 
-  /** Ends every connection, the event stream and every dock. */
+  /**
+   * Ends every connection, the event stream and every dock. Every session
+   * stream is closed first, as its own `close` closes it, so none is
+   * resumed; the connector holds no timer afterwards.
+   */
   close(): void {
+    for (const stream of [...this.#streams]) stream.close();
+    this.#streams.clear();
     this.#changes.stop();
     if (this.#renewer !== undefined) clearInterval(this.#renewer);
     this.#renewer = undefined;
@@ -1264,6 +1298,8 @@ class Connector implements ComputerConnector {
       held.retire = undefined;
       void this.#request({ type: "close-dock", dock }).catch(() => undefined);
     }
+    this.#docks.clear();
+    this.#draining.clear();
   }
 
   /** Starts the Worker once; resolves to its certificate request. */
@@ -1314,38 +1350,110 @@ class Connector implements ComputerConnector {
   }
 
   /**
-   * Obtains a client certificate and the Zone's trust, and docks. Each dock
-   * is admitted with a certificate issued for it.
+   * The client certificate and its admission lease: the one held while
+   * half its life has not passed, and otherwise a new one, asked for once
+   * however many docks need it at the same time.
+   */
+  #admission(): Promise<IssuedCertificate> {
+    const held = this.#certificate;
+    if (
+      held !== undefined &&
+      Date.now() < halfLife(held.notBeforeMs, held.notAfterMs)
+    ) {
+      return Promise.resolve(held);
+    }
+    if (this.#certifying === undefined) {
+      const certifying = (async () =>
+        this.#o.api.certify(await this.#start()))();
+      this.#certifying = certifying;
+      certifying.then(
+        (issued) => {
+          if (this.#certifying === certifying) this.#certifying = undefined;
+          this.#certificate = issued;
+        },
+        () => {
+          if (this.#certifying === certifying) this.#certifying = undefined;
+        },
+      );
+    }
+    return this.#certifying;
+  }
+
+  /**
+   * The Zone's verified session trust: the one held while half its life
+   * has not passed, and otherwise the bundle fetched again, verified and
+   * held to the trust floor. A fetch that fails while the held trust has
+   * not expired keeps it; a bundle that fails verification or the floor is
+   * refused.
+   */
+  #sessionTrust(): Promise<SessionTrust> {
+    const held = this.#trust;
+    const now = Date.now();
+    if (
+      held !== undefined &&
+      now < halfLife(held.issuedAtMs, held.expiresAtMs)
+    ) {
+      return Promise.resolve(held);
+    }
+    if (this.#trusting === undefined) {
+      const trusting = this.#o.api.sessionTrust().then(
+        async (placed) => {
+          if (placed.scope === "") {
+            throw new SessionTrustError(
+              "the client's placement names no session trust scope",
+            );
+          }
+          const verified = await verifySessionTrust(placed.response, {
+            network: this.#o.network,
+            zone: placed.scope,
+            keys: this.#o.trustKeys,
+            minVersion: 0,
+            nowMs: Date.now(),
+          });
+          await this.#holdToFloor(verified);
+          this.#trust = verified;
+          return verified;
+        },
+        (error: unknown) => {
+          const kept = this.#trust;
+          if (kept !== undefined && Date.now() < kept.expiresAtMs) return kept;
+          throw error;
+        },
+      );
+      this.#trusting = trusting;
+      trusting.then(
+        () => {
+          if (this.#trusting === trusting) this.#trusting = undefined;
+        },
+        () => {
+          if (this.#trusting === trusting) this.#trusting = undefined;
+        },
+      );
+    }
+    return this.#trusting;
+  }
+
+  /**
+   * Docks under the client certificate and the Zone's trust, each fetched
+   * only when none is held or half the held one's life has passed. The dock
+   * is tracked from the moment the Worker opens it, follows its own events
+   * only, and is closed when the connector closed meanwhile.
    */
   async #dock(): Promise<Docked> {
+    const generation = this.#generation;
+    const closed = (): boolean => generation !== this.#generation;
     // The trust is fetched, verified and held to the floor while the client
     // certificate is requested, so neither waits for the other.
-    const trust = this.#o.api.sessionTrust().then(async (placed) => {
-      if (placed.scope === "") {
-        throw new SessionTrustError(
-          "the client's placement names no session trust scope",
-        );
-      }
-      const verified = await verifySessionTrust(placed.response, {
-        network: this.#o.network,
-        zone: placed.scope,
-        keys: this.#o.trustKeys,
-        minVersion: 0,
-        nowMs: Date.now(),
-      });
-      await this.#holdToFloor(verified);
-      return verified;
-    });
+    const trust = this.#sessionTrust();
     trust.catch(() => undefined);
     const wait = this.#notBeforeMs - Date.now();
     if (wait > 0) {
       await new Promise((resolve) => setTimeout(resolve, wait));
     }
-    const certificate = await this.#o.api.certify(await this.#start());
+    const certificate = await this.#admission();
     const verified = await trust;
-    const docked = this.#event(
-      (m) => m.type === "docked" || m.type === "dock-ended",
-    );
+    if (closed()) throw closedError();
+    const since = this.#mark();
     const dock = (await this.#request({
       type: "dock",
       url:
@@ -1359,13 +1467,12 @@ class Connector implements ComputerConnector {
       lease: certificate.admissionLease,
       keepaliveMs: KEEPALIVE_MS,
     })) as number;
-    const outcome = await docked;
-    if (outcome.type === "dock-ended") {
-      this.#ended(outcome);
-      throw new Error(`the dock ended: ${outcome.reason}`);
+    if (closed()) {
+      // Closed while the Worker opened it: close finds it in no list.
+      void this.#request({ type: "close-dock", dock }).catch(() => undefined);
+      throw closedError();
     }
-    const serviceLaneProfile =
-      outcome.type === "docked" ? outcome.serviceLaneProfile : "";
+    this.#docks.set(dock, { retire: undefined });
     const ending = (m: WorkerToPage): void => {
       if (!onDock(m, dock)) return;
       if (m.type === "drain") {
@@ -1375,8 +1482,24 @@ class Connector implements ComputerConnector {
         this.#ended(m);
       }
     };
-    this.#docks.set(dock, { retire: undefined });
     this.#listeners.add(ending);
+    const outcome = await this.#event(
+      (m) =>
+        onDock(m, dock) && (m.type === "docked" || m.type === "dock-ended"),
+      since,
+    );
+    if (outcome.type === "dock-ended") {
+      // Seen in the event log before the listener was added.
+      if (this.#docks.has(dock)) {
+        this.#listeners.delete(ending);
+        this.#ended(outcome);
+      }
+      throw new Error(`the dock ended: ${outcome.reason}`);
+    }
+    // Closed meanwhile: close has closed the dock.
+    if (closed()) throw closedError();
+    const serviceLaneProfile =
+      outcome.type === "docked" ? outcome.serviceLaneProfile : "";
     this.#renewer ??= setInterval(() => {
       this.#renew();
       this.#maintain();
@@ -1413,19 +1536,8 @@ class Connector implements ComputerConnector {
     for (const key of [...this.#lanes.keys()]) {
       if (key.startsWith(`${String(m.dock)} `)) this.#lanes.delete(key);
     }
-    for (const [computer, opened] of [...this.#connections]) {
-      void opened.then(
-        (connection) => {
-          if (connection.dock !== m.dock) return;
-          this.#listeners.delete(connection.listener);
-          for (const s of connection.streams.values()) s.ended(true);
-          connection.streams.clear();
-          if (this.#connections.get(computer) === opened) {
-            this.#connections.delete(computer);
-          }
-        },
-        () => undefined,
-      );
+    for (const connection of [...this.#held]) {
+      if (connection.dock === m.dock) connection.end();
     }
   }
 
@@ -1563,13 +1675,20 @@ class Connector implements ComputerConnector {
           streams.get(m.stream)?.ended(m.broken);
           streams.delete(m.stream);
         } else if (m.type === "computer-ended" && m.computer === handle) {
-          this.#listeners.delete(listener);
-          for (const s of streams.values()) s.ended(true);
-          streams.clear();
-          if (this.#connections.get(computer) === opened) {
-            this.#connections.delete(computer);
-          }
+          end();
         }
+      };
+      // Forgets the connection, first as the Computer's, so a stream told
+      // that it ended resumes on another, then ends its streams as lost.
+      const end = (): void => {
+        if (!this.#held.delete(connection)) return;
+        this.#listeners.delete(listener);
+        if (this.#connections.get(computer) === opened) {
+          this.#connections.delete(computer);
+        }
+        const legs = [...streams.values()];
+        streams.clear();
+        for (const leg of legs) leg.ended(true);
       };
       const connection: Connection = {
         handle,
@@ -1578,8 +1697,12 @@ class Connector implements ComputerConnector {
         established,
         streams,
         listener,
+        end,
       };
       this.#listeners.add(listener);
+      this.#held.add(connection);
+      // A dock that ended while the connection was opened ends it too.
+      if (!this.#docks.has(dock)) end();
       return connection;
     })();
     this.#connections.set(computer, opened);
@@ -1625,7 +1748,11 @@ class Connector implements ComputerConnector {
       ...(features.includes("reattach")
         ? { resume: this.#reattacher(computer, features) }
         : {}),
+      done: () => {
+        this.#streams.delete(session);
+      },
     });
+    this.#streams.add(session);
     session.begin();
     return session;
   }
@@ -1672,11 +1799,14 @@ class Connector implements ComputerConnector {
    * time, from the stream's resume.
    */
   #reattacher(computer: string, features: readonly SessionFeature[]): Resume {
+    const generation = this.#generation;
     let answer: Promise<ComputerSessionEndpoint> | undefined;
     let failed = false;
     let requestID = "";
     let createdAt = 0;
     return async (session, cursor, signal, until) => {
+      // A connector closed since the session opened resumes nothing.
+      if (generation !== this.#generation) throw closedError();
       if (
         answer === undefined ||
         Date.now() - createdAt > REATTACH_CREATE_EVERY_MS
@@ -1750,7 +1880,8 @@ class Connector implements ComputerConnector {
     until: number,
   ): Promise<Resumed> {
     const deadline = (): number => Math.min(Date.now() + OPEN_WAIT_MS, until);
-    const known = this.#known.get(computer) ?? (await answer);
+    const known =
+      this.#known.get(computer) ?? (await within(answer, signal, until));
     let connection: Connection;
     try {
       connection = await this.#establish(
@@ -1760,10 +1891,11 @@ class Connector implements ComputerConnector {
         deadline(),
         false,
         (endpoint) => !sameEndpoint(endpoint, known),
+        signal,
       );
     } catch (first) {
       if (first instanceof CreateFailure) throw first.cause;
-      const endpoint = await answer;
+      const endpoint = await within(answer, signal, until);
       if (sameEndpoint(endpoint, known)) throw first;
       connection = await this.#establish(
         computer,
@@ -1771,15 +1903,17 @@ class Connector implements ComputerConnector {
         answer,
         deadline(),
         true,
+        undefined,
+        signal,
       );
     }
     for (let followed = false; ; followed = true) {
-      const leg = await this.#openLeg(connection, frame);
+      const leg = await within(this.#openLeg(connection, frame), signal, until);
       try {
         return await firstFrame(
           leg,
           answer,
-          await connection.established,
+          await within(connection.established, signal, until),
           deadline(),
           signal,
         );
@@ -1791,6 +1925,8 @@ class Connector implements ComputerConnector {
           answer,
           deadline(),
           true,
+          undefined,
+          signal,
         );
       }
     }
@@ -1903,6 +2039,22 @@ function passing(error: unknown): boolean {
   return (
     error instanceof ApiError && (error.status === 429 || error.status >= 500)
   );
+}
+
+/** The moment half the life from `fromMs` to `toMs` has passed. */
+function halfLife(fromMs: number, toMs: number): number {
+  return fromMs + (toMs - fromMs) / 2;
+}
+
+/** Why `signal` aborted, as an error. */
+function abortReason(signal: AbortSignal): Error {
+  const reason: unknown = signal.reason;
+  return reason instanceof Error ? reason : closedError();
+}
+
+/** The error of work the connector's `close` ended. */
+function closedError(): DOMException {
+  return new DOMException("the connector was closed", "AbortError");
 }
 
 /** Whether the Worker's event `m` is about the dock `dock`. */
@@ -2018,7 +2170,8 @@ export type SessionOutput = EndpointFrame | { readonly type: "broken" };
  * stdout and stderr in the order sent, after which that output resumes. A
  * stream that no resume reaches within one session lease, 180 seconds, of
  * the loss, or whose resume the Computer or IDYL refuses, ends with
- * `broken`.
+ * `broken`; the session is then no longer renewed and is cancelled, so its
+ * process stops.
  */
 export interface ComputerSessionStream {
   /** The request ID the session's first open names. */
@@ -2045,6 +2198,9 @@ export interface ComputerSessionStream {
   /**
    * Ends the session on purpose: a `shell` or `exec` session is sent its
    * `end`, so it ends on the Computer at once, and the stream is finished.
+   * A session whose stream is being resumed has no stream to carry its
+   * `end` and is cancelled instead. Cancelling `output` closes the session
+   * the same way.
    */
   close(): void;
 }
@@ -2180,6 +2336,7 @@ class Superseded extends Error {
  * or IDYL refused it with a status other than 408, 429 or a server error.
  */
 function resumeFinal(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === "AbortError") return true;
   if (error instanceof EndpointRefusal) return error.code !== "not_granted";
   if (error instanceof ApiError) {
     return !(
@@ -2235,7 +2392,7 @@ function firstFrame(
       Math.max(0, deadline - Date.now()),
     );
     const aborted = (): void => {
-      fail(signal.reason);
+      fail(abortReason(signal));
     };
     signal.addEventListener("abort", aborted, { once: true });
     if (signal.aborted) {
@@ -2293,6 +2450,60 @@ function firstFrame(
   });
 }
 
+/**
+ * `promise`, unless `signal` aborts first, which rejects with its reason, or
+ * `until`, in milliseconds since the epoch, passes first, which rejects with
+ * a `TimeoutError` `DOMException`.
+ */
+function within<T>(
+  promise: Promise<T>,
+  signal: AbortSignal,
+  until: number,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const settle = (then: () => void): void => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", aborted);
+      then();
+    };
+    const aborted = (): void => {
+      settle(() => {
+        reject(abortReason(signal));
+      });
+    };
+    const timer = setTimeout(
+      () => {
+        settle(() => {
+          reject(
+            new DOMException(
+              "the session was not resumed within its lease",
+              "TimeoutError",
+            ),
+          );
+        });
+      },
+      Math.max(0, until - Date.now()),
+    );
+    if (signal.aborted) {
+      aborted();
+      return;
+    }
+    signal.addEventListener("abort", aborted, { once: true });
+    promise.then(
+      (value) => {
+        settle(() => {
+          resolve(value);
+        });
+      },
+      (error: unknown) => {
+        settle(() => {
+          reject(error instanceof Error ? error : new Error(String(error)));
+        });
+      },
+    );
+  });
+}
+
 /** Waits `ms`; resolves `false` at once when `signal` aborts first. */
 function pause(ms: number, signal: AbortSignal): Promise<boolean> {
   return new Promise((resolve) => {
@@ -2331,6 +2542,8 @@ interface SessionStreamParts {
   readonly abandon: (id: string) => void;
   /** Resumes a lost stream; absent for a session that cannot be resumed. */
   readonly resume?: Resume;
+  /** Called once, when the output has ended. */
+  readonly done: () => void;
 }
 
 class SessionStream implements ComputerSessionStream {
@@ -2345,6 +2558,9 @@ class SessionStream implements ComputerSessionStream {
   readonly #abandon: (id: string) => void;
   readonly #resume: Resume | undefined;
   readonly #savesResult: boolean;
+  readonly #done_: () => void;
+  // The session was cancelled because no resume will reach it.
+  #cancelled = false;
   // The stream the session's frames arrive on; a resume replaces it.
   #leg: Leg;
   #controller!: ReadableStreamDefaultController<SessionOutput>;
@@ -2386,13 +2602,16 @@ class SessionStream implements ComputerSessionStream {
     this.#forget = parts.forget;
     this.#abandon = parts.abandon;
     this.#resume = parts.resume;
+    this.#done_ = parts.done;
     this.output = new ReadableStream<SessionOutput>({
       start: (controller) => {
         this.#controller = controller;
       },
-      // A reader that cancels ends the output: nothing more may reach it.
+      // A reader that cancels the output has closed the session: nothing
+      // more may reach the output.
       cancel: () => {
-        this.#done = true;
+        this.#finishOutput();
+        this.close();
       },
     });
   }
@@ -2434,6 +2653,7 @@ class SessionStream implements ComputerSessionStream {
    */
   close(): void {
     this.#stopAnswerTimer();
+    if (this.#closed) return;
     this.#closed = true;
     this.#closing.abort();
     if (this.#resume !== undefined) {
@@ -2442,9 +2662,22 @@ class SessionStream implements ComputerSessionStream {
     this.#leg.release();
     this.#forget();
     if (this.#resuming) {
+      // No stream is live to carry the session's end.
       this.#resuming = false;
+      this.#cancel();
       this.#close();
     }
+  }
+
+  /**
+   * Cancels the session once through the platform, when no stream of it
+   * will carry its end: it is no longer renewed either.
+   */
+  #cancel(): void {
+    const id = this.#id ?? this.#session;
+    if (this.#cancelled || id === undefined) return;
+    this.#cancelled = true;
+    this.#abandon(id);
   }
 
   /** @internal Sends one encoded frame, unless the stream has ended. */
@@ -2553,9 +2786,9 @@ class SessionStream implements ComputerSessionStream {
   fail(error: unknown): void {
     this.#stopAnswerTimer();
     if (this.#done) return;
-    this.#done = true;
     this.#resuming = false;
     this.#controller.error(error);
+    this.#finishOutput();
   }
 
   /** Reads `leg`'s bytes and end as the session's. */
@@ -2673,6 +2906,10 @@ class SessionStream implements ComputerSessionStream {
     }
     if (!this.#isResuming()) return;
     this.#resuming = false;
+    // No resume will reach the session: it is no longer renewed, and is
+    // cancelled, so its process stops and its Computer may sleep.
+    this.#forget();
+    this.#cancel();
     this.#controller.enqueue({ type: "broken" });
     this.#close();
   }
@@ -2716,7 +2953,14 @@ class SessionStream implements ComputerSessionStream {
   /** Closes the output once. */
   #close(): void {
     if (this.#done) return;
-    this.#done = true;
     this.#controller.close();
+    this.#finishOutput();
+  }
+
+  /** Notes, once, that nothing more reaches the output. */
+  #finishOutput(): void {
+    if (this.#done) return;
+    this.#done = true;
+    this.#done_();
   }
 }

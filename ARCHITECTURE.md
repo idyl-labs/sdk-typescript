@@ -363,26 +363,39 @@ attempts pause 100 ms, doubling to 2 s; one create's grant is tried for
 30 s, or until the endpoint answers `not_granted` or the create fails, and
 is then created again; an attempt that the endpoint refuses with any other
 code, or that IDYL refuses with a status other than 408, 429 or a server
-error, ends the resume. A resume that has not succeeded one session lease,
-180 s, after the loss ends the stream with `broken`. The resumed stream's
+error, ends the resume. Every wait of a resume ends at that limit and when
+the stream is closed. A resume that has not succeeded one session lease,
+180 s, after the loss ends the stream with `broken`, and the session is
+then no longer renewed and is cancelled through its cancel route, so its
+process stops. The resumed stream's
 `opened` is not passed on unless the endpoint no longer held output that
 was lost: the output then carries one `opened` with `dropped: true` and the
 cursor the following output resumes after. The session's renewals carry on
-throughout, and closing a `shell` or `exec` stream sends `end`, so the
-session ends at once.
+throughout. Closing a `shell` or `exec` stream, or cancelling its output,
+sends `end`, so the session ends at once; one closed while it is resumed
+has no stream to carry `end` and is cancelled instead. A Computer
+connection that ends is forgotten before its streams are told, so their
+first attempt opens on a live connection. Closing the connector closes
+every stream that way first, and none is resumed.
 
-The client certificate lives one hour. On the same one-minute tick as the
+The client certificate lives one hour. The connector keeps it, and the
+Zone's verified session trust, until half its life has passed, so a dock
+attempt that fails asks for neither again; a trust fetch that fails while
+the held trust has not expired keeps it. On the same one-minute tick as the
 session renewals, once half the certificate's life, read from the leaf's
 validity, has passed, the connector asks for a certificate again and docks
 a second time beside the first, in the background. New Computer
 connections use the new dock; a connection already open on the old one
 carries on and serves new sessions until the old dock is closed at its
 certificate's `notAfter`, when its streams are resumed on the new dock. The
-edge's `drain` makes a dock serve no new connection and, when it is the
-dock in use, docks again at once in the background; sessions that need a
+edge's `drain` makes a dock serve no new connection, though its
+connections stay known until it ends and their streams are then resumed,
+and, when it is the dock in use, docks again at once in the background; sessions that need a
 dock meanwhile join that dock, and the tick docks only when no dock is
 live or in flight. Each connection's stream requests name that
-connection's own dock.
+connection's own dock, and each dock follows only its own events. Every
+dock the Worker opens is closed by the connector's `close`, and a dock
+that docks after it is closed at once and starts no tick.
 
 Every minute the connector renews each
 session it holds, until the session's stream is closed: one POST with no

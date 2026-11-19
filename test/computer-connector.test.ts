@@ -117,6 +117,16 @@ function frame(json: unknown): Uint8Array {
  */
 class FakeWorker implements WorkerPort {
   readonly requests: PageToWorker[] = [];
+  /** When each request arrived, by the clock the test runs, in order. */
+  readonly times: number[] = [];
+  /** How many docks to refuse next, each ending before it docked. */
+  failDocks = 0;
+  /** Holds each new dock's `docked` until {@link releaseDocked}. */
+  holdDocked = false;
+  readonly #heldDocked: number[] = [];
+  // The lanes and Computer connections opened on each dock.
+  readonly #lanes = new Map<number, number[]>();
+  readonly #computers = new Map<number, number[]>();
   /**
    * What the next Computer connections reach, in order: an epoch, a
    * refusal, or silence, a connection that is never established; after
@@ -160,6 +170,30 @@ class FakeWorker implements WorkerPort {
     return this.#dock;
   }
 
+  /** Sends the `docked` of every dock held by {@link holdDocked}. */
+  releaseDocked(): void {
+    for (const dock of this.#heldDocked.splice(0)) {
+      this.#emit({ type: "docked", dock, serviceLaneProfile: "" });
+    }
+  }
+
+  /** Ends `dock` as a closed WebSocket does: `dock-ended` alone. */
+  dockEnded(dock: number): void {
+    this.#ended.add(dock);
+    this.#emit({ type: "dock-ended", dock, reason: "connection closed" });
+  }
+
+  /** Ends the last Computer connection opened, as a lost TLS connection does. */
+  endComputer(): void {
+    if (this.#last === undefined) throw new Error("no stream is open");
+    this.#emit({
+      type: "computer-ended",
+      dock: this.#last.dock,
+      computer: this.#last.computer,
+      reason: "transport",
+    });
+  }
+
   /** The edge asks `dock` to drain. */
   drain(dock: number = this.#dock): void {
     this.#emit({ type: "drain", dock, reason: "redock" });
@@ -185,6 +219,7 @@ class FakeWorker implements WorkerPort {
 
   postMessage(message: PageToWorker): void {
     this.requests.push(message);
+    this.times.push(Date.now());
     queueMicrotask(() => {
       this.#answer(message);
     });
@@ -214,17 +249,29 @@ class FakeWorker implements WorkerPort {
       case "dock": {
         const dock = ++this.#dock;
         reply(dock);
-        this.#emit({ type: "docked", dock, serviceLaneProfile: "" });
+        if (this.failDocks > 0) {
+          this.failDocks--;
+          this.dockEnded(dock);
+        } else if (this.holdDocked) {
+          this.#heldDocked.push(dock);
+        } else {
+          this.#emit({ type: "docked", dock, serviceLaneProfile: "" });
+        }
         return;
       }
       case "open-lane": {
         const lane = this.#handle++;
+        this.#lanes.set(m.dock, [...(this.#lanes.get(m.dock) ?? []), lane]);
         reply(lane);
         this.#emit({ type: "lane-ready", dock: m.dock, lane });
         return;
       }
       case "open-computer": {
         const computer = this.#handle++;
+        this.#computers.set(m.dock, [
+          ...(this.#computers.get(m.dock) ?? []),
+          computer,
+        ]);
         reply(computer);
         const next = this.next.shift() ?? { epoch: 12 };
         if ("silent" in next) return;
@@ -252,9 +299,31 @@ class FakeWorker implements WorkerPort {
         return;
       }
       case "close-dock":
-        reply();
+        // As the Worker does: each Computer connection and lane ends, then
+        // the dock, and the reply follows.
         this.#ended.add(m.dock);
-        this.#emit({ type: "dock-ended", dock: m.dock, reason: "closed" });
+        for (const computer of this.#computers.get(m.dock) ?? []) {
+          this.#emit({
+            type: "computer-ended",
+            dock: m.dock,
+            computer,
+            reason: "transport",
+          });
+        }
+        for (const lane of this.#lanes.get(m.dock) ?? []) {
+          this.#emit({
+            type: "lane-ended",
+            dock: m.dock,
+            lane,
+            reason: "dock",
+          });
+        }
+        this.#emit({
+          type: "dock-ended",
+          dock: m.dock,
+          reason: "client closed",
+        });
+        reply();
         return;
       case "write": {
         reply();
@@ -325,6 +394,11 @@ interface Harness {
   readonly connector: ComputerConnector;
   readonly worker: FakeWorker;
   readonly creates: CreateComputerSessionRequest[];
+  /** When each create was asked for, by the clock the test runs. */
+  readonly createTimes: number[];
+  /** The client certificate and session trust requests made. */
+  readonly certifies: number[];
+  readonly trusts: number[];
   /** The session reads the connector made, in order. */
   readonly reads: {
     readonly computer: string;
@@ -360,6 +434,8 @@ async function harness(
     build?: typeof computerConnector;
     /** The reads' answers in order; the last one repeats. */
     reads?: readonly ReadAnswer[];
+    /** Holds every create of mode reattach unanswered. */
+    holdReattachCreate?: boolean;
   } = {},
 ): Promise<Harness> {
   const trust = await signedTrust(options.trustVersion, options.trustZone);
@@ -370,11 +446,15 @@ async function harness(
     connector: undefined as unknown as ComputerConnector,
     worker,
     creates: [],
+    createTimes: [],
+    certifies: [],
+    trusts: [],
     reads: [],
     release: undefined,
   };
   const api: ConnectorApi = {
     certify: (request) => {
+      h.certifies.push(Date.now());
       expect(request).toEqual(Uint8Array.of(9, 9));
       return Promise.resolve({
         chain: [Uint8Array.of(5)],
@@ -384,6 +464,7 @@ async function harness(
       });
     },
     sessionTrust: () => {
+      h.trusts.push(Date.now());
       if (options.failTrustOnce === true) {
         options.failTrustOnce = false;
         return Promise.reject(new Error("unavailable"));
@@ -395,6 +476,13 @@ async function harness(
     },
     createSession: (_computer, request) => {
       h.creates.push(request);
+      h.createTimes.push(Date.now());
+      if (
+        options.holdReattachCreate === true &&
+        request.endpoint?.mode === "reattach"
+      ) {
+        return new Promise(() => undefined);
+      }
       if (options.refuseCreate !== undefined) {
         return Promise.reject(options.refuseCreate);
       }
@@ -2171,6 +2259,316 @@ describe("computer session resume", () => {
     ]);
     const writes = h.worker.requests.filter((r) => r.type === "write");
     expect((writes.at(-1) as { dock: number }).dock).not.toBe(1);
+    h.connector.close();
+  });
+
+  // Contract: closing the connector closes every stream as its own close
+  // does, without a resume: an open shell and an open exec are each sent
+  // their end and end, no dock is asked for again, and no timer is left.
+  it("ends every stream without a resume when the connector closes", async () => {
+    vi.useFakeTimers();
+    const h = await harness();
+    resuming(h.worker, (open) => ({
+      type: "opened",
+      session: RESUMED,
+      cursor: open["cursor"],
+    }));
+    const shell = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    const exec = await h.connector.open(COMPUTER, {
+      mode: "exec",
+      command: ["sleep", "60"],
+    });
+    const rest = (output: ReadableStream<SessionOutput>) =>
+      first(output, 10).then((frames) => frames.slice(1));
+    const shellRest = rest(shell.output);
+    const execRest = rest(exec.output);
+    h.connector.close();
+    expect(await shellRest).toEqual([{ type: "broken" }]);
+    expect(await execRest).toEqual([{ type: "broken" }]);
+    // Each stream was closed as its own close closes it: its end was sent.
+    await vi.waitFor(() => {
+      expect(
+        [...h.worker.sent.values()].map((frames) => frames.at(-1)),
+      ).toEqual([{ type: "end" }, { type: "end" }]);
+    });
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(dockCount(h.worker)).toBe(1);
+    expect(opens(h.worker).filter((o) => o["mode"] === "reattach")).toEqual([]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  // Contract: a dock that docks after the connector closed is closed, and
+  // starts no renewal tick.
+  it("closes a dock that docks after the connector closed", async () => {
+    vi.useFakeTimers();
+    const renewals: string[][] = [];
+    const h = await harness({ renewals });
+    h.worker.holdDocked = true;
+    const ready = h.connector.ready().then(
+      () => "ready",
+      (error: unknown) => error,
+    );
+    await vi.waitFor(() => {
+      expect(dockCount(h.worker)).toBe(1);
+    });
+    h.connector.close();
+    h.worker.releaseDocked();
+    expect(await ready).toMatchObject({ name: "AbortError" });
+    expect(
+      h.worker.requests
+        .filter((r) => r.type === "close-dock")
+        .map((r) => (r as { dock: number }).dock),
+    ).toEqual([1]);
+    await vi.advanceTimersByTimeAsync(61_000);
+    expect(dockCount(h.worker)).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  // Contract: a dock follows its own events only: the drained dock's end,
+  // arriving while its replacement docks, does not fail the replacement,
+  // which becomes the dock in use, and close closes it.
+  it("follows only its own dock's events while it docks", async () => {
+    const h = await harness();
+    resuming(h.worker, (open) => ({
+      type: "opened",
+      session: RESUMED,
+      cursor: open["cursor"],
+    }));
+    const before = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    expect(await first(before.output, 1)).toHaveLength(1);
+    h.worker.holdDocked = true;
+    h.worker.drain(1);
+    await vi.waitFor(() => {
+      expect(dockCount(h.worker)).toBe(2);
+    });
+    h.worker.dockEnded(1);
+    h.worker.holdDocked = false;
+    h.worker.releaseDocked();
+    await vi.waitFor(() => {
+      expect(
+        opens(h.worker).filter((o) => o["mode"] === "reattach"),
+      ).toHaveLength(1);
+    });
+    expect(dockCount(h.worker)).toBe(2);
+    const writes = h.worker.requests.filter((r) => r.type === "write");
+    expect((writes.at(-1) as { dock: number }).dock).toBe(2);
+    h.connector.close();
+    expect(
+      h.worker.requests
+        .filter((r) => r.type === "close-dock")
+        .map((r) => (r as { dock: number }).dock),
+    ).toEqual([2]);
+  });
+
+  // Contract: the client certificate and the session trust are kept until
+  // half their life has passed: ten failed dock attempts ask for each once.
+  it("keeps the certificate and the trust across failed docks", async () => {
+    const h = await harness();
+    h.worker.failDocks = 10;
+    for (let i = 0; i < 10; i++) {
+      await expect(h.connector.ready()).rejects.toThrow("the dock ended");
+    }
+    expect(dockCount(h.worker)).toBe(10);
+    expect(h.certifies).toHaveLength(1);
+    expect(h.trusts).toHaveLength(1);
+    await h.connector.ready();
+    expect(h.certifies).toHaveLength(1);
+  });
+
+  // Contract: a resume that ends for good stops the session's renewals and
+  // cancels the session once, so its process stops.
+  it("stops renewing and cancels a session no resume reaches", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const renewals: string[][] = [];
+    const cancels: string[][] = [];
+    const h = await harness({ renewals, cancels });
+    resuming(h.worker, () => ({ type: "error", code: "busy" }));
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    expect(await first(session.output, 1)).toHaveLength(1);
+    h.worker.breakStream();
+    expect(await first(session.output, 2)).toEqual([{ type: "broken" }]);
+    expect(cancels).toEqual([[COMPUTER, RESUMED]]);
+    vi.advanceTimersByTime(60_000);
+    expect(renewals.flat()).not.toContain(RESUMED);
+    h.connector.close();
+  });
+
+  // Contract: closing a session while its stream is resumed stops the
+  // resume, stops its renewals, and cancels it, since no stream carries its
+  // end; the output closes.
+  it("cancels a session closed while it is resumed", async () => {
+    const cancels: string[][] = [];
+    const h = await harness({ cancels });
+    resuming(h.worker, () => undefined);
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    const reader = session.output.getReader();
+    await reader.read();
+    h.worker.breakStream();
+    await vi.waitFor(() => {
+      expect(opens(h.worker)).toHaveLength(2);
+    });
+    session.close();
+    expect(await reader.read()).toEqual({ done: true, value: undefined });
+    expect(cancels).toEqual([[COMPUTER, RESUMED]]);
+    h.connector.close();
+  });
+
+  // Contract: a drained dock's connections stay known until it ends; a
+  // dock that ends with dock-ended alone resumes their streams.
+  it("resumes the streams of a drained dock that ends", async () => {
+    const h = await harness();
+    resuming(h.worker, (open) => ({
+      type: "opened",
+      session: RESUMED,
+      cursor: open["cursor"],
+    }));
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    expect(await first(session.output, 1)).toHaveLength(1);
+    h.worker.drain(1);
+    await vi.waitFor(() => {
+      expect(dockCount(h.worker)).toBe(2);
+    });
+    h.worker.dockEnded(1);
+    await vi.waitFor(() => {
+      expect(
+        opens(h.worker).filter((o) => o["mode"] === "reattach"),
+      ).toHaveLength(1);
+    });
+    h.worker.deliver(stdout("on"));
+    expect(await first(session.output, 1)).toEqual([
+      { type: "stdout", data: enc.encode("on") },
+    ]);
+    h.connector.close();
+  });
+
+  // Contract: every wait inside a resume ends at its limit: a create that
+  // never answers ends the stream broken one session lease after the loss.
+  it("ends broken at the limit when the resume's create never answers", async () => {
+    vi.useFakeTimers();
+    const h = await harness({ holdReattachCreate: true });
+    resuming(h.worker, () => undefined);
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    const reader = session.output.getReader();
+    await reader.read();
+    h.worker.endComputer();
+    let last: SessionOutput | "done" | undefined;
+    void reader.read().then(({ value, done }) => {
+      last = done ? "done" : value;
+    });
+    await vi.advanceTimersByTimeAsync(179_900);
+    expect(last).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(100);
+    await vi.waitFor(() => {
+      expect(last).toEqual({ type: "broken" });
+    });
+    h.connector.close();
+  });
+
+  // Contract: the first resume after a lost connection opens on a live
+  // connection: the lost one is forgotten before its streams are told.
+  it("opens the first resume on a live connection", async () => {
+    const h = await harness();
+    resuming(h.worker, (open) => ({
+      type: "opened",
+      session: RESUMED,
+      cursor: open["cursor"],
+    }));
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    expect(await first(session.output, 1)).toHaveLength(1);
+    const lost = (
+      h.worker.requests.find((r) => r.type === "open-computer") as unknown as {
+        ref: number;
+      }
+    ).ref;
+    h.worker.endComputer();
+    await vi.waitFor(() => {
+      expect(opens(h.worker)).toHaveLength(2);
+    });
+    const computers = h.worker.requests.filter(
+      (r) => r.type === "open-computer",
+    );
+    expect(computers).toHaveLength(2);
+    expect(computers[1]?.ref).not.toBe(lost);
+    const streams = h.worker.requests.filter((r) => r.type === "open-stream");
+    expect(streams).toHaveLength(2);
+    expect((streams[1] as { computer: number }).computer).not.toBe(
+      (streams[0] as { computer: number }).computer,
+    );
+    h.connector.close();
+  });
+
+  // Contract: a reader that cancels the output closes the session: its end
+  // is sent and its stream finished.
+  it("closes the session when its reader cancels the output", async () => {
+    const h = await harness();
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    const reader = session.output.getReader();
+    await reader.read();
+    await reader.cancel();
+    await vi.waitFor(() => {
+      const sent = [...h.worker.sent.values()][0] ?? [];
+      expect(sent.at(-1)).toEqual({ type: "end" });
+    });
+    expect(h.worker.requests.filter((r) => r.type === "finish")).toHaveLength(
+      1,
+    );
+  });
+
+  // Contract: while the endpoint cannot be reached, attempts pause 100 ms,
+  // doubling to 2 s, and one create's grant is tried for 30 s before the
+  // session is created again.
+  it("paces its attempts and creates again after 30 s", async () => {
+    vi.useFakeTimers();
+    const h = await harness();
+    resuming(h.worker, () => undefined);
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    expect(await first(session.output, 1)).toHaveLength(1);
+    for (let i = 0; i < 200; i++) h.worker.next.push({ refuse: "unreachable" });
+    const lostAt = Date.now();
+    h.worker.endComputer();
+    await vi.advanceTimersByTimeAsync(40_000);
+    const dials = h.worker.requests
+      .map((r, i) => ({ r, at: h.worker.times[i] ?? 0 }))
+      .filter(({ r }) => r.type === "open-computer")
+      .slice(1)
+      .map(({ at }) => at - lostAt);
+    const gaps = dials.slice(1, 8).map((at, i) => at - (dials[i] ?? 0));
+    expect(gaps).toEqual([100, 200, 400, 800, 1600, 2000, 2000]);
+    const reattaches = h.creates
+      .map((c, i) => ({ c, at: h.createTimes[i] ?? 0 }))
+      .filter(({ c }) => c.endpoint?.mode === "reattach")
+      .map(({ at }) => at - lostAt);
+    expect(reattaches).toHaveLength(2);
+    expect(reattaches[0]).toBe(0);
+    expect(reattaches[1]).toBeGreaterThan(30_000);
+    expect(reattaches[1]).toBeLessThanOrEqual(32_000);
     h.connector.close();
   });
 
