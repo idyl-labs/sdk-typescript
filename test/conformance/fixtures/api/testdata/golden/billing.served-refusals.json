@@ -3,6 +3,13 @@
     "error": "auto-refill can be on only with a monthly spend cap set",
     "code": "AUTO_REFILL_NEEDS_SPEND_CAP"
   },
+  "computerLimitReached": {
+    "error": "this Account holds as many Computers as its plan allows",
+    "code": "COMPUTER_LIMIT_REACHED",
+    "details": {
+      "limit": 20
+    }
+  },
   "computerSizeBelowUsage": {
     "error": "the size's disk cannot hold the Computer's files",
     "code": "SIZE_BELOW_USAGE",

@@ -100,10 +100,11 @@ public type it did not choose. Listings return a `Page` with an opaque
 `continue`, and `list` walks the pages as an async iterator.
 
 `idyl.identity` carries sign-in and the identity exchanges, and never
-consults the client's credential. Starting sign-in is anonymous. Verifying
-a code, redeeming a browser code and exchanging an access key prove a key
-the caller passes and present no token, and the tokens they issue are bound
-to that key; every other call presents the `RefreshCredential` it was given,
+consults the client's credential. Asking for a sign-in code, verifying
+it, redeeming a browser code and exchanging an access key prove a key the
+caller passes and present no token, and the code or tokens they issue are
+bound to that key: a code is redeemed only by a verify signed by the key
+that asked for it; every other call presents the `RefreshCredential` it was given,
 the refresh token with its key, for that one request. `idyl.accessKeys`
 creates, lists and revokes the caller's access keys: `create` generates an
 Ed25519 key pair with WebCrypto, registers only its public JWK, and returns
@@ -547,7 +548,7 @@ makes:
   one JSON value as `invalid_response`. A message names the method, never
   the URL. A caller's own signal aborts with the signal's reason.
 - Anonymous requests, which carry no token and no proof, exist only for
-  starting sign-in, and the network's public metadata and Computer sizes.
+  the network's public metadata and Computer sizes.
 - No automatic retries, with two exceptions. A 401 whose
   `WWW-Authenticate` names `invalid_dpop_proof`, as a proof stating a
   skewed time is refused, is sent once more with a fresh proof at the

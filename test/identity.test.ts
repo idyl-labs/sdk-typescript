@@ -66,20 +66,21 @@ describe("starting a sign-in", () => {
   it("sends the reader's time zone, language and browser", async () => {
     const queue = new FetchQueue();
     const { idyl } = client(queue);
+    const key = await ed25519Key();
     queue.respondJson({ message: "sent" });
     queue.respondJson({ message: "sent" });
     queue.respondJson({ message: "sent" });
 
-    await idyl.identity.startSignIn("person@example.com", {
+    await idyl.identity.startSignIn("person@example.com", key, {
       timeZone: "Europe/Berlin",
       locale: "de-DE",
       userAgent: "ExampleBrowser/1.0",
     });
-    await idyl.identity.resendCode("person@example.com", {
+    await idyl.identity.resendCode("person@example.com", key, {
       timeZone: "+05:30",
       locale: "",
     });
-    await idyl.identity.startSignIn("person@example.com");
+    await idyl.identity.startSignIn("person@example.com", key);
 
     expect(
       queue.requests.map((request) => [
@@ -121,10 +122,11 @@ describe("the public identifier parsers", () => {
 });
 
 describe("identity exchanges that prove a key", () => {
-  // Contract: verifying a code, redeeming a browser code and exchanging an
-  // access key present no token: each carries a proof by the key whose
-  // tokens it obtains, covering its exact body, and never consults the
-  // client's credential. Starting sign-in is anonymous: no token, no proof.
+  // Contract: asking for a sign-in code, verifying it, redeeming a browser
+  // code and exchanging an access key present no token: each carries a
+  // proof by the key whose code or tokens it obtains, covering its exact
+  // body, and never consults the client's credential. The start, the
+  // resend and the verify of one sign-in are signed by the same key.
   it("proves the key alone and never the client's credential", async () => {
     const queue = new FetchQueue();
     const { idyl, credential } = client(queue);
@@ -150,11 +152,11 @@ describe("identity exchanges that prove a key", () => {
       }),
     );
 
-    await idyl.identity.startSignIn("person@example.com");
-    await idyl.identity.resendCode("person@example.com");
+    await idyl.identity.startSignIn("person@example.com", key);
+    await idyl.identity.resendCode("person@example.com", key);
     const signIn = await idyl.identity.verifyCode(
       "person@example.com",
-      "123456",
+      "41820593",
       key,
     );
     expect(signIn.refreshToken).toBe("refresh");
@@ -186,16 +188,22 @@ describe("identity exchanges that prove a key", () => {
       ["POST", `${endpoints.identity}/browser/exchange`],
       ["POST", `${endpoints.identity}/token/access-key`],
     ]);
-    for (const request of queue.requests.slice(0, 2)) {
-      expect(request.headers.has("authorization")).toBe(false);
-      expect(request.headers.has("dpop")).toBe(false);
-      expect(request.headers.has("content-digest")).toBe(false);
-    }
-    const [, , verify, browser, access] = queue.requests;
-    if (verify === undefined || browser === undefined || access === undefined) {
+    const [start, resend, verify, browser, access] = queue.requests;
+    if (
+      start === undefined ||
+      resend === undefined ||
+      verify === undefined ||
+      browser === undefined ||
+      access === undefined
+    ) {
       throw new Error("requests missing");
     }
+    for (const request of queue.requests) {
+      expect(request.headers.has("authorization")).toBe(false);
+    }
     for (const [request, proving] of [
+      [start, key],
+      [resend, key],
       [verify, key],
       [browser, browserKey],
       [access, key],
@@ -206,9 +214,15 @@ describe("identity exchanges that prove a key", () => {
       );
       expect(proof.claims["htd"]).toBe(request.headers.get("content-digest"));
     }
+    expect(JSON.parse(start.body ?? "")).toEqual({
+      email: "person@example.com",
+    });
+    expect(JSON.parse(resend.body ?? "")).toEqual({
+      email: "person@example.com",
+    });
     expect(JSON.parse(verify.body ?? "")).toEqual({
       email: "person@example.com",
-      code: "123456",
+      code: "41820593",
     });
     expect(access.body).toBe(`{"accessKeyId":"${accessKeyId}"}`);
   });
@@ -342,21 +356,27 @@ describe("identity input", () => {
     const { idyl } = client(queue);
     const { identity } = idyl;
     const refresh = { refreshToken: "refresh", key: testKey };
-    await expect(identity.startSignIn(" ")).rejects.toThrow(
+    await expect(identity.startSignIn(" ", testKey)).rejects.toThrow(
       "email is required",
     );
+    await expect(
+      identity.startSignIn("a@example.com", undefined as never),
+    ).rejects.toThrow("key is required");
+    await expect(
+      identity.resendCode("a@example.com", undefined as never),
+    ).rejects.toThrow("key is required");
     await expect(
       identity.verifyCode("a@example.com", "", testKey),
     ).rejects.toThrow("code is required");
     await expect(
-      identity.verifyCode("a@example.com", "123456", undefined as never),
+      identity.verifyCode("a@example.com", "41820593", undefined as never),
     ).rejects.toThrow("key is required");
     const publicOnly = {
       publicKey: testKey.publicKey,
       privateKey: testKey.publicKey,
     };
     await expect(
-      identity.verifyCode("a@example.com", "123456", publicOnly),
+      identity.verifyCode("a@example.com", "41820593", publicOnly),
     ).rejects.toThrow("key must be a CryptoKeyPair");
     await expect(
       identity.signUp(refresh, { acceptedTerms: false }),
@@ -401,7 +421,7 @@ describe("identity input", () => {
     const { idyl } = client(queue);
     queue.respondJson({ refreshToken: "refresh" });
     const missing = await rejection(
-      idyl.identity.verifyCode("person@example.com", "123456", testKey),
+      idyl.identity.verifyCode("person@example.com", "41820593", testKey),
     );
     expect(missing).toBeInstanceOf(TransportError);
     expect((missing as Error).message).toBe(

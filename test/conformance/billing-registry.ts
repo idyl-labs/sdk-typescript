@@ -30,7 +30,9 @@ import {
   validateUpdateAccountBillingRequest,
 } from "../../src/api/billing.js";
 import {
+  COMPUTER_LIMIT_REACHED_DETAIL_LIMIT,
   ERROR_CODE_AUTO_REFILL_NEEDS_SPEND_CAP,
+  ERROR_CODE_COMPUTER_LIMIT_REACHED,
   ERROR_CODE_EXTRA_USAGE_NOT_IN_PLAN,
   ERROR_CODE_OUT_OF_USAGE,
   ERROR_CODE_PLAN_NOT_OFFERED,
@@ -172,14 +174,22 @@ const servedCodes: ReadonlyMap<string, string> = new Map([
   ["extraUsageNotInPlan", ERROR_CODE_EXTRA_USAGE_NOT_IN_PLAN],
   ["autoRefillNeedsSpendCap", ERROR_CODE_AUTO_REFILL_NEEDS_SPEND_CAP],
   ["planNotOffered", ERROR_CODE_PLAN_NOT_OFFERED],
+  ["computerLimitReached", ERROR_CODE_COMPUTER_LIMIT_REACHED],
 ]);
 
 /**
  * The details a client reads from a served refusal through the code's own
  * helper, written with only the keys the refusal carries, as the reference
- * contract's details types write them with `omitempty`.
+ * contract's details types write them with `omitempty`. A code the reference
+ * contract gives no details type is read by its details key.
  */
 function readDetails(error: ApiError): JsonObject | undefined {
+  if (error.code === ERROR_CODE_COMPUTER_LIMIT_REACHED) {
+    const limit = error.details?.[COMPUTER_LIMIT_REACHED_DETAIL_LIMIT];
+    return limit === undefined
+      ? undefined
+      : { [COMPUTER_LIMIT_REACHED_DETAIL_LIMIT]: limit };
+  }
   const notInPlan = sizeNotInPlan(error);
   if (notInPlan !== undefined) {
     return {

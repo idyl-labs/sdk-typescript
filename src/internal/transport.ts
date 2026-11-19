@@ -229,9 +229,9 @@ export class Transport {
 
   /**
    * Sends a request with no credential and no proof. It exists for the
-   * documented identity endpoints and the network's public metadata and
-   * Computer sizes, whose contract is anonymous; every other request goes
-   * through {@link json}.
+   * network's public metadata and Computer sizes, whose contract is
+   * anonymous; every other request goes through {@link json} or an
+   * exchange.
    */
   async anonymousJson<T>(
     method: string,
