@@ -1,12 +1,13 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
 /*
- * Sign-in, signup, and the identity exchanges. Starting sign-in is anonymous.
- * Every exchange proves possession of a key the caller holds: verifying a
- * code, redeeming a browser code and exchanging an access key prove the key
- * alone, and the tokens they issue are bound to it; every other exchange
- * presents a refresh token with a proof by the key it is bound to. The
- * service holds no credential of its own, and every token is opaque to it.
+ * Sign-in, signup, and the identity exchanges. Every exchange proves
+ * possession of a key the caller holds: asking for a sign-in code, verifying
+ * it, redeeming a browser code and exchanging an access key prove the key
+ * alone, and the code or tokens they issue are bound to it; every other
+ * exchange presents a refresh token with a proof by the key it is bound to.
+ * The service holds no credential of its own, and every token is opaque to
+ * it.
  */
 import type {
   AuthorizeBrowserRequest,
@@ -69,10 +70,12 @@ export interface RefreshPresentation {
 export interface IdentityService {
   startAuth(
     request: StartAuthRequest,
+    key: CryptoKeyPair,
     options?: RequestOptions,
   ): Promise<StartAuthResponse>;
   resendAuth(
     request: ResendAuthRequest,
+    key: CryptoKeyPair,
     options?: RequestOptions,
   ): Promise<ResendAuthResponse>;
   verifyAuth(
@@ -142,31 +145,51 @@ export function identityService(
     return { refreshToken: refreshToken ?? "", key: refresh.key };
   };
   return Object.freeze({
-    /** Requests a one-time authentication code. Anonymous. */
-    async startAuth(request: StartAuthRequest, options: RequestOptions = {}) {
-      return await transport.anonymousJson<StartAuthResponse>(
+    /**
+     * Asks for a one-time code to be emailed to `request.email`, with a proof
+     * by `key`, a key made for this sign-in. The code is redeemable only by
+     * `verifyAuth` with the same key; a code another key asked for is
+     * unaffected. The response carries no information about whether the
+     * address belongs to an Account.
+     */
+    async startAuth(
+      request: StartAuthRequest,
+      key: CryptoKeyPair,
+      options: RequestOptions = {},
+    ) {
+      return await transport.exchangeJson<StartAuthResponse>(
         "POST",
         endpoints.identity,
         LOGIN_START,
+        { key },
         { body: request, ...signalOption(options.signal) },
       );
     },
     /**
-     * Requests that the one-time authentication code be sent again. Like
-     * `startAuth` it is anonymous, and its response carries no information
-     * about whether the address belongs to an Account.
+     * Asks for a new one-time code for `request.email`, with a proof by
+     * `key`, the key that started the sign-in. The new code replaces the
+     * earlier unused code of the same key only. Like `startAuth`, its
+     * response carries no information about whether the address belongs to
+     * an Account.
      */
-    async resendAuth(request: ResendAuthRequest, options: RequestOptions = {}) {
-      return await transport.anonymousJson<ResendAuthResponse>(
+    async resendAuth(
+      request: ResendAuthRequest,
+      key: CryptoKeyPair,
+      options: RequestOptions = {},
+    ) {
+      return await transport.exchangeJson<ResendAuthResponse>(
         "POST",
         endpoints.identity,
         LOGIN_RESEND,
+        { key },
         { body: request, ...signalOption(options.signal) },
       );
     },
     /**
-     * Verifies a one-time code with a proof by `key`, and returns a refresh
-     * token bound to it.
+     * Verifies a one-time code with a proof by `key`, the key that asked for
+     * the code with `startAuth` or `resendAuth`, and returns a refresh token
+     * bound to it. A proof by any other key finds no code and is refused as
+     * a wrong code.
      */
     async verifyAuth(
       request: VerifyAuthRequest,

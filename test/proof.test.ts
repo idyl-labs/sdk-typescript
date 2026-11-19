@@ -239,7 +239,7 @@ describe("a refused proof", () => {
     queue.respond(() => refusedProof());
     const { transport: shared } = transport(queue);
     await expect(
-      shared.anonymousJson("POST", apiEndpoint, "/login/start", { body: {} }),
+      shared.anonymousJson("GET", apiEndpoint, "/v1/network"),
     ).rejects.toBeInstanceOf(ApiError);
     expect(queue.requests).toHaveLength(1);
   });

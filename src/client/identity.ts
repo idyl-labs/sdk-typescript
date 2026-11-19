@@ -251,12 +251,12 @@ export interface BrowserExchangeRequest {
  * person can act as, access tokens, the browser handoff, access key
  * exchanges and sign-out.
  *
- * Every token IDYL issues is bound to a key its holder keeps. Verifying a
- * code, redeeming a browser code and exchanging an access key prove a key
- * and bind the tokens they issue to it; every other call presents a
- * {@link RefreshCredential} for that one request only. Starting sign-in is
- * anonymous. None of them consults the client's `credential`. No token is
- * kept, inspected or logged, and no message carries one.
+ * Every code and token IDYL issues is bound to a key its holder keeps.
+ * Asking for a sign-in code, verifying it, redeeming a browser code and
+ * exchanging an access key prove a key and bind what they issue to it; every
+ * other call presents a {@link RefreshCredential} for that one request only.
+ * None of them consults the client's `credential`. No token is kept,
+ * inspected or logged, and no message carries one.
  *
  * @example
  * ```ts
@@ -264,10 +264,10 @@ export interface BrowserExchangeRequest {
  *   "sign",
  *   "verify",
  * ]);
- * await idyl.identity.startSignIn("ada@example.com");
+ * await idyl.identity.startSignIn("ada@example.com", key);
  * const { refreshToken } = await idyl.identity.verifyCode(
  *   "ada@example.com",
- *   "123456",
+ *   "41820593",
  *   key,
  * );
  * const token = await idyl.identity.accessToken({ refreshToken, key });
@@ -275,32 +275,51 @@ export interface BrowserExchangeRequest {
  */
 export interface Identity {
   /**
-   * Sends a six-digit sign-in code to `email`. The answer is the same
-   * whether or not the address belongs to anyone.
+   * Sends an eight-digit sign-in code to `email`, with a proof by `key`. The
+   * code belongs to `key`: only {@link Identity.verifyCode} with the same key
+   * redeems it, and a code another key asked for, for the same address, is
+   * unaffected. The answer is the same whether or not the address belongs to
+   * anyone.
    *
    * @param email The address to send the code to.
-   * @throws {@link TypeError} `email` is blank; nothing is sent
+   * @param key The Ed25519 or ECDSA P-256 key pair made for this sign-in;
+   *   its private key may be non-extractable.
+   * @throws {@link TypeError} `email` is blank, or `key` cannot sign; nothing
+   *   is sent
    * @throws {@link ApiError} IDYL refuses the request
    * @throws {@link TransportError} the request does not complete
    */
-  startSignIn(email: string, options?: SignInOptions): Promise<void>;
+  startSignIn(
+    email: string,
+    key: CryptoKeyPair,
+    options?: SignInOptions,
+  ): Promise<void>;
   /**
-   * Sends another sign-in code, answering as {@link Identity.startSignIn} does.
+   * Sends another sign-in code, with a proof by `key`, the key that started
+   * the sign-in. The new code ends the earlier unused code of the same key
+   * only. It answers as {@link Identity.startSignIn} does.
    *
    * @param email The address the sign-in was started for.
-   * @throws {@link TypeError} `email` is blank; nothing is sent
+   * @param key The key pair {@link Identity.startSignIn} was given.
+   * @throws {@link TypeError} `email` is blank, or `key` cannot sign; nothing
+   *   is sent
    * @throws {@link ApiError} IDYL refuses the request
    * @throws {@link TransportError} the request does not complete
    */
-  resendCode(email: string, options?: SignInOptions): Promise<void>;
+  resendCode(
+    email: string,
+    key: CryptoKeyPair,
+    options?: SignInOptions,
+  ): Promise<void>;
   /**
-   * Verifies a sign-in code with a proof by `key`, the client's key, and
-   * returns a refresh token bound to that key.
+   * Verifies a sign-in code with a proof by `key`, the key that asked for
+   * the code, and returns a refresh token bound to that key. A proof by any
+   * other key is refused as a wrong code.
    *
    * @param email The address the code was sent to.
-   * @param code The six-digit code from the email.
-   * @param key The Ed25519 or ECDSA P-256 key pair the tokens are bound to;
-   *   its private key may be non-extractable.
+   * @param code The eight-digit code from the email.
+   * @param key The key pair {@link Identity.startSignIn} was given; the
+   *   tokens are bound to it.
    * @throws {@link TypeError} `email` or `code` is blank, or `key` cannot
    *   sign; nothing is sent
    * @throws {@link ApiError} the code is wrong or expired, or IDYL refuses
@@ -455,15 +474,25 @@ export interface Identity {
 /** Builds the sign-in surface over the identity service. */
 export function identity(service: () => IdentityService): Identity {
   return Object.freeze({
-    async startSignIn(email: string, options?: SignInOptions) {
+    async startSignIn(
+      email: string,
+      key: CryptoKeyPair,
+      options?: SignInOptions,
+    ) {
       await service().startAuth(
         { email: requireText(email, "email"), ...readerOf(options) },
+        key,
         signalOf(options),
       );
     },
-    async resendCode(email: string, options?: SignInOptions) {
+    async resendCode(
+      email: string,
+      key: CryptoKeyPair,
+      options?: SignInOptions,
+    ) {
       await service().resendAuth(
         { email: requireText(email, "email"), ...readerOf(options) },
+        key,
         signalOf(options),
       );
     },

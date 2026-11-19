@@ -44,6 +44,20 @@ export const ERROR_CODE_SIZE_NOT_IN_PLAN = "SIZE_NOT_IN_PLAN";
 export const ERROR_CODE_VCPU_LIMIT_REACHED = "VCPU_LIMIT_REACHED";
 
 /**
+ * Returned with HTTP 403 when a create of a Computer, a fork included, would
+ * leave the Account holding more Computers than its plan allows at once.
+ * Every Computer of the Account counts, asleep or awake, until its deletion
+ * has been asked for. It refuses the create at once, and the refused request
+ * creates nothing. The details carry
+ * {@link COMPUTER_LIMIT_REACHED_DETAIL_LIMIT}. Deleting a Computer, or
+ * upgrading to a plan with a higher limit, lets the next create through. The
+ * count can briefly lag a change: a create just after a delete can fail with
+ * it and succeed when asked again, and creates made close together can take
+ * the Account briefly past its limit.
+ */
+export const ERROR_CODE_COMPUTER_LIMIT_REACHED = "COMPUTER_LIMIT_REACHED";
+
+/**
  * Returned with HTTP 429 and `Retry-After` when an Account with a download limit
  * has downloaded as much of its saved files as one window allows. An Account has
  * a limit on a free trial, on no plan, and on a paid plan while it is out of
@@ -144,6 +158,12 @@ export const SIZE_NOT_IN_PLAN_DETAIL_PLAN = "plan";
  * includes the size.
  */
 export const SIZE_NOT_IN_PLAN_DETAIL_PLAN_NAME = "planName";
+
+/**
+ * The details key of a `COMPUTER_LIMIT_REACHED` refusal naming the Computers
+ * the Account's plan allows it to hold at once, a whole number.
+ */
+export const COMPUTER_LIMIT_REACHED_DETAIL_LIMIT = "limit";
 
 /** The details key of a `SPEND_CAP_REACHED` refusal naming the Account's spend cap, in micro-dollars. */
 export const SPEND_CAP_REACHED_DETAIL_SPEND_CAP = "spendCapMicros";
