@@ -36,9 +36,18 @@ import {
 export function computerEndpointApi(
   context: () => Promise<PlacementContext>,
 ): ConnectorApi {
+  // The client's clock, corrected by the API's `Date` headers, once a
+  // request has reached the client's context.
+  let clock: (() => number) | undefined;
+  const placed = async (): Promise<PlacementContext> => {
+    const c = await context();
+    clock ??= () => c.state.transport.now();
+    return c;
+  };
   return {
+    now: () => (clock === undefined ? Date.now() : clock()),
     async certify(request: Uint8Array): Promise<IssuedCertificate> {
-      const c = await context();
+      const c = await placed();
       const resolved = await resolvePlacement(c);
       const answer = await c.state.transport.json<unknown>(
         "POST",
@@ -53,7 +62,7 @@ export function computerEndpointApi(
       return issued(answer);
     },
     async sessionTrust(): Promise<PlacedSessionTrust> {
-      const c = await context();
+      const c = await placed();
       const resolved = await resolvePlacement(c);
       const response = await c.state.transport.json<SessionTrustResponse>(
         "GET",
@@ -64,7 +73,7 @@ export function computerEndpointApi(
     },
     async createSession(computer, request) {
       return await createSession(
-        await context(),
+        await placed(),
         sessionsById(computer),
         request,
         undefined,
@@ -72,7 +81,7 @@ export function computerEndpointApi(
     },
     async readSession(computer, session, signal) {
       return await getSession(
-        await context(),
+        await placed(),
         sessionsById(computer),
         session,
         signal,
@@ -80,13 +89,13 @@ export function computerEndpointApi(
     },
     async renewSessions(computer, sessions) {
       return await renewSessions(
-        await context(),
+        await placed(),
         sessionsById(computer),
         sessions,
       );
     },
     async createWatch() {
-      const c = await context();
+      const c = await placed();
       const resolved = await resolvePlacement(c);
       const answer = await c.state.transport.json<unknown>(
         "POST",
@@ -98,7 +107,7 @@ export function computerEndpointApi(
     },
     async cancelSession(computer, session) {
       await cancelSession(
-        await context(),
+        await placed(),
         sessionsById(computer),
         session,
         undefined,

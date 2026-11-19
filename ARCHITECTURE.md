@@ -365,9 +365,11 @@ is then created again; an attempt that the endpoint refuses with any other
 code, or that IDYL refuses with a status other than 408, 429 or a server
 error, ends the resume. Every wait of a resume ends at that limit and when
 the stream is closed. A resume that has not succeeded one session lease,
-180 s, after the loss ends the stream with `broken`, and the session is
-then no longer renewed and is cancelled through its cancel route, so its
-process stops. The resumed stream's
+180 s, after the loss ends the stream with `broken`. Every `broken` that
+its caller did not close leaves the session no longer renewed and
+cancelled through its cancel route, so its process stops, unless the
+process's exit was already seen: that session is left to end by itself,
+since a cancel would end it as cancelled while its save may still settle. The resumed stream's
 `opened` is not passed on unless the endpoint no longer held output that
 was lost: the output then carries one `opened` with `dropped: true` and the
 cursor the following output resumes after. The session's renewals carry on
@@ -381,7 +383,11 @@ every stream that way first, and none is resumed.
 The client certificate lives one hour. The connector keeps it, and the
 Zone's verified session trust, until half its life has passed, so a dock
 attempt that fails asks for neither again; a trust fetch that fails while
-the held trust has not expired keeps it. On the same one-minute tick as the
+the held trust has not expired keeps it, and an expired trust is never
+used. Both are timed by the client's clock corrected by the API's `Date`
+headers, the clock request proofs state. Each Computer connection takes
+the trust as it is then, and the one-minute tick fetches it again at half
+its life, so a connection rarely waits for it. On the same one-minute tick as the
 session renewals, once half the certificate's life, read from the leaf's
 validity, has passed, the connector asks for a certificate again and docks
 a second time beside the first, in the background. New Computer
@@ -395,7 +401,11 @@ dock meanwhile join that dock, and the tick docks only when no dock is
 live or in flight. Each connection's stream requests name that
 connection's own dock, and each dock follows only its own events. Every
 dock the Worker opens is closed by the connector's `close`, and a dock
-that docks after it is closed at once and starts no tick.
+that docks after it is closed at once and starts no tick; `close` also
+ends a dock's wait for the edge's retry-after, and an open that completes
+after it refuses and cancels the session it created. A lane that ends
+while its dock stays up, as when the machine's own connection is renewed,
+is forgotten at once, so the next use opens it again.
 
 Every minute the connector renews each
 session it holds, until the session's stream is closed: one POST with no

@@ -212,6 +212,14 @@ export class Transport {
   }
 
   /**
+   * The API's time now, in milliseconds since the epoch: the local clock
+   * corrected by the offset the API's last `Date` header showed.
+   */
+  now(): number {
+    return this.#clock.now();
+  }
+
+  /**
    * Sends an authenticated request to `origin` + `path` and decodes its JSON
    * response. `path` begins with a slash and may carry a query string. The
    * credential source is consulted once for this request under the

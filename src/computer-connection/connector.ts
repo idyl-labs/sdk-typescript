@@ -115,6 +115,12 @@ export interface PlacedSessionTrust {
 
 /** The platform requests the connector makes, with the page's credential. */
 export interface ConnectorApi {
+  /**
+   * The platform's time now, in milliseconds since the epoch, as best known:
+   * the clock the connector times its certificate and session trust by.
+   * The local clock when absent.
+   */
+  now?(): number;
   /** Issues a client certificate for a DER certificate request. */
   certify(request: Uint8Array): Promise<IssuedCertificate>;
   /**
@@ -639,6 +645,8 @@ class Connector implements ComputerConnector {
   readonly #streams = new Set<SessionStream>();
   // Counts closes, so a dock that docks after a close is closed.
   #generation = 0;
+  // The waits for the edge's retry-after in progress, each ended by close.
+  readonly #pauses = new Set<() => void>();
   // The edge's earliest time to dock again, from the last dock's end.
   #notBeforeMs = 0;
   #renewer: ReturnType<typeof setInterval> | undefined;
@@ -720,8 +728,33 @@ class Connector implements ComputerConnector {
     return this.#changes.waitEvents(matches, namespace);
   }
 
-  /** The dock new sessions use, docking when there is none. */
-  #state(): Promise<Docked> {
+  /** Waits `ms`; `close` ends the wait at once with its error. */
+  #pause(ms: number): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const stop = (): void => {
+        clearTimeout(timer);
+        this.#pauses.delete(stop);
+        reject(closedError());
+      };
+      const timer = setTimeout(() => {
+        this.#pauses.delete(stop);
+        resolve();
+      }, ms);
+      this.#pauses.add(stop);
+    });
+  }
+
+  /** The platform's time now, as the connector's requests know it. */
+  #now(): number {
+    return this.#o.api.now?.() ?? Date.now();
+  }
+
+  /**
+   * The dock new sessions use, docking when there is none. Work begun before
+   * a `close`, named by its `generation`, gets no dock and starts none.
+   */
+  #state(generation: number = this.#generation): Promise<Docked> {
+    if (generation !== this.#generation) return Promise.reject(closedError());
     this.#ready ??= this.#redock();
     return this.#ready;
   }
@@ -776,7 +809,7 @@ class Connector implements ComputerConnector {
           () => undefined,
         );
       },
-      Math.max(0, docked.notAfterMs - Date.now()),
+      Math.max(0, docked.notAfterMs - this.#now()),
     );
   }
 
@@ -797,7 +830,10 @@ class Connector implements ComputerConnector {
       this.#ready.catch(() => undefined);
       return;
     }
-    if (Date.now() >= halfLife(current.notBeforeMs, current.notAfterMs)) {
+    // The held trust is fetched again at half its life here, off the path
+    // of any session.
+    void this.#sessionTrust().catch(() => undefined);
+    if (this.#now() >= halfLife(current.notBeforeMs, current.notAfterMs)) {
       void this.#redock().catch(() => undefined);
     }
   }
@@ -875,7 +911,9 @@ class Connector implements ComputerConnector {
       client: this.#o.client ?? "sdk",
     };
     validateCreateComputerSessionRequest(request);
+    const generation = this.#generation;
     await this.ready();
+    if (generation !== this.#generation) throw closedError();
     const created = this.#o.api.createSession(computer, request);
     // A pending answer bound to its Activation carries its endpoint as a
     // ready one does; the endpoint holds the stream until the grant is
@@ -906,14 +944,10 @@ class Connector implements ComputerConnector {
       try {
         // A create that answers another place ends the attempt on the
         // remembered one at once.
-        connection = await this.#establish(
-          computer,
-          known,
-          watched,
-          deadline,
-          false,
-          (endpoint) => !sameEndpoint(endpoint, known),
-        );
+        connection = await this.#establish(computer, known, watched, deadline, {
+          moved: (endpoint) => !sameEndpoint(endpoint, known),
+          generation,
+        });
       } catch (first) {
         if (first instanceof CreateFailure) throw first;
         // The place the client knew is stale: the create says where it is.
@@ -925,7 +959,10 @@ class Connector implements ComputerConnector {
           endpoint,
           watched,
           deadline,
-          true,
+          {
+            fresh: true,
+            generation,
+          },
         );
       }
     } catch (error) {
@@ -933,6 +970,12 @@ class Connector implements ComputerConnector {
       throw await this.#unopened(computer, created, error);
     }
     const session = await this.#stream(computer, connection, requestID, open);
+    if (generation !== this.#generation) {
+      // The connector closed while the stream opened: nothing it made stays.
+      session.close();
+      failure.stop();
+      throw await this.#unopened(computer, created, closedError());
+    }
     session.answerBy(deadline, () => this.#late(computer, created));
     session.onSettled(failure.stop);
     failure.ended.catch((error: unknown) => {
@@ -997,16 +1040,30 @@ class Connector implements ComputerConnector {
     at: ComputerSessionEndpoint,
     answered: Promise<ComputerSessionEndpoint>,
     deadline: number,
-    fresh = false,
-    moved?: (endpoint: ComputerSessionEndpoint) => boolean,
-    signal?: AbortSignal,
+    options: {
+      /** Opens a connection even when one is held. */
+      readonly fresh?: boolean;
+      /** A create answer that ends the attempt at once. */
+      readonly moved?: (endpoint: ComputerSessionEndpoint) => boolean;
+      /** Ends this caller's wait, and only its wait. */
+      readonly signal?: AbortSignal;
+      /** The connector's generation the caller began in. */
+      readonly generation?: number;
+    } = {},
   ): Promise<Connection> {
-    const opened = this.#connection(computer, at, fresh);
+    const { fresh = false, moved, signal } = options;
+    const opened = this.#connection(
+      computer,
+      at,
+      fresh,
+      options.generation ?? this.#generation,
+    );
     let timer: ReturnType<typeof setTimeout> | undefined;
     let aborted: (() => void) | undefined;
     const late = new Promise<never>((_, reject) => {
       if (signal !== undefined) {
         aborted = () => {
+          clearTimeout(timer);
           reject(abortReason(signal));
         };
         if (signal.aborted) aborted();
@@ -1045,7 +1102,10 @@ class Connector implements ComputerConnector {
         refused,
       ]);
     } catch (error) {
-      if (!(error instanceof CreateFailure)) this.#drop(computer, opened);
+      // A connection is shared: one caller's abort ends only its own wait.
+      if (!(error instanceof CreateFailure) && signal?.aborted !== true) {
+        this.#drop(computer, opened);
+      }
       throw error;
     } finally {
       clearTimeout(timer);
@@ -1072,6 +1132,12 @@ class Connector implements ComputerConnector {
     const served = await created.catch(() => undefined);
     if (served === undefined) return error;
     this.#sessions.get(computer)?.delete(served.id);
+    if (isClosedError(error)) {
+      void this.#o.api
+        .cancelSession(computer, served.id)
+        .catch(() => undefined);
+      return error;
+    }
     const ended = await this.#endedNow(computer, served.id);
     void this.#o.api.cancelSession(computer, served.id).catch(() => undefined);
     return ended ?? error;
@@ -1284,6 +1350,7 @@ class Connector implements ComputerConnector {
   close(): void {
     for (const stream of [...this.#streams]) stream.close();
     this.#streams.clear();
+    for (const stop of [...this.#pauses]) stop();
     this.#changes.stop();
     if (this.#renewer !== undefined) clearInterval(this.#renewer);
     this.#renewer = undefined;
@@ -1358,7 +1425,7 @@ class Connector implements ComputerConnector {
     const held = this.#certificate;
     if (
       held !== undefined &&
-      Date.now() < halfLife(held.notBeforeMs, held.notAfterMs)
+      this.#now() < halfLife(held.notBeforeMs, held.notAfterMs)
     ) {
       return Promise.resolve(held);
     }
@@ -1388,10 +1455,9 @@ class Connector implements ComputerConnector {
    */
   #sessionTrust(): Promise<SessionTrust> {
     const held = this.#trust;
-    const now = Date.now();
     if (
       held !== undefined &&
-      now < halfLife(held.issuedAtMs, held.expiresAtMs)
+      this.#now() < halfLife(held.issuedAtMs, held.expiresAtMs)
     ) {
       return Promise.resolve(held);
     }
@@ -1408,7 +1474,7 @@ class Connector implements ComputerConnector {
             zone: placed.scope,
             keys: this.#o.trustKeys,
             minVersion: 0,
-            nowMs: Date.now(),
+            nowMs: this.#now(),
           });
           await this.#holdToFloor(verified);
           this.#trust = verified;
@@ -1416,7 +1482,7 @@ class Connector implements ComputerConnector {
         },
         (error: unknown) => {
           const kept = this.#trust;
-          if (kept !== undefined && Date.now() < kept.expiresAtMs) return kept;
+          if (kept !== undefined && this.#now() < kept.expiresAtMs) return kept;
           throw error;
         },
       );
@@ -1447,9 +1513,7 @@ class Connector implements ComputerConnector {
     const trust = this.#sessionTrust();
     trust.catch(() => undefined);
     const wait = this.#notBeforeMs - Date.now();
-    if (wait > 0) {
-      await new Promise((resolve) => setTimeout(resolve, wait));
-    }
+    if (wait > 0) await this.#pause(wait);
     const certificate = await this.#admission();
     const verified = await trust;
     if (closed()) throw closedError();
@@ -1614,10 +1678,26 @@ class Connector implements ComputerConnector {
             `the lane to the Computer's machine ended: ${outcome.reason}`,
           );
         }
+        // A lane that ends while its dock stays up, as when the machine's
+        // own connection is renewed, is forgotten at once, so the next use
+        // opens it again; its Computer connections end with it.
+        const ended = (m: WorkerToPage): void => {
+          if (!onDock(m, dock)) return;
+          if (m.type === "lane-ended" && m.lane === handle) {
+            if (this.#lanes.get(key) === opened) this.#lanes.delete(key);
+          } else if (m.type !== "dock-ended") {
+            return;
+          }
+          this.#listeners.delete(ended);
+        };
+        this.#listeners.add(ended);
         return handle;
       })();
-      this.#lanes.set(key, lane);
-      lane.catch(() => this.#lanes.delete(key));
+      const opened = lane;
+      this.#lanes.set(key, opened);
+      opened.catch(() => {
+        if (this.#lanes.get(key) === opened) this.#lanes.delete(key);
+      });
     }
     return lane;
   }
@@ -1626,12 +1706,20 @@ class Connector implements ComputerConnector {
     computer: string,
     at: ComputerSessionEndpoint,
     fresh = false,
+    generation: number = this.#generation,
   ): Promise<Connection> {
+    if (generation !== this.#generation) return Promise.reject(closedError());
     const current = this.#connections.get(computer);
     if (current !== undefined && !fresh) return current;
     const opened = (async () => {
-      const docked = await this.#state();
-      const { dock, trust, chain } = docked;
+      const docked = await this.#state(generation);
+      const { dock, chain } = docked;
+      // Each connection uses the Zone's trust as it now is, and never one
+      // that has expired.
+      const trust = await this.#sessionTrust();
+      if (this.#now() >= trust.expiresAtMs) {
+        throw new SessionTrustError("session trust has expired");
+      }
       const lane = await this.#lane(docked, at.placement.node);
       const since = this.#mark();
       const handle = (await this.#request({
@@ -1848,6 +1936,7 @@ class Connector implements ComputerConnector {
           attempt,
           signal,
           until,
+          generation,
         );
         answer = undefined;
         return resumed;
@@ -1878,21 +1967,18 @@ class Connector implements ComputerConnector {
     answer: Promise<ComputerSessionEndpoint>,
     signal: AbortSignal,
     until: number,
+    generation: number,
   ): Promise<Resumed> {
     const deadline = (): number => Math.min(Date.now() + OPEN_WAIT_MS, until);
     const known =
       this.#known.get(computer) ?? (await within(answer, signal, until));
     let connection: Connection;
     try {
-      connection = await this.#establish(
-        computer,
-        known,
-        answer,
-        deadline(),
-        false,
-        (endpoint) => !sameEndpoint(endpoint, known),
+      connection = await this.#establish(computer, known, answer, deadline(), {
+        moved: (endpoint) => !sameEndpoint(endpoint, known),
         signal,
-      );
+        generation,
+      });
     } catch (first) {
       if (first instanceof CreateFailure) throw first.cause;
       const endpoint = await within(answer, signal, until);
@@ -1902,13 +1988,28 @@ class Connector implements ComputerConnector {
         endpoint,
         answer,
         deadline(),
-        true,
-        undefined,
-        signal,
+        {
+          fresh: true,
+          signal,
+          generation,
+        },
       );
     }
     for (let followed = false; ; followed = true) {
-      const leg = await within(this.#openLeg(connection, frame), signal, until);
+      const opening = this.#openLeg(connection, frame);
+      // A stream that opens after its resume was given up is ended.
+      opening.catch(() => undefined);
+      const leg = await within(opening, signal, until).catch(
+        (error: unknown) => {
+          void opening.then(
+            (late) => {
+              late.release();
+            },
+            () => undefined,
+          );
+          throw error;
+        },
+      );
       try {
         return await firstFrame(
           leg,
@@ -1924,9 +2025,7 @@ class Connector implements ComputerConnector {
           error.endpoint,
           answer,
           deadline(),
-          true,
-          undefined,
-          signal,
+          { fresh: true, signal, generation },
         );
       }
     }
@@ -2050,6 +2149,11 @@ function halfLife(fromMs: number, toMs: number): number {
 function abortReason(signal: AbortSignal): Error {
   const reason: unknown = signal.reason;
   return reason instanceof Error ? reason : closedError();
+}
+
+/** Whether `error` is {@link closedError}'s. */
+function isClosedError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 /** The error of work the connector's `close` ended. */
@@ -2559,8 +2663,12 @@ class SessionStream implements ComputerSessionStream {
   readonly #resume: Resume | undefined;
   readonly #savesResult: boolean;
   readonly #done_: () => void;
-  // The session was cancelled because no resume will reach it.
+  // The session was cancelled because no stream will carry its end, or
+  // will be cancelled once its create names it.
   #cancelled = false;
+  #cancelWanted = false;
+  // The endpoint sent the process's exit.
+  #exited = false;
   // The stream the session's frames arrive on; a resume replaces it.
   #leg: Leg;
   #controller!: ReadableStreamDefaultController<SessionOutput>;
@@ -2674,8 +2782,14 @@ class SessionStream implements ComputerSessionStream {
    * will carry its end: it is no longer renewed either.
    */
   #cancel(): void {
+    // A session whose process has exited is left to end by itself: a cancel
+    // would end it as cancelled while its save may still be settling.
+    if (this.#cancelled || this.#exited) return;
     const id = this.#id ?? this.#session;
-    if (this.#cancelled || id === undefined) return;
+    if (id === undefined) {
+      this.#cancelWanted = true;
+      return;
+    }
     this.#cancelled = true;
     this.#abandon(id);
   }
@@ -2742,6 +2856,7 @@ class SessionStream implements ComputerSessionStream {
     this.#id = id;
     // A session closed before its create answered is not renewed.
     if (this.#closed) this.#forget();
+    if (this.#cancelWanted) this.#cancel();
     this.#abandonUnstarted();
   }
 
@@ -2829,6 +2944,7 @@ class SessionStream implements ComputerSessionStream {
         this.#cursor += frame.data.length;
         break;
       case "exit":
+        this.#exited = true;
         this.#finished ||= !this.#savesResult;
         break;
       case "saved":
@@ -2861,7 +2977,15 @@ class SessionStream implements ComputerSessionStream {
       void this.#resumeFrom(this.#resume, session);
       return;
     }
-    if (broken) this.#controller.enqueue({ type: "broken" });
+    if (broken) {
+      this.#controller.enqueue({ type: "broken" });
+      // A stream lost for good, unless its caller closed it, leaves its
+      // session to nothing: it is no longer renewed and is cancelled.
+      if (!this.#closed) {
+        this.#forget();
+        this.#cancel();
+      }
+    }
     this.#close();
   }
 
