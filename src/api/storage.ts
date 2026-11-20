@@ -144,13 +144,78 @@ export function isSaveSizeReason(reason: string | undefined): reason is string {
   );
 }
 
-/** Commit reports a saved, unchanged or failed result. Version zero is retained with a pointer; pending work carries neither a final version nor a reason. */
+/**
+ * Commit reports a saved, unchanged or failed result. Version zero is
+ * retained with a pointer; pending work carries neither a final version nor
+ * a reason. A pending save whose last attempt failed carries `retry`, and
+ * the save is tried again then; a save that has not failed, or that is no
+ * longer pending, carries none.
+ *
+ * A pending save that waits for a turn or a limit, rather than on its own
+ * work, carries `waitingFor` naming it: `publication-turn`
+ * (`SAVE_WAITING_FOR_PUBLICATION_TURN`) while it is ready to publish and
+ * waits for its publication to be taken, or `publication-held`
+ * (`SAVE_REASON_PUBLICATION_HELD`) while the Computer's publications are
+ * held after repeated failed publications. A held save also carries
+ * `waitingUntil`, the time the hold ends; a save waiting for its turn carries
+ * none, as the turn comes when a publication ahead of it ends. The set of values may grow, so an unknown one is
+ * carried, not rejected. `waitingFor` and `waitingUntil` are absent on a
+ * pending save that waits on neither, and once the save is no longer
+ * pending. A save that still waits at the end of its save window fails then
+ * as any other save does.
+ */
 export interface Commit {
   readonly id: StorageOperationId;
   readonly state: CommitState;
   readonly version?: Integer;
   readonly reason?: string;
+  readonly retry?: CommitRetry;
+  readonly waitingFor?: string;
+  /** An RFC 3339 instant. */
+  readonly waitingUntil?: string;
 }
+
+/**
+ * A pending save whose attempts failed. `reason` is a token naming why the
+ * last attempt failed, such as the machine that runs the Computer refusing
+ * it or not answering; the set of tokens may grow, so an unknown one is
+ * carried, not rejected. `attempts` counts the failed attempts, at least 1.
+ * `nextAttemptAt`, an RFC 3339 instant, is when the save is tried again:
+ * each failure waits longer before the next attempt, up to a bound. A save
+ * still fails at its save window.
+ */
+export interface CommitRetry {
+  readonly reason: string;
+  readonly attempts: Integer;
+  readonly nextAttemptAt: string;
+}
+
+/**
+ * A save that is ready to publish and waits for its turn: behind the
+ * Account's other publications, as many at once as its plan allows, or behind
+ * other work the publication service runs. The save publishes once a
+ * publication ahead of it ends. It is what a pending save waits for, as
+ * `SaveOptions.onWaiting` hears it.
+ */
+export const SAVE_WAITING_FOR_PUBLICATION_TURN = "publication-turn";
+
+/**
+ * A save whose Computer's publications are held: two publications in a row
+ * ended without finishing under one release of IDYL's storage service. The
+ * hold ends 24 hours after the last of them, the instant
+ * `SaveOptions.onWaiting` hears with it, or earlier when another release
+ * takes the publication. It is also the reason of the save's last failed
+ * attempt.
+ */
+export const SAVE_REASON_PUBLICATION_HELD = "publication-held";
+
+/**
+ * The reason of a pending save's last attempt while its recording,
+ * confirmation or file pages wait for the Account's own turn: IDYL runs a
+ * bounded number of each Account's saves at once. The wait ends by itself
+ * when one of them ends, so it states no end time.
+ */
+export const SAVE_REASON_ACCOUNT_TURN_WAITING = "account-turn-waiting";
 
 /**
  * Restores a saved version, selected by `from` as a version number or
@@ -254,12 +319,25 @@ export const createCommitRequestFields = {
 export const createCommitRequestShape: Shape<CreateCommitRequest> =
   object<CreateCommitRequest>(createCommitRequestFields);
 
+/** The canonical wire fields of CommitRetry. */
+export const commitRetryFields = {
+  reason: always(string()),
+  attempts: always(integer({ unsigned: false, bits: 64 })),
+  nextAttemptAt: always(timestampShape),
+};
+/** The canonical wire shape of CommitRetry. */
+export const commitRetryShape: Shape<CommitRetry> =
+  object<CommitRetry>(commitRetryFields);
+
 /** The canonical wire fields of Commit. */
 export const commitFields = {
   id: always(string<StorageOperationId>()),
   state: always(string<CommitState>()),
   version: pointer(integer({ unsigned: false, bits: 64 })),
   reason: omitEmpty(string()),
+  retry: pointer(commitRetryShape),
+  waitingFor: omitEmpty(string()),
+  waitingUntil: pointer(timestampShape),
 };
 /** The canonical wire shape of Commit. */
 export const commitShape: Shape<Commit> = object<Commit>(commitFields);

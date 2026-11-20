@@ -56,7 +56,6 @@ export const SELECTED = [
  * mix such cases into one list.
  */
 export const EXCLUDED = [
-  /\/commit\.retrying\.json$/u,
   /\/computer\.actor-owned\.json$/u,
   /\/computer\.fork-requests\.json$/u,
   /\/computer\.storage-(?:full|zero)\.json$/u,

@@ -7,7 +7,7 @@ import type {
 import type { ComputerSize } from "../api/billing.js";
 import type { Computer as ComputerRecord } from "../api/computer.js";
 import type { ListComputerSizesResponse } from "../api/computer-size.js";
-import { isSaveSizeReason } from "../api/storage.js";
+import { type Commit, isSaveSizeReason } from "../api/storage.js";
 import { formatCpu } from "../resource/cpu.js";
 import { formatMemory } from "../resource/memory.js";
 import { evaluateComputerWait } from "../api/wait.js";
@@ -311,6 +311,18 @@ export interface SaveOptions extends CallOptions {
    * Computer's history. `sdk` when absent.
    */
   readonly client?: "sdk" | "console" | "cli";
+  /**
+   * Called when the save starts waiting on a limit of its Account or its
+   * Computer, with the limit, `SAVE_WAITING_FOR_PUBLICATION_TURN` or
+   * `SAVE_REASON_PUBLICATION_HELD`, and for a hold the RFC 3339 instant it
+   * ends; and with `undefined` when it stops waiting. It is called only when
+   * that changes, as the save is read. The save goes on whatever it does,
+   * and a callback that throws rejects the wait; the save itself goes on.
+   */
+  readonly onWaiting?: (
+    waitingFor: string | undefined,
+    waitingUntil: string | undefined,
+  ) => void;
 }
 
 /** A save's outcome. */
@@ -615,13 +627,28 @@ export class Computer {
       },
       signalOf(options),
     );
+    let waitingFor: string | undefined;
+    let waitingUntil: string | undefined;
+    const observed = (commit: Commit): Commit => {
+      if (
+        commit.waitingFor !== waitingFor ||
+        commit.waitingUntil !== waitingUntil
+      ) {
+        waitingFor = commit.waitingFor;
+        waitingUntil = commit.waitingUntil;
+        options.onWaiting?.(waitingFor, waitingUntil);
+      }
+      return commit;
+    };
     const settled =
       (await pollUntil(wait, {
         pauses: operationPauses(),
         ...changesOf(state, operationChange(created.id)),
-        initial: created,
+        initial: observed(created),
         read: async (signal) =>
-          await service.getCommitById(record.id, created.id, { signal }),
+          observed(
+            await service.getCommitById(record.id, created.id, { signal }),
+          ),
         met: (commit) =>
           ["saved", "unchanged", "failed"].includes(commit.state),
         timeoutMessage: (ms) => `save did not finish within ${String(ms)} ms`,
