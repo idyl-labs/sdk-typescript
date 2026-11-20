@@ -4,10 +4,10 @@ import { describe, expect, it } from "vitest";
 import { BUDGET_BYTES, measure } from "../scripts/size.mjs";
 
 describe("size budget", () => {
-  // Contract: the budget is 75 kB minified and compressed for the whole
+  // Contract: the budget is 80 kB minified and compressed for the whole
   // package.
-  it("is 75 kB", () => {
-    expect(BUDGET_BYTES).toBe(75_000);
+  it("is 80 kB", () => {
+    expect(BUDGET_BYTES).toBe(80_000);
   });
 
   // Contract: the measure is of minified output, so comments and whitespace

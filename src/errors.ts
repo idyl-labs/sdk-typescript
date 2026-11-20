@@ -622,9 +622,10 @@ export class CommandSaveError extends Error implements CommandOutput {
  */
 export class CommandSessionError extends Error implements CommandOutput {
   /**
-   * The session's error code: `broken` and `no_exit` name a connection that
-   * ended without an exit, and `output_too_large` a stream past the 16 MiB
-   * a command keeps.
+   * The session's error code: `broken` names a stream that was lost before
+   * the exit and could not be resumed, `no_exit` a stream that ended without
+   * an exit, and `output_too_large` a stream past the 16 MiB a command
+   * keeps.
    */
   readonly code: string;
   /** Its standard output so far, decoded as UTF-8. */
