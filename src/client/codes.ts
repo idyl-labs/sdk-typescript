@@ -8,7 +8,10 @@
 import {
   SAVE_REASON_ACCOUNT_STORAGE_LIMIT,
   SAVE_REASON_COMPUTER_SIZE,
+  SAVE_REASON_ACCOUNT_TURN_WAITING,
   SAVE_REASON_NAME_LIMIT,
+  SAVE_REASON_PUBLICATION_HELD,
+  SAVE_WAITING_FOR_PUBLICATION_TURN,
 } from "../api/storage.js";
 
 /**
@@ -273,6 +276,19 @@ export {
   SAVE_REASON_ACCOUNT_STORAGE_LIMIT,
   SAVE_REASON_COMPUTER_SIZE,
   SAVE_REASON_NAME_LIMIT,
+};
+
+/*
+ * What a pending save waits for, as `SaveOptions.onWaiting` hears it:
+ * `SAVE_WAITING_FOR_PUBLICATION_TURN` or `SAVE_REASON_PUBLICATION_HELD`; and
+ * `SAVE_REASON_ACCOUNT_TURN_WAITING`, the reason of a save's last attempt
+ * while it waits for the Account's own turn. Each is defined beside the save
+ * contract.
+ */
+export {
+  SAVE_REASON_ACCOUNT_TURN_WAITING,
+  SAVE_REASON_PUBLICATION_HELD,
+  SAVE_WAITING_FOR_PUBLICATION_TURN,
 };
 
 /**

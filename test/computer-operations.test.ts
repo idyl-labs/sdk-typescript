@@ -6,6 +6,8 @@ import {
   ApiError,
   ERROR_CODE_INSUFFICIENT_CAPACITY,
   ERROR_CODE_SAVE_FAILED,
+  SAVE_REASON_PUBLICATION_HELD,
+  SAVE_WAITING_FOR_PUBLICATION_TURN,
   TransportError,
   isApiCode,
 } from "../src/index.js";
@@ -216,7 +218,7 @@ describe("wake and sleep routes", () => {
  * on create and then each read in `reads` in turn, the last repeated.
  */
 function operations(
-  collection: "wakes" | "sleeps",
+  collection: "wakes" | "sleeps" | "commits",
   created: JsonObject,
   reads: readonly JsonObject[],
 ): FakeNetwork {
@@ -237,6 +239,45 @@ function operations(
     return undefined;
   });
 }
+
+describe("Computer.save", () => {
+  // Contract: onWaiting hears when a save starts waiting on a limit, with
+  // the limit and, for a hold, the instant it ends, once for each change, and
+  // when it stops waiting; a save that never waits never calls it.
+  it("says what a save waits for and when a hold ends", async () => {
+    const commit = (name: string): JsonObject => ({
+      ...golden(name),
+      id: OPERATION,
+    });
+    const network = operations("commits", commit("commit.minimal"), [
+      commit("commit.waiting-turn"),
+      commit("commit.waiting-turn"),
+      commit("commit.held"),
+      commit("commit.held"),
+      commit("commit.minimal"),
+      commit("commit.full"),
+    ]);
+    const computer = await network.client().computers.get("api-dev");
+    const heard: [string | undefined, string | undefined][] = [];
+    await computer.save({
+      onWaiting: (waitingFor, waitingUntil) =>
+        heard.push([waitingFor, waitingUntil]),
+    });
+    expect(heard).toEqual([
+      [SAVE_WAITING_FOR_PUBLICATION_TURN, undefined],
+      [SAVE_REASON_PUBLICATION_HELD, "2026-01-03T03:04:05Z"],
+      [undefined, undefined],
+    ]);
+
+    const direct = operations("commits", commit("commit.minimal"), [
+      commit("commit.full"),
+    ]);
+    const quiet = await direct.client().computers.get("api-dev");
+    const never: unknown[] = [];
+    await quiet.save({ onWaiting: (waitingFor) => never.push(waitingFor) });
+    expect(never).toEqual([]);
+  });
+});
 
 describe("Computer.wake", () => {
   // Contract: wake creates a wake by the Computer's ID with the caller's
