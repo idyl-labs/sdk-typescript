@@ -90,14 +90,19 @@ export function sessionPlacementPauses(): PauseSchedule {
 
 /**
  * The pauses of a wait for a wake, sleep, save, restore, fork, upload or
- * deletion. With no event stream: 500 ms for the first 10 000 ms of the
- * wait, then 1 000, 2 000 and 4 000, then every 5 000. With one: 500 ms
- * doubling to 5 000, each read a guard against a lost event.
+ * deletion. In the wait's first 1 000 ms they are the pauses of
+ * {@link sessionPlacementPauses}, 100 ms doubling, so an operation the
+ * platform finishes within a second is read within a fraction of a second
+ * of finishing. After that, with no event stream: 500 ms until 10 000 ms
+ * into the wait, then 1 000, 2 000 and 4 000, then every 5 000. With one:
+ * 500 ms doubling to 5 000, each read a guard against a lost event.
  */
 export function operationPauses(): PauseSchedule {
+  const firstSecond = sessionPlacementPauses();
   let count = 0;
   let late = 0;
   return (streaming, elapsedMs) => {
+    if (elapsedMs < 1_000) return firstSecond(streaming, elapsedMs);
     if (streaming) return Math.min(500 * 2 ** count++, 5_000);
     count += 1;
     if (elapsedMs < 10_000) return 500;
