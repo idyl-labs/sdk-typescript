@@ -28,6 +28,7 @@ record-output	{"type":"record_output","cell":"01954e20-7540-7ec4-93ec-14f783e6ab
 records-end	{"type":"records_end","count":1}
 resize	{"type":"resize","size":{"cols":100,"rows":30}}
 saved-failed	{"type":"saved","outcome":"failed","reason":"the store is unavailable"}
+saved-off	{"type":"saved","outcome":"off"}
 saved-published	{"type":"saved","outcome":"published","revision":42}
 stderr	{"type":"stderr","data":"/wB4"}
 stdin	{"type":"stdin","data":"bHMN"}

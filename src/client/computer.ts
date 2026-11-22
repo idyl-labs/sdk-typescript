@@ -1011,8 +1011,10 @@ export class Computer {
 
   /**
    * Runs a command in the Computer and returns once it has ended and its
-   * changes are saved, so a read of the files after it sees what it wrote. A
-   * Computer that is asleep wakes. A string runs through `/bin/sh -c`, so its
+   * changes are saved, so a read of the files after it sees what it wrote.
+   * With automatic saving off at admission, it resolves at the command's end
+   * with `save: "off"`. Its exit does not trigger an automatic save.
+   * A Computer that is asleep wakes. A string runs through `/bin/sh -c`, so its
    * pipes, quotes and variables work; a list runs its program as given. It
    * starts in `/workspace`.
    *
@@ -1066,7 +1068,6 @@ export class Computer {
             signal === undefined ? {} : { signal },
           ),
         options.signal,
-        record.spec.autoSave !== false,
       ),
     );
   }
