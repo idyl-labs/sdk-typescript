@@ -47,6 +47,8 @@ export interface SessionTrust {
   readonly network: string;
   readonly zone: string;
   readonly version: number;
+  /** When the bundle was issued, in milliseconds since the epoch. */
+  readonly issuedAtMs: number;
   readonly expiresAtMs: number;
   /** DER roots of Computer endpoint and client certificates. */
   readonly podRoots: readonly Uint8Array[];
@@ -307,6 +309,7 @@ export async function verifySessionTrust(
     network: policy.network,
     zone,
     version,
+    issuedAtMs: issuedAt,
     expiresAtMs: expiresAt,
     podRoots,
     dataFabric: {

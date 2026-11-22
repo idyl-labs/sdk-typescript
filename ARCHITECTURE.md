@@ -25,7 +25,7 @@ The package keeps these properties:
 - **No runtime dependencies.** Every capability is either a web standard or
   code in this repository, so installing the package installs nothing else.
 - **Small.** The whole package, every product on the client included, fits
-  in 75 kB minified and compressed. The budget is checked on every change.
+  in 80 kB minified and compressed. The budget is checked on every change.
 - **Explicit configuration.** The package reads no environment variable and
   no file, holds no default credential and discovers no private endpoint.
   What a client does follows from the options it was given.
@@ -349,8 +349,66 @@ answer the open's mode: one carrying a host key on a stream that is not
 `ssh` fails the stream, which is finished, and its session is no longer
 renewed. The connector never
 opens an `ssh` session, whose stream carries raw SSH bytes after `opened`
-rather than frames and opens with OpenSSH, and never reattaches a
-session: an open of either mode is refused before anything is sent. Every minute the connector renews each
+rather than frames and opens with OpenSSH, and never opens a stream of mode
+`reattach` for its caller: an open of either mode is refused before
+anything is sent.
+
+A `shell` or an `exec` asks for the `reattach` feature, and an `exec` also
+for `save-result`. Such a session survives the loss of its stream: when the
+stream ends before the session finished (its exit, and its save result
+when asked for), without an error frame and without the caller closing it,
+the connector creates a session of mode `reattach` naming the same session
+and opens a stream of that mode with the count of output bytes already
+delivered, on the open connection to the Computer or a new one. The
+attempts pause 100 ms, doubling to 2 s; one create's grant is tried for
+30 s, or until the endpoint answers `not_granted` or the create fails, and
+is then created again; an attempt that the endpoint refuses with any other
+code, or that IDYL refuses with a status other than 408, 429 or a server
+error, ends the resume. Every wait of a resume ends at that limit and when
+the stream is closed. A resume that has not succeeded one session lease,
+180 s, after the loss ends the stream with `broken`. Every `broken` that
+its caller did not close leaves the session no longer renewed and
+cancelled through its cancel route, so its process stops, unless the
+process's exit was already seen: that session is left to end by itself,
+since a cancel would end it as cancelled while its save may still settle. The resumed stream's
+`opened` is not passed on unless the endpoint no longer held output that
+was lost: the output then carries one `opened` with `dropped: true` and the
+cursor the following output resumes after. The session's renewals carry on
+throughout. Closing a `shell` or `exec` stream, or cancelling its output,
+sends `end`, so the session ends at once; one closed while it is resumed
+has no stream to carry `end` and is cancelled instead. A Computer
+connection that ends is forgotten before its streams are told, so their
+first attempt opens on a live connection. Closing the connector closes
+every stream that way first, and none is resumed.
+
+The client certificate lives one hour. The connector keeps it, and the
+Zone's verified session trust, until half its life has passed, so a dock
+attempt that fails asks for neither again; a trust fetch that fails while
+the held trust has not expired keeps it, and an expired trust is never
+used. Both are timed by the client's clock corrected by the API's `Date`
+headers, the clock request proofs state. Each Computer connection takes
+the trust as it is then, and the one-minute tick fetches it again at half
+its life, so a connection rarely waits for it. On the same one-minute tick as the
+session renewals, once half the certificate's life, read from the leaf's
+validity, has passed, the connector asks for a certificate again and docks
+a second time beside the first, in the background. New Computer
+connections use the new dock; a connection already open on the old one
+carries on and serves new sessions until the old dock is closed at its
+certificate's `notAfter`, when its streams are resumed on the new dock. The
+edge's `drain` makes a dock serve no new connection, though its
+connections stay known until it ends and their streams are then resumed,
+and, when it is the dock in use, docks again at once in the background; sessions that need a
+dock meanwhile join that dock, and the tick docks only when no dock is
+live or in flight. Each connection's stream requests name that
+connection's own dock, and each dock follows only its own events. Every
+dock the Worker opens is closed by the connector's `close`, and a dock
+that docks after it is closed at once and starts no tick; `close` also
+ends a dock's wait for the edge's retry-after, and an open that completes
+after it refuses and cancels the session it created. A lane that ends
+while its dock stays up, as when the machine's own connection is renewed,
+is forgotten at once, so the next use opens it again.
+
+Every minute the connector renews each
 session it holds, until the session's stream is closed: one POST with no
 body to that session's own renew route, the renewals of one Computer sent
 together on one placement resolution, off the path of any session's open.
