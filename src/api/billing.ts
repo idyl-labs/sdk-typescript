@@ -764,6 +764,8 @@ export interface AccountBillingStatus {
    * `undefined` when the plan has no such limit.
    */
   readonly storedData?: VolumeQuantity;
+  /** The Account's effective limit on vCPU awake at once, when reported. */
+  readonly awakeVCPU?: Integer;
   /**
    * How long an Account keeps its files once it has no plan and nothing
    * left to spend, under the platform's default rate card in force now. The
@@ -848,6 +850,7 @@ export const accountBillingStatusShape: Shape<AccountBillingStatus> =
     renewal: always(string<BillingRenewalState>()),
     largestSize: always(string()),
     storedData: omitZero(volumeQuantityShape),
+    awakeVCPU: omitEmpty(integer({ unsigned: false, bits: 64 })),
     fileRetention: omitZero(durationShape),
     deletionWarnings: omitEmpty(array(durationShape)),
     scheduledChange: pointer(billingScheduledChangeShape),
@@ -920,6 +923,9 @@ export function validateAccountBillingStatus(
   prefixed("renewal", () => {
     validateBillingRenewalState(status.renewal);
   });
+  if (status.awakeVCPU !== undefined && isNegative(status.awakeVCPU)) {
+    throw new TypeError("awakeVCPU must not be negative");
+  }
   prefixed("largestSize", () => {
     validateComputerSize(status.largestSize);
   });
