@@ -1018,6 +1018,9 @@ export class Computer {
    * Any other program needs nothing more: the client connects on the first
    * command and closes the connection a moment after the last.
    *
+   * After process exit, the client waits up to 30 seconds to confirm the save.
+   * If the outcome is still unknown, the result reports `save: "unconfirmed"`.
+   *
    * @param command a shell command line, run through `/bin/sh -c`, or a
    * program and its arguments, run as given
    * @throws {@link ExitError} the command exits other than with 0; it
@@ -1057,6 +1060,7 @@ export class Computer {
             signal === undefined ? {} : { signal },
           ),
         options.signal,
+        record.spec.autoSave !== false,
       ),
     );
   }

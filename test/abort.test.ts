@@ -73,6 +73,16 @@ describe("abortable and delay", () => {
     await expect(abortable("x", AbortSignal.abort())).rejects.toThrow();
   });
 
+  it("observes a rejected operation that already cancelled the wait", async () => {
+    const reason = new Error("caller cancelled");
+    const failed = Promise.reject(new Error("read failed"));
+    // Let an unobserved rejection surface before the test finishes.
+    await expect(abortable(failed, AbortSignal.abort(reason))).rejects.toBe(
+      reason,
+    );
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
+
   // Contract: delay resolves after the interval or rejects on abort and
   // leaves no timer running either way.
   it("waits or aborts without leaving timers", async () => {

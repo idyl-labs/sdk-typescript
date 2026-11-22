@@ -317,6 +317,7 @@ type ReadAnswer = (session: ServedSession) => ServedSession | Error;
 async function harness(
   options: {
     holdCreate?: boolean;
+    certificateGate?: Promise<void>;
     answer?: (session: ServedSession) => ServedSession;
     known?: { epoch: number; sequence: number };
     failTrustOnce?: boolean;
@@ -348,13 +349,14 @@ async function harness(
     release: undefined,
   };
   const api: ConnectorApi = {
-    certify: (request) => {
+    certify: async (request) => {
+      await options.certificateGate;
       expect(request).toEqual(Uint8Array.of(9, 9));
-      return Promise.resolve({
+      return {
         chain: [Uint8Array.of(5)],
         admissionLease: Uint8Array.of(6),
         notAfterMs: Date.now() + 3_600_000,
-      });
+      };
     },
     sessionTrust: () => {
       if (options.failTrustOnce === true) {
@@ -478,6 +480,76 @@ describe("computer connector", () => {
       lease: Uint8Array.of(6),
     });
   });
+
+  it("requests concurrent sessions while one connection is being admitted", async () => {
+    let admit!: () => void;
+    const certificateGate = new Promise<void>((resolve) => {
+      admit = resolve;
+    });
+    const h = await harness({ certificateGate });
+    const open = { mode: "exec" as const, command: ["true"] };
+    const sessions = Promise.all([
+      h.connector.open(COMPUTER, open),
+      h.connector.open(COMPUTER, open),
+    ]);
+    await vi.waitFor(() => {
+      expect(h.creates).toHaveLength(2);
+    });
+    expect(h.worker.requests.map((r) => r.type)).toEqual(["start"]);
+    admit();
+    for (const session of await sessions) session.close();
+    expect(h.worker.requests.filter((r) => r.type === "dock")).toHaveLength(1);
+    h.connector.close();
+  });
+
+  it("refuses a session before its create when the Zone trust is invalid", async () => {
+    const h = await harness({ pinAnotherKey: true });
+    await expect(
+      h.connector.open(COMPUTER, { mode: "exec", command: ["true"] }),
+    ).rejects.toThrow(SessionTrustError);
+    expect(h.creates).toHaveLength(0);
+    h.connector.close();
+  });
+
+  it.each(["certificate refusal", "connector close"] as const)(
+    "cancels a late grant after %s",
+    async (reason) => {
+      let refuse!: (error: Error) => void;
+      let admit!: () => void;
+      const certificateGate = new Promise<void>((resolve, reject) => {
+        admit = resolve;
+        refuse = reject;
+      });
+      const cancels: string[][] = [];
+      const h = await harness({ certificateGate, holdCreate: true, cancels });
+      const opening = h.connector.open(COMPUTER, {
+        mode: "exec",
+        command: ["true"],
+      });
+      await vi.waitFor(() => {
+        expect(h.creates).toHaveLength(1);
+      });
+      const failure = new Error("certificate refused");
+      if (reason === "certificate refusal") {
+        refuse(failure);
+        await expect(opening).rejects.toBe(failure);
+      } else {
+        h.connector.close();
+        await expect(opening).rejects.toMatchObject({ name: "AbortError" });
+        admit();
+      }
+      h.release?.();
+      await vi.waitFor(() => {
+        expect(cancels).toEqual([
+          [COMPUTER, "01954e20-7540-7ec4-93ec-14f783e6ab20"],
+        ]);
+      });
+      expect(h.worker.requests.some((r) => r.type === "open-stream")).toBe(
+        false,
+      );
+      h.connector.close();
+    },
+  );
 
   // Contract: a reader that cancels the output ends it: a later end of the
   // stream reaches nothing and throws nothing.
@@ -684,6 +756,98 @@ describe("computer connector", () => {
     expect(lanes.map((r) => (r as { dock: number }).dock)).toEqual([1, 2]);
     const streams = worker.requests.filter((r) => r.type === "open-stream");
     expect(streams.map((r) => (r as { dock: number }).dock)).toEqual([1, 2]);
+  });
+
+  it("opens on the replacement dock if its dock ends as the session is requested", async () => {
+    const { connector, worker, creates } = await harness();
+    await connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      const opening = connector.open(COMPUTER, {
+        mode: "exec",
+        command: ["true"],
+      });
+      worker.endDock(60_000);
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(creates).toHaveLength(0);
+      expect(worker.requests.filter((r) => r.type === "dock")).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      const session = await opening;
+      expect(await first(session.output, 1)).toEqual([
+        { type: "opened", session: "s-1" },
+      ]);
+      expect(
+        worker.requests.filter((r) => r.type === "open-stream"),
+      ).toMatchObject([{ dock: 2 }]);
+      expect(creates).toHaveLength(1);
+      session.close();
+    } finally {
+      connector.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns the replacement's trust failure without requesting a session", async () => {
+    const options = { failTrustOnce: false };
+    const { connector, worker, creates } = await harness(options);
+    await connector.ready();
+    try {
+      const opening = connector.open(COMPUTER, {
+        mode: "exec",
+        command: ["true"],
+      });
+      options.failTrustOnce = true;
+      worker.endDock();
+      await expect(opening).rejects.toThrow("unavailable");
+      expect(creates).toHaveLength(0);
+      expect(worker.requests.filter((r) => r.type === "dock")).toHaveLength(1);
+    } finally {
+      connector.close();
+    }
+  });
+
+  it("releases the backoff timer on close without requesting a grant", async () => {
+    const { connector, worker, creates } = await harness();
+    await connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      const opening = connector.open(COMPUTER, {
+        mode: "exec",
+        command: ["true"],
+      });
+      worker.endDock(80_000);
+      await vi.advanceTimersByTimeAsync(1);
+      connector.close();
+      await expect(opening).rejects.toMatchObject({ name: "AbortError" });
+      expect(creates).toHaveLength(0);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("honors the edge backoff before requesting a session on a new dock", async () => {
+    const { connector, worker, creates } = await harness();
+    await connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      worker.endDock(80_000);
+      const opening = connector.open(COMPUTER, {
+        mode: "exec",
+        command: ["true"],
+      });
+      await vi.advanceTimersByTimeAsync(79_999);
+      expect(creates).toHaveLength(0);
+      expect(worker.requests.filter((r) => r.type === "dock")).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      const session = await opening;
+      expect(creates).toHaveLength(1);
+      expect(worker.requests.filter((r) => r.type === "dock")).toHaveLength(2);
+      session.close();
+    } finally {
+      connector.close();
+      vi.useRealTimers();
+    }
   });
 
   // Contract: a dock that could not be made is not kept; the next session

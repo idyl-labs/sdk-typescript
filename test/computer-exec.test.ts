@@ -1,6 +1,6 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { commandOf, runCommand } from "../src/client/exec.js";
 import type {
   ComputerConnector,
@@ -38,14 +38,17 @@ function fake(
   readonly connector: ComputerConnector;
   readonly opens: SessionOpen[];
   closed: () => number;
+  send: (frame: SessionOutput) => void;
 } {
   let closes = 0;
+  let writer: ReadableStreamDefaultController<SessionOutput>;
   const opens: SessionOpen[] = [];
   const stream: ComputerSessionStream = {
     requestId: "request",
     id: undefined,
     output: new ReadableStream<SessionOutput>({
       start(controller) {
+        writer = controller;
         for (const frame of frames) controller.enqueue(frame);
         if (options.stayOpen !== true) controller.close();
       },
@@ -60,6 +63,9 @@ function fake(
   return {
     opens,
     closed: () => closes,
+    send: (frame) => {
+      writer.enqueue(frame);
+    },
     connector: {
       open: (_computer: string, open: SessionOpen) => {
         opens.push(open);
@@ -323,6 +329,278 @@ describe("runCommand", () => {
     );
     expect(result.save).toBe("off");
     expect(result).not.toHaveProperty("version");
+  });
+
+  // Contract: either the save frame or the recorded outcome can settle a
+  // command whose endpoint keeps the stream open after exit.
+  it("returns the recorded save-off outcome on an open stream", async () => {
+    const { connector, closed } = fake([opened, data("stdout", "ok"), exit0], {
+      stayOpen: true,
+    });
+    const result = await runCommand(
+      connector,
+      COMPUTER,
+      { mode: "exec", command: ["true"] },
+      () => Promise.resolve({ status: { save: { state: "off" } } } as never),
+      undefined,
+      false,
+    );
+    expect(result).toMatchObject({ exitCode: 0, stdout: "ok", save: "off" });
+    expect(closed()).toBe(1);
+  });
+
+  it("reads status immediately when the handle had saving disabled, and uses the current outcome", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector } = fake([opened, exit0], { stayOpen: true });
+      const result = await runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        () =>
+          Promise.resolve({
+            status: { save: { state: "saved", version: 9 } },
+          } as never),
+        undefined,
+        false,
+      );
+      expect(result).toMatchObject({ save: "published", version: 9 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns a queued save frame without a status read or stream closure", async () => {
+    const { connector } = fake([opened, exit0, published], { stayOpen: true });
+    const read = vi.fn(noRead);
+    const result = await runCommand(
+      connector,
+      COMPUTER,
+      { mode: "exec", command: ["true"] },
+      read,
+      undefined,
+    );
+    expect(result).toMatchObject({ save: "published", version: 7 });
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("cancels an outstanding status read when the save frame arrives", async () => {
+    const { connector, send } = fake([opened, exit0], { stayOpen: true });
+    const aborted = vi.fn();
+    const result = await runCommand(
+      connector,
+      COMPUTER,
+      { mode: "exec", command: ["true"] },
+      (_id, signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => {
+              aborted();
+              reject(new Error("read cancelled"));
+            },
+            { once: true },
+          );
+          send(published);
+        }),
+      undefined,
+      false,
+    );
+    expect(result).toMatchObject({ save: "published", version: 7 });
+    expect(aborted).toHaveBeenCalledOnce();
+  });
+
+  it("returns unconfirmed once when a saved frame carries pending", async () => {
+    const { connector, send, closed } = fake([opened, exit0], {
+      stayOpen: true,
+    });
+    const read = vi.fn(() => {
+      send({ type: "saved", outcome: "pending" });
+      return Promise.resolve({
+        status: { save: { state: "pending" } },
+      } as never);
+    });
+    const result = await runCommand(
+      connector,
+      COMPUTER,
+      { mode: "exec", command: ["true"] },
+      read,
+      undefined,
+      false,
+    );
+    expect(result.save).toBe("unconfirmed");
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(closed()).toBe(1);
+  });
+
+  it("uses the stream alone for a delayed save and keeps all output preceding exit", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector, send } = fake(
+        [
+          opened,
+          data("stdout", "first"),
+          data("stderr", "diagnostic"),
+          data("stdout", " last"),
+          exit0,
+        ],
+        { stayOpen: true },
+      );
+      const read = vi.fn(noRead);
+      const result = runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        undefined,
+      );
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(read).not.toHaveBeenCalled();
+      send(published);
+      await expect(result).resolves.toMatchObject({
+        stdout: "first last",
+        stderr: "diagnostic",
+        save: "published",
+        version: 7,
+      });
+      expect(read).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("bounds a pending recorded save while the stream stays open", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector, closed } = fake([opened, exit0], { stayOpen: true });
+      const read = vi.fn(() =>
+        Promise.resolve({ status: { save: { state: "pending" } } } as never),
+      );
+      const result = runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        undefined,
+        false,
+      );
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(closed()).toBe(0);
+      expect(read).toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
+      expect(closed()).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("uses only the remaining exit deadline if the stream breaks", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector, send, closed } = fake([opened, exit0], {
+        stayOpen: true,
+      });
+      let checking: AbortSignal | undefined;
+      const read = vi.fn((_id: string, signal: AbortSignal | undefined) => {
+        checking = signal;
+        return new Promise<never>(() => undefined);
+      });
+      const result = runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        undefined,
+      );
+      await vi.advanceTimersByTimeAsync(29_900);
+      expect(read).not.toHaveBeenCalled();
+      send({ type: "broken" });
+      await vi.advanceTimersByTimeAsync(99);
+      expect(read).toHaveBeenCalledTimes(1);
+      expect(closed()).toBe(0);
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
+      expect(checking?.aborted).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("bounds an open stream without a session ID", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector, closed } = fake([exit0], { stayOpen: true });
+      const read = vi.fn(noRead);
+      const result = runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        undefined,
+        false,
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+      await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
+      expect(read).not.toHaveBeenCalled();
+      expect(closed()).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("bounds an open stream when the session cannot confirm any save", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector, closed } = fake([opened, exit0], { stayOpen: true });
+      const result = runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        noRead,
+        undefined,
+        false,
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+      await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
+      expect(closed()).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("aborts a status read and closes an open stream after exit", async () => {
+    const { connector, closed } = fake([opened, exit0], { stayOpen: true });
+    const controller = new AbortController();
+    const read = vi.fn(
+      (_id: string, signal: AbortSignal | undefined) =>
+        new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => {
+              reject(new Error("cancelled"));
+            },
+            { once: true },
+          );
+          controller.abort(new Error("stop"));
+        }),
+    );
+    await expect(
+      runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        controller.signal,
+        false,
+      ),
+    ).rejects.toThrow("stop");
+    expect(closed()).toBe(1);
   });
 
   // Contract: a save that cannot be read is unconfirmed; the command's own
