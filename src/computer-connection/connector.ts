@@ -25,7 +25,7 @@ import {
 } from "../api/computer-session.js";
 import { validateWorkloadSessionTerminalProfile } from "../api/workload-session.js";
 import { ApiError, TransportError } from "../errors.js";
-import { abortable } from "../internal/abort.js";
+import { abortable, delay } from "../internal/abort.js";
 import {
   isComputerSessionId,
   type ComputerSessionId,
@@ -562,7 +562,7 @@ class Connector implements ComputerConnector {
   // the next session docks again.
   #ready:
     | {
-        readonly trust: Promise<SessionTrust>;
+        readonly canCreate: Promise<void>;
         readonly docked: Promise<Docked>;
       }
     | undefined;
@@ -650,13 +650,19 @@ class Connector implements ComputerConnector {
 
   #startup() {
     if (this.#ready === undefined) {
+      const closing = this.#closing.signal;
+      const wait = this.#notBeforeMs - Date.now();
+      const backoff = wait > 0 ? delay(wait, closing) : undefined;
       const trust = this.#verifiedTrust();
-      const docked = this.#dock(trust, this.#closing.signal);
-      // Either prerequisite may fail first. A successful dock has already
-      // verified the same trust.
-      const verified = Promise.race([trust, docked.then((dock) => dock.trust)]);
-      void verified.catch(() => undefined);
-      const ready = { trust: verified, docked };
+      const docked = this.#dock(trust, closing, backoff);
+      // The edge's backoff also gates placement so a grant never spends
+      // its lifetime waiting for a connection attempt to be allowed.
+      const canCreate = Promise.race([
+        Promise.all([trust, backoff]),
+        docked,
+      ]).then(() => undefined);
+      void canCreate.catch(() => undefined);
+      const ready = { canCreate, docked };
       this.#ready = ready;
       ready.docked.catch(() => {
         if (this.#ready === ready) this.#ready = undefined;
@@ -716,24 +722,30 @@ class Connector implements ComputerConnector {
     };
     validateCreateComputerSessionRequest(request);
     const closing = this.#closing.signal;
-    const { trust } = this.#startup();
+    const startup = this.#startup();
     const ready = this.ready();
     // The authenticated API can place the session as soon as its Zone's
     // trust is verified. The command itself stays on the secured stream.
-    await abortable(trust, closing);
+    await abortable(startup.canCreate, closing);
     closing.throwIfAborted();
+    if (this.#ready !== startup) {
+      await ready;
+      throw new Error("the dock ended before the session was requested");
+    }
     const remembered = this.#known.get(computer) ?? this.#recall(computer);
     const created = this.#o.api.createSession(computer, request);
     try {
-      // With a remembered placement the authenticated stream can open
-      // while the create is pending. Otherwise both answers are needed.
-      await abortable(
-        Promise.all([
-          ready,
-          remembered ? Promise.race([created, ready]) : created,
-        ]),
-        closing,
-      );
+      // Every stream waits for admission. A remembered placement lets the
+      // stream open while the create is pending, but a refused create
+      // still ends the wait immediately.
+      const admitted: Promise<unknown> =
+        remembered === undefined
+          ? Promise.all([ready, created])
+          : new Promise<void>((resolve, reject) => {
+              void ready.then(resolve, reject);
+              void created.catch(reject);
+            });
+      await abortable(admitted, closing);
       closing.throwIfAborted();
     } catch (error) {
       // No stream has opened. A grant that arrives after the failure is
@@ -1202,14 +1214,13 @@ class Connector implements ComputerConnector {
   async #dock(
     trust: Promise<SessionTrust>,
     closing: AbortSignal,
+    backoff: Promise<void> | undefined,
   ): Promise<Docked> {
-    const wait = this.#notBeforeMs - Date.now();
-    if (wait > 0) {
-      await new Promise((resolve) => setTimeout(resolve, wait));
-    }
+    if (backoff !== undefined) await backoff;
     const certificate = await this.#o.api.certify(await this.#start());
     const verified = await trust;
     closing.throwIfAborted();
+    const owner = this.#ready;
     const docked = this.#event(
       (m) => m.type === "docked" || m.type === "dock-ended",
     );
@@ -1228,6 +1239,7 @@ class Connector implements ComputerConnector {
     })) as number;
     const outcome = await docked;
     if (outcome.type === "dock-ended") {
+      if (owner === this.#ready) this.#ready = undefined;
       this.#ended(outcome);
       throw new Error(`the dock ended: ${outcome.reason}`);
     }
@@ -1236,6 +1248,7 @@ class Connector implements ComputerConnector {
     const ending = (m: WorkerToPage): void => {
       if (m.type !== "dock-ended" || m.dock !== dock) return;
       this.#listeners.delete(ending);
+      if (owner === this.#ready) this.#ready = undefined;
       this.#ended(m);
     };
     this.#listeners.add(ending);
@@ -1261,13 +1274,6 @@ class Connector implements ComputerConnector {
     if (m.retryAfterMs !== undefined) {
       this.#notBeforeMs = Date.now() + m.retryAfterMs;
     }
-    const ready = this.#ready;
-    void ready?.docked.then(
-      ({ dock }) => {
-        if (dock === m.dock && this.#ready === ready) this.#ready = undefined;
-      },
-      () => undefined,
-    );
     for (const key of [...this.#lanes.keys()]) {
       if (key.startsWith(`${String(m.dock)} `)) this.#lanes.delete(key);
     }

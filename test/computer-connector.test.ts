@@ -758,6 +758,62 @@ describe("computer connector", () => {
     expect(streams.map((r) => (r as { dock: number }).dock)).toEqual([1, 2]);
   });
 
+  it("creates no grant if its dock ends as the session is requested", async () => {
+    const { connector, worker, creates } = await harness();
+    await connector.ready();
+    const opening = connector.open(COMPUTER, {
+      mode: "exec",
+      command: ["true"],
+    });
+    worker.endDock(60_000);
+    await expect(opening).rejects.toThrow("the dock ended");
+    expect(creates).toHaveLength(0);
+    connector.close();
+  });
+
+  it("releases the backoff timer on close without requesting a grant", async () => {
+    const { connector, worker, creates } = await harness();
+    await connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      worker.endDock(80_000);
+      const opening = connector.open(COMPUTER, {
+        mode: "exec",
+        command: ["true"],
+      });
+      connector.close();
+      await expect(opening).rejects.toMatchObject({ name: "AbortError" });
+      expect(creates).toHaveLength(0);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("honors the edge backoff before requesting a session on a new dock", async () => {
+    const { connector, worker, creates } = await harness();
+    await connector.ready();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      worker.endDock(80_000);
+      const opening = connector.open(COMPUTER, {
+        mode: "exec",
+        command: ["true"],
+      });
+      await vi.advanceTimersByTimeAsync(79_999);
+      expect(creates).toHaveLength(0);
+      expect(worker.requests.filter((r) => r.type === "dock")).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      const session = await opening;
+      expect(creates).toHaveLength(1);
+      expect(worker.requests.filter((r) => r.type === "dock")).toHaveLength(2);
+      session.close();
+    } finally {
+      connector.close();
+      vi.useRealTimers();
+    }
+  });
+
   // Contract: a dock that could not be made is not kept; the next session
   // tries again.
   it("tries to dock again after a failed dock", async () => {

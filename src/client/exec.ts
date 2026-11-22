@@ -13,7 +13,7 @@ import {
   ExitError,
   type CommandOutput,
 } from "../errors.js";
-import { abortable, delay } from "../internal/abort.js";
+import { abortable, managedSignal } from "../internal/abort.js";
 import { pollUntil, saveResultPauses, type WaitEvents } from "../wait.js";
 import { connectorWaitEvents } from "../computer-connection/connector.js";
 import { sessionChange } from "./changes.js";
@@ -24,8 +24,7 @@ import { optionalNumber } from "./records.js";
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 
 /**
- * How long a command that reported no save result waits for its session to
- * state one, in milliseconds. A read of the session is repeated until then.
+ * The total time after process exit to confirm a save, in milliseconds.
  */
 const SAVE_WAIT_MS = 30_000;
 
@@ -168,6 +167,8 @@ export async function runCommand(
           }
           break;
         case "exit":
+          // The endpoint sends all stdout and stderr before exit. Only its
+          // save result can follow a successful process exit.
           exit = frame;
           break;
         case "saved":
@@ -225,44 +226,53 @@ async function saveAfterExit(
   expectSaveFrame: boolean,
 ): Promise<SaveState> {
   signal?.throwIfAborted();
+  const until = performance.now() + SAVE_WAIT_MS;
+  const streamed = (async () => {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done || value.type === "broken") return undefined;
+      if (value.type === "saved") return value;
+      if (value.type === "error")
+        throw new CommandSessionError(value.code, output());
+    }
+  })();
+
+  if (expectSaveFrame || id === undefined) {
+    const wait = managedSignal(
+      signal,
+      SAVE_WAIT_MS,
+      "command save wait expired",
+    );
+    try {
+      const frame = await abortable(streamed, wait.signal);
+      if (frame !== undefined) return frame;
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (!wait.signal.aborted) throw error;
+      return { outcome: "unconfirmed" };
+    } finally {
+      wait.cleanup();
+    }
+  }
+
+  // With saving disabled the endpoint can stay open without a save frame.
+  // A read can start at once in that case. Otherwise only loss of the
+  // stream brings us here, with the remainder of the same exit deadline.
+  const remaining = until - performance.now();
+  if (id === undefined || remaining <= 0) return { outcome: "unconfirmed" };
   const stop = new AbortController();
   const checking = signal
-    ? AbortSignal.any([signal, stop.signal])
+    ? AbortSignal.any([stop.signal, signal])
     : stop.signal;
-  const streamed = bounded(
-    (async () => {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done || value.type === "broken") return undefined;
-        if (value.type === "saved") return value;
-        if (value.type === "error")
-          throw new CommandSessionError(value.code, output());
-      }
-    })(),
-    signal,
-  );
   try {
-    if (id === undefined) {
-      return (await streamed) ?? { outcome: "unconfirmed" };
-    }
-    // The handle's save setting is a hint. When it was off, check the
-    // session immediately. Only the session or the endpoint decides the outcome.
-    if (expectSaveFrame) {
-      const frame = await Promise.race([
-        streamed,
-        delay(saveResultPauses()(false, 0), checking),
-      ]);
-      if (frame) return frame;
-    }
-    const events = connectorWaitEvents(connector, undefined, sessionChange(id));
-    for (;;) {
-      const recorded = sessionSave(id, read, checking, events);
-      const first = await Promise.race([streamed, recorded]);
-      if (first === undefined) return await recorded;
-      // A confirmed pending save can outlast the status-read window. While
-      // its stream is live, keep both ways of receiving the final outcome.
-      if (first.outcome !== "pending") return first;
-    }
+    const recorded = sessionSave(
+      id,
+      read,
+      checking,
+      remaining,
+      connectorWaitEvents(connector, undefined, sessionChange(id)),
+    );
+    return (await Promise.race([streamed, recorded])) ?? (await recorded);
   } finally {
     stop.abort();
   }
@@ -285,24 +295,33 @@ async function sessionSave(
   session: string,
   read: SaveRead,
   signal: AbortSignal,
+  remaining: number,
   events: WaitEvents | undefined,
 ): Promise<SaveState> {
   let stated: SaveState | undefined;
   try {
     await pollUntil<true>(
-      { timeoutMs: SAVE_WAIT_MS, signal },
+      { timeoutMs: remaining, signal },
       {
         pauses: saveResultPauses(),
         ...(events === undefined ? {} : { events }),
         read: async (readSignal) => {
           try {
-            stated = statedSave((await read(session, readSignal)).status.save);
+            readSignal.throwIfAborted();
+            const result = await abortable(
+              Promise.resolve().then(() => {
+                readSignal.throwIfAborted();
+                return read(session, readSignal);
+              }),
+              readSignal,
+            );
+            stated = statedSave(result.status.save);
           } catch (error) {
             if (readSignal.aborted) throw error;
           }
           return true;
         },
-        met: () => stated !== undefined && stated.outcome !== "pending",
+        met: () => stated !== undefined,
         timeoutMessage: () => "",
       },
     );
@@ -326,7 +345,6 @@ function statedSave(
         ...(version === undefined ? {} : { revision: version }),
       };
     }
-    case "pending":
     case "unchanged":
     case "off":
       return { outcome: save.state };

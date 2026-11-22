@@ -343,6 +343,7 @@ describe("runCommand", () => {
       { mode: "exec", command: ["true"] },
       () => Promise.resolve({ status: { save: { state: "off" } } } as never),
       undefined,
+      false,
     );
     expect(result).toMatchObject({ exitCode: 0, stdout: "ok", save: "off" });
     expect(closed()).toBe(1);
@@ -403,29 +404,150 @@ describe("runCommand", () => {
           send(published);
         }),
       undefined,
+      false,
     );
     expect(result).toMatchObject({ save: "published", version: 7 });
     expect(aborted).toHaveBeenCalledOnce();
   });
 
-  it("keeps listening when a pending save outlasts the status wait", async () => {
+  it("returns unconfirmed once when a saved frame carries pending", async () => {
+    const { connector, send, closed } = fake([opened, exit0], {
+      stayOpen: true,
+    });
+    const read = vi.fn(() => {
+      send({ type: "saved", outcome: "pending" });
+      return Promise.resolve({
+        status: { save: { state: "pending" } },
+      } as never);
+    });
+    const result = await runCommand(
+      connector,
+      COMPUTER,
+      { mode: "exec", command: ["true"] },
+      read,
+      undefined,
+      false,
+    );
+    expect(result.save).toBe("unconfirmed");
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(closed()).toBe(1);
+  });
+
+  it("uses the stream alone for a delayed save and keeps all output preceding exit", async () => {
     vi.useFakeTimers();
     try {
-      const { connector, send } = fake([opened, exit0], { stayOpen: true });
+      const { connector, send } = fake(
+        [
+          opened,
+          data("stdout", "first"),
+          data("stderr", "diagnostic"),
+          data("stdout", " last"),
+          exit0,
+        ],
+        { stayOpen: true },
+      );
+      const read = vi.fn(noRead);
       const result = runCommand(
         connector,
         COMPUTER,
         { mode: "exec", command: ["true"] },
-        () =>
-          Promise.resolve({ status: { save: { state: "pending" } } } as never),
+        read,
         undefined,
       );
-      await vi.advanceTimersByTimeAsync(31_000);
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(read).not.toHaveBeenCalled();
       send(published);
       await expect(result).resolves.toMatchObject({
+        stdout: "first last",
+        stderr: "diagnostic",
         save: "published",
         version: 7,
       });
+      expect(read).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("bounds a pending recorded save while the stream stays open", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector, closed } = fake([opened, exit0], { stayOpen: true });
+      const read = vi.fn(() =>
+        Promise.resolve({ status: { save: { state: "pending" } } } as never),
+      );
+      const result = runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        undefined,
+        false,
+      );
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(closed()).toBe(0);
+      expect(read).toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
+      expect(closed()).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("uses only the remaining exit deadline if the stream breaks", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector, send, closed } = fake([opened, exit0], {
+        stayOpen: true,
+      });
+      let checking: AbortSignal | undefined;
+      const read = vi.fn((_id: string, signal: AbortSignal | undefined) => {
+        checking = signal;
+        return new Promise<never>(() => undefined);
+      });
+      const result = runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        undefined,
+      );
+      await vi.advanceTimersByTimeAsync(29_900);
+      expect(read).not.toHaveBeenCalled();
+      send({ type: "broken" });
+      await vi.advanceTimersByTimeAsync(99);
+      expect(read).toHaveBeenCalledTimes(1);
+      expect(closed()).toBe(0);
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
+      expect(checking?.aborted).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("bounds an open stream without a session ID", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector, closed } = fake([exit0], { stayOpen: true });
+      const read = vi.fn(noRead);
+      const result = runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        undefined,
+        false,
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+      await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
+      expect(read).not.toHaveBeenCalled();
+      expect(closed()).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
     } finally {
       vi.useRealTimers();
     }
