@@ -1,6 +1,6 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { commandOf, runCommand } from "../src/client/exec.js";
 import type {
   ComputerConnector,
@@ -38,14 +38,17 @@ function fake(
   readonly connector: ComputerConnector;
   readonly opens: SessionOpen[];
   closed: () => number;
+  send: (frame: SessionOutput) => void;
 } {
   let closes = 0;
+  let writer: ReadableStreamDefaultController<SessionOutput>;
   const opens: SessionOpen[] = [];
   const stream: ComputerSessionStream = {
     requestId: "request",
     id: undefined,
     output: new ReadableStream<SessionOutput>({
       start(controller) {
+        writer = controller;
         for (const frame of frames) controller.enqueue(frame);
         if (options.stayOpen !== true) controller.close();
       },
@@ -60,6 +63,9 @@ function fake(
   return {
     opens,
     closed: () => closes,
+    send: (frame) => {
+      writer.enqueue(frame);
+    },
     connector: {
       open: (_computer: string, open: SessionOpen) => {
         opens.push(open);
@@ -323,6 +329,156 @@ describe("runCommand", () => {
     );
     expect(result.save).toBe("off");
     expect(result).not.toHaveProperty("version");
+  });
+
+  // Contract: either the save frame or the recorded outcome can settle a
+  // command whose endpoint keeps the stream open after exit.
+  it("returns the recorded save-off outcome on an open stream", async () => {
+    const { connector, closed } = fake([opened, data("stdout", "ok"), exit0], {
+      stayOpen: true,
+    });
+    const result = await runCommand(
+      connector,
+      COMPUTER,
+      { mode: "exec", command: ["true"] },
+      () => Promise.resolve({ status: { save: { state: "off" } } } as never),
+      undefined,
+    );
+    expect(result).toMatchObject({ exitCode: 0, stdout: "ok", save: "off" });
+    expect(closed()).toBe(1);
+  });
+
+  it("reads status immediately when the handle had saving disabled, and uses the current outcome", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector } = fake([opened, exit0], { stayOpen: true });
+      const result = await runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        () =>
+          Promise.resolve({
+            status: { save: { state: "saved", version: 9 } },
+          } as never),
+        undefined,
+        false,
+      );
+      expect(result).toMatchObject({ save: "published", version: 9 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns a queued save frame without a status read or stream closure", async () => {
+    const { connector } = fake([opened, exit0, published], { stayOpen: true });
+    const read = vi.fn(noRead);
+    const result = await runCommand(
+      connector,
+      COMPUTER,
+      { mode: "exec", command: ["true"] },
+      read,
+      undefined,
+    );
+    expect(result).toMatchObject({ save: "published", version: 7 });
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("cancels an outstanding status read when the save frame arrives", async () => {
+    const { connector, send } = fake([opened, exit0], { stayOpen: true });
+    const aborted = vi.fn();
+    const result = await runCommand(
+      connector,
+      COMPUTER,
+      { mode: "exec", command: ["true"] },
+      (_id, signal) =>
+        new Promise((_resolve, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => {
+              aborted();
+              reject(new Error("read cancelled"));
+            },
+            { once: true },
+          );
+          send(published);
+        }),
+      undefined,
+    );
+    expect(result).toMatchObject({ save: "published", version: 7 });
+    expect(aborted).toHaveBeenCalledOnce();
+  });
+
+  it("keeps listening when a pending save outlasts the status wait", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector, send } = fake([opened, exit0], { stayOpen: true });
+      const result = runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        () =>
+          Promise.resolve({ status: { save: { state: "pending" } } } as never),
+        undefined,
+      );
+      await vi.advanceTimersByTimeAsync(31_000);
+      send(published);
+      await expect(result).resolves.toMatchObject({
+        save: "published",
+        version: 7,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("bounds an open stream when the session cannot confirm any save", async () => {
+    vi.useFakeTimers();
+    try {
+      const { connector, closed } = fake([opened, exit0], { stayOpen: true });
+      const result = runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        noRead,
+        undefined,
+        false,
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+      await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
+      expect(closed()).toBe(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("aborts a status read and closes an open stream after exit", async () => {
+    const { connector, closed } = fake([opened, exit0], { stayOpen: true });
+    const controller = new AbortController();
+    const read = vi.fn(
+      (_id: string, signal: AbortSignal | undefined) =>
+        new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => {
+              reject(new Error("cancelled"));
+            },
+            { once: true },
+          );
+          controller.abort(new Error("stop"));
+        }),
+    );
+    await expect(
+      runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        controller.signal,
+        false,
+      ),
+    ).rejects.toThrow("stop");
+    expect(closed()).toBe(1);
   });
 
   // Contract: a save that cannot be read is unconfirmed; the command's own

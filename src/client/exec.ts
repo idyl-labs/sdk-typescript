@@ -5,6 +5,7 @@ import type {
   ComputerConnector,
   ComputerSessionStream,
   SessionOpen,
+  SessionOutput,
 } from "../computer-connection/connector.js";
 import {
   CommandSaveError,
@@ -12,7 +13,7 @@ import {
   ExitError,
   type CommandOutput,
 } from "../errors.js";
-import { abortable } from "../internal/abort.js";
+import { abortable, delay } from "../internal/abort.js";
 import { pollUntil, saveResultPauses, type WaitEvents } from "../wait.js";
 import { connectorWaitEvents } from "../computer-connection/connector.js";
 import { sessionChange } from "./changes.js";
@@ -139,6 +140,7 @@ export async function runCommand(
   open: SessionOpen,
   readSession: SaveRead,
   signal: AbortSignal | undefined,
+  expectSaveFrame = true,
 ): Promise<ExecResult> {
   const session = await openSession(connector, computer, open, signal);
   const stdout = new Collected();
@@ -150,15 +152,9 @@ export async function runCommand(
   const reader = session.output.getReader();
   let id = session.id;
   let exit: { readonly code?: number; readonly signal?: string } | undefined;
-  let saved:
-    | {
-        readonly outcome: string;
-        readonly revision?: number;
-        readonly reason?: string;
-      }
-    | undefined;
+  let saved: SaveState | undefined;
   try {
-    for (;;) {
+    while (exit === undefined) {
       const { done, value: frame } = await bounded(reader.read(), signal);
       if (done) break;
       switch (frame.type) {
@@ -180,10 +176,7 @@ export async function runCommand(
         case "error":
           throw new CommandSessionError(frame.code, output());
         case "broken":
-          if (exit === undefined) {
-            throw new CommandSessionError("broken", output());
-          }
-          break;
+          throw new CommandSessionError("broken", output());
         default:
           break;
       }
@@ -193,13 +186,14 @@ export async function runCommand(
     }
     const state: SaveState =
       saved ??
-      (await sessionSave(
+      (await saveAfterExit(
+        reader,
+        connector,
         id,
         readSession,
+        output,
         signal,
-        id === undefined
-          ? undefined
-          : connectorWaitEvents(connector, undefined, sessionChange(id)),
+        expectSaveFrame,
       ));
     if (state.outcome === "failed") {
       throw new CommandSaveError(state.reason, exit.code, output());
@@ -219,6 +213,61 @@ export async function runCommand(
   }
 }
 
+/** The endpoint can keep its stream open after exit while the session already
+ * records a final save outcome. Either source can confirm the result. */
+async function saveAfterExit(
+  reader: ReadableStreamDefaultReader<SessionOutput>,
+  connector: ComputerConnector,
+  id: string | undefined,
+  read: SaveRead,
+  output: () => CommandOutput,
+  signal: AbortSignal | undefined,
+  expectSaveFrame: boolean,
+): Promise<SaveState> {
+  signal?.throwIfAborted();
+  const stop = new AbortController();
+  const checking = signal
+    ? AbortSignal.any([signal, stop.signal])
+    : stop.signal;
+  const streamed = bounded(
+    (async () => {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done || value.type === "broken") return undefined;
+        if (value.type === "saved") return value;
+        if (value.type === "error")
+          throw new CommandSessionError(value.code, output());
+      }
+    })(),
+    signal,
+  );
+  try {
+    if (id === undefined) {
+      return (await streamed) ?? { outcome: "unconfirmed" };
+    }
+    // The handle's save setting is a hint. When it was off, check the
+    // session immediately. Only the session or the endpoint decides the outcome.
+    if (expectSaveFrame) {
+      const frame = await Promise.race([
+        streamed,
+        delay(saveResultPauses()(false, 0), checking),
+      ]);
+      if (frame) return frame;
+    }
+    const events = connectorWaitEvents(connector, undefined, sessionChange(id));
+    for (;;) {
+      const recorded = sessionSave(id, read, checking, events);
+      const first = await Promise.race([streamed, recorded]);
+      if (first === undefined) return await recorded;
+      // A confirmed pending save can outlast the status-read window. While
+      // its stream is live, keep both ways of receiving the final outcome.
+      if (first.outcome !== "pending") return first;
+    }
+  } finally {
+    stop.abort();
+  }
+}
+
 function saveOf(outcome: string): CommandSave {
   return outcome === "published" || outcome === "unchanged" || outcome === "off"
     ? outcome
@@ -233,16 +282,15 @@ function saveOf(outcome: string): CommandSave {
  * command's own outcome stands.
  */
 async function sessionSave(
-  session: string | undefined,
+  session: string,
   read: SaveRead,
-  signal: AbortSignal | undefined,
+  signal: AbortSignal,
   events: WaitEvents | undefined,
 ): Promise<SaveState> {
-  if (session === undefined) return { outcome: "unconfirmed" };
   let stated: SaveState | undefined;
   try {
     await pollUntil<true>(
-      { timeoutMs: SAVE_WAIT_MS, ...(signal === undefined ? {} : { signal }) },
+      { timeoutMs: SAVE_WAIT_MS, signal },
       {
         pauses: saveResultPauses(),
         ...(events === undefined ? {} : { events }),
@@ -254,19 +302,19 @@ async function sessionSave(
           }
           return true;
         },
-        met: () => stated !== undefined,
+        met: () => stated !== undefined && stated.outcome !== "pending",
         timeoutMessage: () => "",
       },
     );
   } catch (error) {
     // Every read failure is repeated, so the wait ends early only when it
     // is cancelled or runs out of time.
-    if (signal?.aborted === true) throw error;
+    if (signal.aborted) throw error;
   }
   return stated ?? { outcome: "unconfirmed" };
 }
 
-/** The save a session's status states, or `undefined` while it states none. */
+/** The most recent save state the session reported. */
 function statedSave(
   save: ComputerSession["status"]["save"],
 ): SaveState | undefined {
@@ -278,6 +326,7 @@ function statedSave(
         ...(version === undefined ? {} : { revision: version }),
       };
     }
+    case "pending":
     case "unchanged":
     case "off":
       return { outcome: save.state };

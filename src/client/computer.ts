@@ -1057,6 +1057,7 @@ export class Computer {
             signal === undefined ? {} : { signal },
           ),
         options.signal,
+        record.spec.autoSave !== false,
       ),
     );
   }
