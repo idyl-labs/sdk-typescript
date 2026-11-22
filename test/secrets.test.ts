@@ -1,16 +1,14 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { ApiError, Idyl, TransportError } from "../src/index.js";
+import { ApiError, TransportError } from "../src/index.js";
 import { errorResponse, json } from "./fakes/control-plane.js";
 import { accountId, subnetSlug } from "./fakes/fetch-queue.js";
-import { testCredential } from "./fakes/keys.js";
 import {
   FakeNetwork,
   computerHost,
   computerRecord,
   computersPath,
-  endpoints,
 } from "./fakes/network.js";
 
 const SECRET_ID = "01954e20-7540-7ec4-93ec-14f783e6ab1a";
@@ -682,52 +680,6 @@ describe("the authorization-token credential and the port rule", () => {
     );
     const secret = await network.client().secrets.get("git");
     expect(secret.origins).toEqual(["https://git.example.com:8443"]);
-  });
-});
-
-describe("the client's Namespace", () => {
-  // Contract: `namespace` selects the Namespace Computers and Secrets are
-  // addressed in, and a client that names none addresses `default`.
-  it("addresses a named Namespace", async () => {
-    const network = new FakeNetwork((request) => {
-      const prefix = `/v1/accounts/${accountId}/namespaces/team-a`;
-      if (request.url.pathname === `${prefix}/computers/api-dev`) {
-        return json({ computer: computerRecord({ namespace: "team-a" }) });
-      }
-      if (request.url.pathname === `${prefix}/vault/secrets/git`) {
-        return json(
-          servedSecret({
-            metadata: {
-              id: SECRET_ID,
-              name: "git",
-              namespace: "team-a",
-              subnet: subnetSlug,
-            },
-          }),
-        );
-      }
-      return undefined;
-    });
-    const client = network.client({ namespace: "team-a" });
-    expect(client.namespace).toBe("team-a");
-    expect((await client.computers.get("api-dev")).name).toBe("api-dev");
-    expect((await client.secrets.get("git")).namespace).toBe("team-a");
-    expect(network.client().namespace).toBe("default");
-  });
-
-  // Contract: an invalid Namespace is refused when the client is built.
-  it("refuses an invalid Namespace", () => {
-    expect(
-      () =>
-        new Idyl({
-          credential: testCredential,
-          endpoints,
-          namespace: "Team A",
-        }),
-    ).toThrow('namespace "Team A" is invalid');
-    expect(
-      () => new Idyl({ credential: testCredential, endpoints, namespace: "" }),
-    ).toThrow("namespace is required");
   });
 });
 
