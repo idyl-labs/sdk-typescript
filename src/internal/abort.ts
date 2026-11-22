@@ -61,14 +61,16 @@ export async function abortable<T>(
   value: PromiseLike<T> | T,
   signal: AbortSignal,
 ): Promise<T> {
-  signal.throwIfAborted();
   return await new Promise<T>((resolve, reject) => {
     const onAbort = (): void => {
       // The caller's reason, whatever it is, is what the wait rejects with.
       // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
       reject(signal.reason);
     };
-    signal.addEventListener("abort", onAbort, { once: true });
+    // Work passed by value may already have aborted the signal. Observe its
+    // settlement even when cancellation has already won.
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
     Promise.resolve(value).then(
       (result) => {
         signal.removeEventListener("abort", onAbort);

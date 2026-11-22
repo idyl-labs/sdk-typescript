@@ -722,15 +722,21 @@ class Connector implements ComputerConnector {
     };
     validateCreateComputerSessionRequest(request);
     const closing = this.#closing.signal;
-    const startup = this.#startup();
-    const ready = this.ready();
-    // The authenticated API can place the session as soon as its Zone's
-    // trust is verified. The command itself stays on the secured stream.
-    await abortable(startup.canCreate, closing);
-    closing.throwIfAborted();
-    if (this.#ready !== startup) {
+    let ready: Promise<void>;
+    for (let attempt = 0; ; attempt++) {
+      const startup = this.#startup();
+      ready = this.ready();
+      await abortable(startup.canCreate, closing);
+      closing.throwIfAborted();
+      if (this.#ready === startup) break;
+
+      // A dock that was admitted and then ended can be replaced once before
+      // requesting a grant. A failed admission keeps its original error.
       await ready;
-      throw new Error("the dock ended before the session was requested");
+      closing.throwIfAborted();
+      if (attempt === 1) {
+        throw new Error("the dock ended before the session was requested");
+      }
     }
     const remembered = this.#known.get(computer) ?? this.#recall(computer);
     const created = this.#o.api.createSession(computer, request);

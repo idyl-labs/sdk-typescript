@@ -286,10 +286,9 @@ function saveOf(outcome: string): CommandSave {
 
 /**
  * The save of a session that sent no save result, as the platform records it.
- * The session is read until it states its save or {@link SAVE_WAIT_MS} has
- * passed, pausing by {@link saveResultPauses}; a read that fails is repeated
- * at the next pause. A save that stays unknown is `unconfirmed`, and the
- * command's own outcome stands.
+ * Reads use the time remaining since process exit and pause according to
+ * {@link saveResultPauses}. A failed read is retried within that budget.
+ * An unknown outcome at expiry leaves the command's save unconfirmed.
  */
 async function sessionSave(
   session: string,
@@ -309,10 +308,7 @@ async function sessionSave(
           try {
             readSignal.throwIfAborted();
             const result = await abortable(
-              Promise.resolve().then(() => {
-                readSignal.throwIfAborted();
-                return read(session, readSignal);
-              }),
+              read(session, readSignal),
               readSignal,
             );
             stated = statedSave(result.status.save);

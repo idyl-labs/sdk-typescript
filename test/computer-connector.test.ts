@@ -758,17 +758,52 @@ describe("computer connector", () => {
     expect(streams.map((r) => (r as { dock: number }).dock)).toEqual([1, 2]);
   });
 
-  it("creates no grant if its dock ends as the session is requested", async () => {
+  it("opens on the replacement dock if its dock ends as the session is requested", async () => {
     const { connector, worker, creates } = await harness();
     await connector.ready();
-    const opening = connector.open(COMPUTER, {
-      mode: "exec",
-      command: ["true"],
-    });
-    worker.endDock(60_000);
-    await expect(opening).rejects.toThrow("the dock ended");
-    expect(creates).toHaveLength(0);
-    connector.close();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      const opening = connector.open(COMPUTER, {
+        mode: "exec",
+        command: ["true"],
+      });
+      worker.endDock(60_000);
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(creates).toHaveLength(0);
+      expect(worker.requests.filter((r) => r.type === "dock")).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      const session = await opening;
+      expect(await first(session.output, 1)).toEqual([
+        { type: "opened", session: "s-1" },
+      ]);
+      expect(
+        worker.requests.filter((r) => r.type === "open-stream"),
+      ).toMatchObject([{ dock: 2 }]);
+      expect(creates).toHaveLength(1);
+      session.close();
+    } finally {
+      connector.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns the replacement's trust failure without requesting a session", async () => {
+    const options = { failTrustOnce: false };
+    const { connector, worker, creates } = await harness(options);
+    await connector.ready();
+    try {
+      const opening = connector.open(COMPUTER, {
+        mode: "exec",
+        command: ["true"],
+      });
+      options.failTrustOnce = true;
+      worker.endDock();
+      await expect(opening).rejects.toThrow("unavailable");
+      expect(creates).toHaveLength(0);
+      expect(worker.requests.filter((r) => r.type === "dock")).toHaveLength(1);
+    } finally {
+      connector.close();
+    }
   });
 
   it("releases the backoff timer on close without requesting a grant", async () => {
@@ -776,11 +811,12 @@ describe("computer connector", () => {
     await connector.ready();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     try {
-      worker.endDock(80_000);
       const opening = connector.open(COMPUTER, {
         mode: "exec",
         command: ["true"],
       });
+      worker.endDock(80_000);
+      await vi.advanceTimersByTimeAsync(1);
       connector.close();
       await expect(opening).rejects.toMatchObject({ name: "AbortError" });
       expect(creates).toHaveLength(0);
