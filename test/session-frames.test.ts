@@ -187,6 +187,10 @@ describe("endpoint frames", () => {
       type: "exit",
       signal: "SIGKILL",
     });
+    expect(readFrame(g("saved-off"))).toEqual({
+      type: "saved",
+      outcome: "off",
+    });
     expect(readFrame(g("saved-published"))).toEqual({
       type: "saved",
       outcome: "published",

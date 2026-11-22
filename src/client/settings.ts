@@ -185,7 +185,11 @@ export interface UpdateComputerOptions extends CallOptions {
    * terminal ends, as on create; it takes effect at once.
    */
   readonly idleTimeout?: string;
-  /** Whether the Computer saves its files on its own; it takes effect at once. */
+  /**
+   * Whether the Computer saves its files on its own. A change takes effect
+   * at once. Each session uses the automatic-save setting in force when its
+   * request is accepted.
+   */
   readonly autoSave?: boolean;
   /** How long writes must be quiet before an automatic save, from `1s` to `10m`. */
   readonly saveQuiet?: string;

@@ -1,6 +1,8 @@
 // Copyright 2026 Idyl Labs. SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it, vi } from "vitest";
+import { handleStateOf } from "../src/client/computer.js";
+import { FrameError } from "../src/computer-connection/frames.js";
 import { commandOf, runCommand } from "../src/client/exec.js";
 import type {
   ComputerConnector,
@@ -12,7 +14,10 @@ import {
   CommandSaveError,
   CommandSessionError,
   ExitError,
+  TransportError,
 } from "../src/index.js";
+import { json } from "./fakes/control-plane.js";
+import { FakeNetwork, computerRecord } from "./fakes/network.js";
 
 const COMPUTER = "01954e20-7540-7ec4-93ec-14f783e6ab04";
 const SESSION = "01954e20-7540-7ec4-93ec-14f783e6ab05";
@@ -39,6 +44,7 @@ function fake(
   readonly opens: SessionOpen[];
   closed: () => number;
   send: (frame: SessionOutput) => void;
+  fail: (error: Error) => void;
 } {
   let closes = 0;
   let writer: ReadableStreamDefaultController<SessionOutput>;
@@ -65,6 +71,9 @@ function fake(
     closed: () => closes,
     send: (frame) => {
       writer.enqueue(frame);
+    },
+    fail: (error) => {
+      writer.error(error);
     },
     connector: {
       open: (_computer: string, open: SessionOpen) => {
@@ -296,7 +305,7 @@ describe("runCommand", () => {
   // Contract: with no save result on the stream, the session's recorded save
   // decides, read until it is final.
   it("reads the session's save when the stream reports none", async () => {
-    const { connector } = fake([opened, exit0]);
+    const { connector, opens } = fake([opened, exit0]);
     const reads: string[] = [];
     const states = [
       {},
@@ -314,6 +323,7 @@ describe("runCommand", () => {
       undefined,
     );
     expect(reads).toEqual([SESSION, SESSION, SESSION]);
+    expect(opens).toHaveLength(1);
     expect(result).toMatchObject({ save: "published", version: 9 });
   });
 
@@ -331,44 +341,39 @@ describe("runCommand", () => {
     expect(result).not.toHaveProperty("version");
   });
 
-  // Contract: either the save frame or the recorded outcome can settle a
-  // command whose endpoint keeps the stream open after exit.
-  it("returns the recorded save-off outcome on an open stream", async () => {
-    const { connector, closed } = fake([opened, data("stdout", "ok"), exit0], {
-      stayOpen: true,
-    });
-    const result = await runCommand(
-      connector,
-      COMPUTER,
-      { mode: "exec", command: ["true"] },
-      () => Promise.resolve({ status: { save: { state: "off" } } } as never),
-      undefined,
-      false,
-    );
-    expect(result).toMatchObject({ exitCode: 0, stdout: "ok", save: "off" });
-    expect(closed()).toBe(1);
-  });
-
-  it("reads status immediately when the handle had saving disabled, and uses the current outcome", async () => {
-    vi.useFakeTimers();
-    try {
-      const { connector } = fake([opened, exit0], { stayOpen: true });
-      const result = await runCommand(
-        connector,
-        COMPUTER,
-        { mode: "exec", command: ["true"] },
-        () =>
-          Promise.resolve({
-            status: { save: { state: "saved", version: 9 } },
-          } as never),
-        undefined,
-        false,
+  it.each([true, false])(
+    "uses the stream's off outcome when the handle has autoSave %s",
+    async (autoSave) => {
+      const network = new FakeNetwork((request) =>
+        request.url.pathname.endsWith("/api-dev")
+          ? json({
+              computer: computerRecord({
+                spec: { idleTimeout: "300s", autoSave },
+              }),
+            })
+          : undefined,
       );
-      expect(result).toMatchObject({ save: "published", version: 9 });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+      const computer = await network.client().computers.get("api-dev");
+      expect(computer.snapshot.autoSave).toBe(autoSave);
+      const before = network.computerCalls();
+      const { connector, opens, send } = fake(
+        [opened, data("stdout", "done"), exit0],
+        { stayOpen: true },
+      );
+      handleStateOf(computer).state.connections.adopt(connector);
+      const result = computer.exec(["example"]);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      send({ type: "saved", outcome: "off" });
+      await expect(result).resolves.toEqual({
+        exitCode: 0,
+        stdout: "done",
+        stderr: "",
+        save: "off",
+      });
+      expect(opens).toEqual([{ mode: "exec", command: ["example"] }]);
+      expect(network.computerCalls()).toEqual(before);
+    },
+  );
 
   it("returns a queued save frame without a status read or stream closure", async () => {
     const { connector } = fake([opened, exit0, published], { stayOpen: true });
@@ -384,53 +389,91 @@ describe("runCommand", () => {
     expect(read).not.toHaveBeenCalled();
   });
 
-  it("cancels an outstanding status read when the save frame arrives", async () => {
-    const { connector, send } = fake([opened, exit0], { stayOpen: true });
-    const aborted = vi.fn();
-    const result = await runCommand(
-      connector,
-      COMPUTER,
-      { mode: "exec", command: ["true"] },
-      (_id, signal) =>
-        new Promise((_resolve, reject) => {
-          signal?.addEventListener(
-            "abort",
-            () => {
-              aborted();
-              reject(new Error("read cancelled"));
-            },
-            { once: true },
-          );
-          send(published);
-        }),
-      undefined,
-      false,
-    );
-    expect(result).toMatchObject({ save: "published", version: 7 });
-    expect(aborted).toHaveBeenCalledOnce();
-  });
-
-  it("returns unconfirmed once when a saved frame carries pending", async () => {
-    const { connector, send, closed } = fake([opened, exit0], {
-      stayOpen: true,
-    });
-    const read = vi.fn(() => {
-      send({ type: "saved", outcome: "pending" });
-      return Promise.resolve({
-        status: { save: { state: "pending" } },
-      } as never);
-    });
+  it("returns unconfirmed when the saved frame carries an unknown outcome", async () => {
+    const { connector, closed } = fake([
+      opened,
+      exit0,
+      { type: "saved", outcome: "pending" },
+    ]);
+    const read = vi.fn(noRead);
     const result = await runCommand(
       connector,
       COMPUTER,
       { mode: "exec", command: ["true"] },
       read,
       undefined,
-      false,
     );
     expect(result.save).toBe("unconfirmed");
-    expect(read).toHaveBeenCalledTimes(1);
+    expect(read).not.toHaveBeenCalled();
     expect(closed()).toBe(1);
+  });
+
+  it("preserves a nonzero exit and its output after transport loss", async () => {
+    const { connector, opens, fail } = fake(
+      [opened, data("stderr", "diagnostic"), { type: "exit", code: 3 }],
+      { stayOpen: true },
+    );
+    const read = vi.fn(() =>
+      Promise.resolve({ status: { save: { state: "off" } } } as never),
+    );
+    const failure = rejection(
+      runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["example"] },
+        read,
+        undefined,
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fail(new TransportError("network_error", "connection lost"));
+    const error = await failure;
+    expect(error).toBeInstanceOf(ExitError);
+    expect(error).toMatchObject({ code: 3, stderr: "diagnostic" });
+    expect(opens).toHaveLength(1);
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(read).toHaveBeenCalledWith(SESSION, expect.any(AbortSignal));
+  });
+
+  it("preserves a session error reported after exit", async () => {
+    const { connector } = fake([
+      opened,
+      data("stdout", "done"),
+      exit0,
+      { type: "error", code: "invalid_request" },
+    ]);
+    const read = vi.fn(noRead);
+    const error = await rejection(
+      runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        undefined,
+      ),
+    );
+    expect(error).toBeInstanceOf(CommandSessionError);
+    expect(error).toMatchObject({ code: "invalid_request", stdout: "done" });
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("propagates a malformed frame after exit without reading status", async () => {
+    const { connector, fail } = fake([opened, exit0], { stayOpen: true });
+    const read = vi.fn(noRead);
+    const error = new FrameError("invalid frame");
+    const failure = rejection(
+      runCommand(
+        connector,
+        COMPUTER,
+        { mode: "exec", command: ["true"] },
+        read,
+        undefined,
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fail(error);
+    expect(await failure).toBe(error);
+    expect(read).not.toHaveBeenCalled();
   });
 
   it("uses the stream alone for a delayed save and keeps all output preceding exit", async () => {
@@ -464,33 +507,6 @@ describe("runCommand", () => {
         version: 7,
       });
       expect(read).not.toHaveBeenCalled();
-      expect(vi.getTimerCount()).toBe(0);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("bounds a pending recorded save while the stream stays open", async () => {
-    vi.useFakeTimers();
-    try {
-      const { connector, closed } = fake([opened, exit0], { stayOpen: true });
-      const read = vi.fn(() =>
-        Promise.resolve({ status: { save: { state: "pending" } } } as never),
-      );
-      const result = runCommand(
-        connector,
-        COMPUTER,
-        { mode: "exec", command: ["true"] },
-        read,
-        undefined,
-        false,
-      );
-      await vi.advanceTimersByTimeAsync(29_999);
-      expect(closed()).toBe(0);
-      expect(read).toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(1);
-      await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
-      expect(closed()).toBe(1);
       expect(vi.getTimerCount()).toBe(0);
     } finally {
       vi.useRealTimers();
@@ -541,7 +557,6 @@ describe("runCommand", () => {
         { mode: "exec", command: ["true"] },
         read,
         undefined,
-        false,
       );
       await vi.advanceTimersByTimeAsync(30_000);
       await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
@@ -553,43 +568,37 @@ describe("runCommand", () => {
     }
   });
 
-  it("bounds an open stream when the session cannot confirm any save", async () => {
-    vi.useFakeTimers();
-    try {
-      const { connector, closed } = fake([opened, exit0], { stayOpen: true });
-      const result = runCommand(
+  it("propagates cancellation while waiting for the save frame", async () => {
+    const { connector, closed } = fake([opened, exit0], { stayOpen: true });
+    const controller = new AbortController();
+    const read = vi.fn(noRead);
+    const reason = new Error("stop");
+    const failure = rejection(
+      runCommand(
         connector,
         COMPUTER,
         { mode: "exec", command: ["true"] },
-        noRead,
-        undefined,
-        false,
-      );
-      await vi.advanceTimersByTimeAsync(30_000);
-      await expect(result).resolves.toMatchObject({ save: "unconfirmed" });
-      expect(closed()).toBe(1);
-      expect(vi.getTimerCount()).toBe(0);
-    } finally {
-      vi.useRealTimers();
-    }
+        read,
+        controller.signal,
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    controller.abort(reason);
+    expect(await failure).toBe(reason);
+    expect(read).not.toHaveBeenCalled();
+    expect(closed()).toBe(1);
   });
 
-  it("aborts a status read and closes an open stream after exit", async () => {
-    const { connector, closed } = fake([opened, exit0], { stayOpen: true });
+  it("aborts a recovery read with the caller's reason", async () => {
+    const { connector, opens, closed } = fake([opened, exit0]);
     const controller = new AbortController();
-    const read = vi.fn(
-      (_id: string, signal: AbortSignal | undefined) =>
-        new Promise<never>((_resolve, reject) => {
-          signal?.addEventListener(
-            "abort",
-            () => {
-              reject(new Error("cancelled"));
-            },
-            { once: true },
-          );
-          controller.abort(new Error("stop"));
-        }),
-    );
+    const reason = new Error("stop");
+    let checking: AbortSignal | undefined;
+    const read = vi.fn((_id: string, signal: AbortSignal | undefined) => {
+      checking = signal;
+      controller.abort(reason);
+      return new Promise<never>(() => undefined);
+    });
     await expect(
       runCommand(
         connector,
@@ -597,9 +606,10 @@ describe("runCommand", () => {
         { mode: "exec", command: ["true"] },
         read,
         controller.signal,
-        false,
       ),
-    ).rejects.toThrow("stop");
+    ).rejects.toBe(reason);
+    expect(checking?.aborted).toBe(true);
+    expect(opens).toHaveLength(1);
     expect(closed()).toBe(1);
   });
 
