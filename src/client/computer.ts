@@ -1453,7 +1453,7 @@ export interface ComputerSecretUsage {
 }
 
 /**
- * The Computers of the client's Namespace: `idyl.computers`.
+ * Access Computers in the Account's default Namespace through `idyl.computers`.
  *
  * @example
  * ```ts

@@ -15,7 +15,6 @@ import {
 import { Transport, type TransportOptions } from "../internal/transport.js";
 import { DEFAULT_USER_AGENT } from "../internal/version.js";
 import { isAccountId, type AccountId } from "../resource/id.js";
-import { validateVaultReferenceName } from "../resource/secret.js";
 import { deleteAccount, getCurrentAccount } from "../services/account.js";
 import { listComputerSizes } from "../services/computer-sizes.js";
 import { identityService } from "../services/identity.js";
@@ -31,7 +30,6 @@ import { secrets, type Secrets } from "./secrets.js";
 /** The network a client addresses when its options name none. */
 const DEFAULT_NETWORK = "idyl.sh";
 
-/** The Namespace a client addresses when its options name none. */
 const DEFAULT_NAMESPACE = "default";
 
 /** Explicit origins for the public endpoints, each `https://host[:port]`. */
@@ -73,14 +71,6 @@ export interface IdylOptions {
    * which the endpoints derive. Defaults to `idyl.sh`.
    */
   readonly network?: string;
-  /**
-   * The Namespace of the Account that `computers` and `secrets` address,
-   * such as `team-a`: 1 to 63 lowercase letters, digits, `.`, `_` and `-`,
-   * beginning and ending with a letter or a digit. Defaults to `default`,
-   * the Namespace every Account has. Another Namespace takes another
-   * client.
-   */
-  readonly namespace?: string;
   /**
    * The trust keys of the network, which commands and terminals verify the
    * network's session trust against. Defaults to the keys this package
@@ -151,7 +141,6 @@ export class Idyl {
   readonly #billing: Billing;
   readonly #computers: Computers;
   readonly #secrets: Secrets;
-  readonly #namespace: string;
   readonly #placement: PlacementSource;
   #account: Promise<Account> | undefined;
   #context: PlacementContext | undefined;
@@ -189,12 +178,14 @@ export class Idyl {
     ) {
       throw new TypeError("network is not the network the access key names");
     }
-    const namespace = options.namespace ?? DEFAULT_NAMESPACE;
-    if (typeof (namespace as unknown) !== "string") {
-      throw new TypeError("namespace must be a string");
+    // Older callers could select a Namespace. Refuse to redirect their requests.
+    if (
+      "namespace" in options &&
+      options.namespace !== undefined &&
+      options.namespace !== DEFAULT_NAMESPACE
+    ) {
+      throw new TypeError("This client supports only the default Namespace");
     }
-    validateVaultReferenceName("namespace", namespace);
-    this.#namespace = namespace;
     const credential = access?.source ?? options.credential;
     const allowHttp = options.allowHttp ?? false;
     if (typeof allowHttp !== "boolean") {
@@ -250,7 +241,7 @@ export class Idyl {
         this.#placement.prepare?.();
         return this.#contextOf(call);
       },
-      namespace,
+      DEFAULT_NAMESPACE,
       (call) => listComputerSizes(this.#state, signalOf(call ?? {})),
       {
         network,
@@ -291,24 +282,19 @@ export class Idyl {
   }
 
   /**
-   * The Computers of the client's Namespace: create, get, list, the image
-   * catalogue and the sizes.
+   * Create, get and list Computers in the Account's default Namespace,
+   * browse the image catalogue and list sizes.
    */
   get computers(): Computers {
     return this.#computers;
   }
 
   /**
-   * The Secrets of the client's Namespace, whose values IDYL adds to a
-   * Computer's requests to the origins each allows: create, get and delete.
+   * Manage Secrets in the Account's default Namespace. IDYL adds each
+   * Secret's value to Computer requests to the origins the Secret allows.
    */
   get secrets(): Secrets {
     return this.#secrets;
-  }
-
-  /** The Namespace the client addresses. */
-  get namespace(): string {
-    return this.#namespace;
   }
 
   /**
@@ -367,7 +353,7 @@ export class Idyl {
     if (this.#context?.scope.accountId !== accountId) {
       this.#context = Object.freeze({
         state: this.#state,
-        scope: Object.freeze({ accountId, namespace: this.#namespace }),
+        scope: Object.freeze({ accountId, namespace: DEFAULT_NAMESPACE }),
         placement: this.#placement,
       });
     }
