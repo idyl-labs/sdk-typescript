@@ -317,6 +317,7 @@ type ReadAnswer = (session: ServedSession) => ServedSession | Error;
 async function harness(
   options: {
     holdCreate?: boolean;
+    certificateGate?: Promise<void>;
     answer?: (session: ServedSession) => ServedSession;
     known?: { epoch: number; sequence: number };
     failTrustOnce?: boolean;
@@ -348,13 +349,14 @@ async function harness(
     release: undefined,
   };
   const api: ConnectorApi = {
-    certify: (request) => {
+    certify: async (request) => {
+      await options.certificateGate;
       expect(request).toEqual(Uint8Array.of(9, 9));
-      return Promise.resolve({
+      return {
         chain: [Uint8Array.of(5)],
         admissionLease: Uint8Array.of(6),
         notAfterMs: Date.now() + 3_600_000,
-      });
+      };
     },
     sessionTrust: () => {
       if (options.failTrustOnce === true) {
@@ -478,6 +480,76 @@ describe("computer connector", () => {
       lease: Uint8Array.of(6),
     });
   });
+
+  it("requests concurrent sessions while one connection is being admitted", async () => {
+    let admit!: () => void;
+    const certificateGate = new Promise<void>((resolve) => {
+      admit = resolve;
+    });
+    const h = await harness({ certificateGate });
+    const open = { mode: "exec" as const, command: ["true"] };
+    const sessions = Promise.all([
+      h.connector.open(COMPUTER, open),
+      h.connector.open(COMPUTER, open),
+    ]);
+    await vi.waitFor(() => {
+      expect(h.creates).toHaveLength(2);
+    });
+    expect(h.worker.requests.map((r) => r.type)).toEqual(["start"]);
+    admit();
+    for (const session of await sessions) session.close();
+    expect(h.worker.requests.filter((r) => r.type === "dock")).toHaveLength(1);
+    h.connector.close();
+  });
+
+  it("refuses a session before its create when the Zone trust is invalid", async () => {
+    const h = await harness({ pinAnotherKey: true });
+    await expect(
+      h.connector.open(COMPUTER, { mode: "exec", command: ["true"] }),
+    ).rejects.toThrow(SessionTrustError);
+    expect(h.creates).toHaveLength(0);
+    h.connector.close();
+  });
+
+  it.each(["certificate refusal", "connector close"] as const)(
+    "cancels a late grant after %s",
+    async (reason) => {
+      let refuse!: (error: Error) => void;
+      let admit!: () => void;
+      const certificateGate = new Promise<void>((resolve, reject) => {
+        admit = resolve;
+        refuse = reject;
+      });
+      const cancels: string[][] = [];
+      const h = await harness({ certificateGate, holdCreate: true, cancels });
+      const opening = h.connector.open(COMPUTER, {
+        mode: "exec",
+        command: ["true"],
+      });
+      await vi.waitFor(() => {
+        expect(h.creates).toHaveLength(1);
+      });
+      const failure = new Error("certificate refused");
+      if (reason === "certificate refusal") {
+        refuse(failure);
+        await expect(opening).rejects.toBe(failure);
+      } else {
+        h.connector.close();
+        await expect(opening).rejects.toMatchObject({ name: "AbortError" });
+        admit();
+      }
+      h.release?.();
+      await vi.waitFor(() => {
+        expect(cancels).toEqual([
+          [COMPUTER, "01954e20-7540-7ec4-93ec-14f783e6ab20"],
+        ]);
+      });
+      expect(h.worker.requests.some((r) => r.type === "open-stream")).toBe(
+        false,
+      );
+      h.connector.close();
+    },
+  );
 
   // Contract: a reader that cancels the output ends it: a later end of the
   // stream reaches nothing and throws nothing.
