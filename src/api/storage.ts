@@ -192,20 +192,20 @@ export interface CommitRetry {
 
 /**
  * A save that is ready to publish and waits for its turn: behind the
- * Account's other publications, as many at once as its plan allows, or behind
- * other work the publication service runs. The save publishes once a
- * publication ahead of it ends. It is what a pending save waits for, as
- * `SaveOptions.onWaiting` hears it.
+ * Account's other publications, as many at once as its plan allows, or
+ * behind other publications IDYL runs. The save waits and publishes by
+ * itself once a publication ahead of it ends. `SaveOptions.onWaiting` is
+ * called with this value while the save waits.
  */
 export const SAVE_WAITING_FOR_PUBLICATION_TURN = "publication-turn";
 
 /**
- * A save whose Computer's publications are held: two publications in a row
- * ended without finishing under one release of IDYL's storage service. The
- * hold ends 24 hours after the last of them, the instant
- * `SaveOptions.onWaiting` hears with it, or earlier when another release
- * takes the publication. It is also the reason of the save's last failed
- * attempt.
+ * A save whose Computer's publications are held, after two publications in
+ * a row ended without finishing. The save waits, and IDYL publishes the
+ * save again by itself once the hold ends: 24 hours after the last of
+ * those two publications at the latest, the instant that
+ * `SaveOptions.onWaiting` receives as `waitingUntil`, or sooner. It is
+ * also the reason of the save's last failed attempt.
  */
 export const SAVE_REASON_PUBLICATION_HELD = "publication-held";
 

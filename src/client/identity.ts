@@ -296,8 +296,9 @@ export interface Identity {
   ): Promise<void>;
   /**
    * Sends another sign-in code, with a proof by `key`, the key that started
-   * the sign-in. The new code ends the earlier unused code of the same key
-   * only. It answers as {@link Identity.startSignIn} does.
+   * the sign-in. The code sent ends the earlier unused code of the same key,
+   * and no code of another key. It answers as {@link Identity.startSignIn}
+   * does.
    *
    * @param email The address the sign-in was started for.
    * @param key The key pair {@link Identity.startSignIn} was given.
@@ -319,7 +320,7 @@ export interface Identity {
    * @param email The address the code was sent to.
    * @param code The eight-digit code from the email.
    * @param key The key pair {@link Identity.startSignIn} was given; the
-   *   tokens are bound to it.
+   *   tokens are bound to that key pair.
    * @throws {@link TypeError} `email` or `code` is blank, or `key` cannot
    *   sign; nothing is sent
    * @throws {@link ApiError} the code is wrong or expired, or IDYL refuses

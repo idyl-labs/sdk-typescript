@@ -82,7 +82,7 @@ export type SecretCredential =
  * Where a Secret's value comes from, as a read reports it: a stored `value`
  * of `sizeBytes` bytes, with the `expiresAt` its writer stated; a
  * `github-app` installation whose tokens IDYL mints; or, for a keyed Secret
- * that a Pod mounts as files, its `keys`. No read carries a value or the
+ * that is mounted as files, its `keys`. No read carries a value or the
  * App's private key.
  */
 export type SecretSource =
@@ -103,7 +103,7 @@ export type SecretSource =
 
 /** One key of a keyed Secret, without its value. */
 export interface SecretKey {
-  /** The key's name, which is the file name a Pod mounts it as. */
+  /** The key's name, which is the name of the file that holds the key. */
   readonly name: string;
   /** The length of the key's value, in bytes. */
   readonly sizeBytes: number;
@@ -236,8 +236,9 @@ export interface PurgeSecretOptions extends CallOptions {
   /** The confirmation: always the word `purge`. */
   readonly confirm: "purge";
   /**
-   * Purges a Secret that Pods still hold. Without it, such a purge is
-   * refused with an `ApiError` whose code is `VAULT_ACTIVE_BINDINGS`.
+   * Purges a Secret that still has active bindings. Without it, such a
+   * purge is refused with an `ApiError` whose code is
+   * `VAULT_ACTIVE_BINDINGS`.
    */
   readonly force?: boolean;
 }
@@ -270,12 +271,12 @@ export interface SecretVersion {
 }
 
 /**
- * The Namespace's Secrets. A Secret lives where the client's Computers
- * live, and a Computer attaches it by name or ID through its `secrets`
- * setting. Writing a Secret, and reading one, needs the permission to do so
- * on the Namespace; a refusal rejects with an `ApiError` that carries
- * IDYL's stable code, such as `VAULT_POLICY_DISABLED` where Secrets are not
- * enabled.
+ * The Secrets of the Account's default Namespace. A Secret lives where
+ * the client's Computers live, and a Computer attaches it by name or ID
+ * through its `secrets` setting. Writing a Secret, and reading one, needs
+ * the permission to do so on the Namespace; a refusal rejects with an
+ * `ApiError` that carries IDYL's stable code, such as
+ * `VAULT_POLICY_DISABLED` where Secrets are not enabled.
  *
  * @example
  * ```ts
@@ -320,8 +321,8 @@ export interface Secrets {
    */
   get(name: string, options?: CallOptions): Promise<Secret>;
   /**
-   * Every Secret of the Namespace, by name, page by page. No item carries a
-   * value.
+   * Every Secret of the Account's default Namespace, by name, page by page.
+   * No item carries a value.
    *
    * @throws {@link TypeError} `limit` is not a positive integer
    * @throws {@link ApiError} IDYL refuses the request; it carries IDYL's
@@ -331,7 +332,7 @@ export interface Secrets {
    */
   list(options?: ListOptions): AsyncIterable<Secret>;
   /**
-   * One page of the Namespace's Secrets, by name.
+   * One page of the Secrets of the Account's default Namespace, by name.
    *
    * @throws {@link TypeError} `limit` is not a positive integer, or
    *   `continue` is not one a page of this listing returned, before any
@@ -377,7 +378,8 @@ export interface Secrets {
    * @throws {@link TypeError} `name` is empty, `confirm` is not `purge`, or
    *   `force` is not a boolean, before any request is sent
    * @throws {@link ApiError} IDYL refuses the purge, such as
-   *   `VAULT_ACTIVE_BINDINGS` for a Secret Pods still hold without `force`
+   *   `VAULT_ACTIVE_BINDINGS` for a Secret that still has active bindings,
+   *   without `force`
    * @throws {@link TransportError} the request does not complete
    */
   purge(name: string, options: PurgeSecretOptions): Promise<SecretPurge>;
@@ -399,8 +401,8 @@ export interface Secrets {
   ): Promise<readonly SecretVersion[]>;
   /**
    * Every time IDYL opened a value of the Secret with this name, newest
-   * first, page by page: when, which version, the Computer or Pod it was
-   * opened for, the outcome and who reported the decryption. The record names
+   * first, page by page: when, which version, the Computer it was opened
+   * for, the outcome and who reported the decryption. The record names
    * the Secret by name, so it holds decryptions made before the Secret was
    * deleted and created again. No entry carries a value. `outcome` narrows
    * it to one outcome, such as `refused`. It is read only when asked for,
@@ -489,7 +491,7 @@ export interface DecryptionsPageOptions extends PageOptions {
 export interface SecretUsage {
   /** The openings of its values. */
   readonly opened: BoundedCount;
-  /** The openings the key service refused. */
+  /** The openings IDYL refused. */
   readonly refused: BoundedCount;
   /** The openings whose answer did not arrive, so whether they opened is not known. */
   readonly failed: BoundedCount;

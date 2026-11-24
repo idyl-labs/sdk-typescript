@@ -431,8 +431,8 @@ export interface ComputerConnector {
    * @throws {@link ApiError} IDYL refuses the client certificate or the
    *   session trust
    * @throws {@link TransportError} a request to IDYL does not complete
-   * @throws Error the connection to the Network's edge ends while it is
-   *   made
+   * @throws Error the connection between the client and IDYL ends while
+   *   the connector connects
    */
   ready(): Promise<void>;
   /**
@@ -466,8 +466,8 @@ export interface ComputerConnector {
    * @throws DOMException a `TimeoutError` when IDYL does not bind the
    *   session to the Computer by its ready-by time, or an `AbortError` when
    *   `close` is called first
-   * @throws Error the connection to the Computer or to the Network's edge
-   *   ends before the stream opens
+   * @throws Error the connection to the Computer, or between the client and
+   *   IDYL, ends before the stream opens
    */
   open(computer: string, open: SessionOpen): Promise<ComputerSessionStream>;
   /**
@@ -486,8 +486,8 @@ export interface ComputerConnector {
    * @throws {@link TransportError} a request to IDYL does not complete
    * @throws {@link SessionTrustError} the connector cannot get ready, as
    *   {@link ComputerConnector.ready} rejects
-   * @throws Error the connection to the Computer or to the Network's edge
-   *   ends before the stream opens
+   * @throws Error the connection to the Computer, or between the client and
+   *   IDYL, ends before the stream opens
    */
   openFiles(
     computer: string,
@@ -497,17 +497,16 @@ export interface ComputerConnector {
    * The connector's {@link ListeningState}, as its listeners were last
    * told it; `undefined` while its first attempt to listen is in flight.
    * It stays `listening` while a stream that ended is opened again at once.
-   * Waits pace themselves by whether a stream carries events at that
-   * moment, not by this value.
+   * A wait reads what it waits for less often while a stream carries
+   * events, and more often while none does, whatever this value says.
    */
   readonly listening: ListeningState | undefined;
   /**
-   * Calls `listener` with each change to the Computers of the connector's
-   * own Namespace, and of no other, and each start and stop of the event
-   * stream. A wait on a Computer of another Namespace pauses as with no
-   * event stream. The connector listens from
-   * {@link ComputerConnector.ready} or its first session on; nothing waits
-   * for it.
+   * Calls `listener` with each change to the Computers of the Account's
+   * default Namespace, the Computers the client reaches, and with each
+   * start and stop of the event stream. The connector listens from
+   * {@link ComputerConnector.ready} or its first session on, and no call
+   * waits for the listening to start.
    *
    * @returns the function that removes the listener
    */

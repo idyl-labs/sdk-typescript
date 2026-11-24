@@ -56,9 +56,16 @@ const RETRY_MS: readonly number[] = [500, 1_000, 2_000, 4_000, 8_000, 15_000];
 /** The pause the retry schedule stays at once its steps are spent, in milliseconds. */
 const LAST_RETRY_MS = 30_000;
 
-/** A change to one of the Namespace's Computers, as its event names it. */
+/**
+ * A change to one of the Computers of the Account's default Namespace, as
+ * its event names the change.
+ */
 export interface ComputerChange {
-  /** Which part changed; a part this SDK does not name is delivered as `reread`. */
+  /**
+   * The part of the Computer the event names, one of the
+   * {@link ComputerEventPart} values; a part this SDK does not name is
+   * delivered as `reread`.
+   */
   readonly part: ComputerEventFrame["part"];
   /** The Computer's ID; absent on `reread`. */
   readonly computer?: string;
@@ -73,8 +80,10 @@ export interface ComputerChange {
  * - `retrying`: no stream does, and the connector tries again by itself on
  *   its retry steps.
  * - `unavailable`: no stream does, and the connector does not try again
- *   until it docks again or is used again: no change events are served to
- *   its dock, or its watch was refused for a cause a retry cannot change.
+ *   until the connection between the client and IDYL is open again or the
+ *   connector is used again: IDYL serves no change events on that
+ *   connection, or the connector's watch was refused for a cause a retry
+ *   cannot change.
  */
 export type ListeningState = "listening" | "retrying" | "unavailable";
 
@@ -85,10 +94,12 @@ export interface ChangeListener {
   /**
    * The connector's {@link ListeningState}: `listening` once a stream
    * delivers its first `reread`; `retrying` once an attempt to open one
-   * fails and will be tried again; `unavailable` when no change events are
-   * served to the dock, or the watch was refused for a cause a retry
-   * cannot change. Called only when the state changes, and not while a
-   * first attempt is in flight or a stream that ended is opened again.
+   * fails and the connector is to try again; `unavailable` when IDYL
+   * serves no change events on the connection between the client and
+   * IDYL, or the watch was refused for a cause a retry cannot change.
+   * Called only when the state moves from one value to another, and not
+   * while a first attempt is in flight or a stream that ended is opened
+   * again.
    */
   readonly onListening?: (state: ListeningState) => void;
 }
