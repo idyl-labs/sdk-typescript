@@ -5,10 +5,12 @@
 // absolute path, installs it into a temporary project with npm, imports it as
 // ESM and as CommonJS, refuses a deep import of an internal module, compiles
 // a TypeScript consumer against the installed declarations under two module
-// resolutions, and runs publint and @arethetypeswrong/cli on the archive.
+// resolutions, runs the README's Quickstart from the packed README in a
+// project `npm init -y` makes, and runs publint and @arethetypeswrong/cli on
+// the archive.
 //
 // Run through `pnpm test:package`, which builds and packs first.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -97,6 +99,28 @@ const typeScriptConsumer = `
 `;
 
 /**
+ * What the Quickstart fails with when it runs with no access key: the
+ * client's own refusal, before any request is sent.
+ */
+const missingAccessKey =
+  "TypeError: accessKey is undefined: the variable that should hold it is not set";
+
+/**
+ * The program of the README's Quickstart section: its `js` block.
+ * @param {string} readme
+ */
+function quickstartOf(readme) {
+  const start = readme.indexOf("\n## Quickstart\n");
+  const end = readme.indexOf("\n## ", start + 1);
+  const section = readme.slice(start, end === -1 ? undefined : end);
+  const block = start === -1 ? null : /\n```js\n([\s\S]*?)```/u.exec(section);
+  if (block?.[1] === undefined) {
+    throw new Error("the README's Quickstart holds no js block");
+  }
+  return block[1];
+}
+
+/**
  * @param {string} file
  * @param {string[]} args
  * @param {string} cwd
@@ -156,6 +180,43 @@ try {
 
   writeFileSync(join(project, "cjs.cjs"), cjsConsumer);
   run(process.execPath, [join(project, "cjs.cjs")], project);
+
+  // The Quickstart as the README states it: a project `npm init -y` makes,
+  // which npm 11 marks `"type": "commonjs"` and so does this check, the
+  // package installed, and the program saved as `quickstart.mjs`. With no
+  // access key it stops at the client's refusal, before any request, so it
+  // runs with no network; a SyntaxError or a module that does not resolve
+  // fails the check.
+  const quickstart = join(temporary, "quickstart");
+  mkdirSync(quickstart);
+  run("npm", ["init", "-y"], quickstart);
+  run("npm", ["pkg", "set", "type=commonjs"], quickstart);
+  run(
+    "npm",
+    ["install", "--ignore-scripts", "--no-audit", "--no-fund", archive],
+    quickstart,
+  );
+  writeFileSync(
+    join(quickstart, "quickstart.mjs"),
+    quickstartOf(readFileSync(join(root, "README.md"), "utf8")),
+  );
+  const ran = spawnSync(process.execPath, ["quickstart.mjs"], {
+    cwd: quickstart,
+    env: { PATH: process.env["PATH"] ?? "" },
+    encoding: "utf8",
+  });
+  if (
+    ran.status === 0 ||
+    !ran.stderr.includes(missingAccessKey) ||
+    /SyntaxError|ERR_MODULE_NOT_FOUND|ERR_REQUIRE_ESM|Cannot use import/u.test(
+      ran.stderr,
+    )
+  ) {
+    process.stderr.write(ran.stderr);
+    throw new Error(
+      "the README's Quickstart did not load and stop at the missing access key",
+    );
+  }
 
   writeFileSync(join(project, "consumer.ts"), typeScriptConsumer);
   const tsc = join(binDirectory, "tsc");
@@ -227,5 +288,5 @@ try {
   rmSync(packageDirectory, { recursive: true, force: true });
 }
 console.log(
-  `package: ${archiveName} holds only published files and imports as ESM, CommonJS, and TypeScript`,
+  `package: ${archiveName} holds only published files, imports as ESM, CommonJS, and TypeScript, and runs the README's Quickstart to its access key check`,
 );

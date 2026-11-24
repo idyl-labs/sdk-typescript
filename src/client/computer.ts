@@ -986,7 +986,10 @@ export class Computer {
    * shell exits or it is closed, and it holds the client's connection open
    * until then, so a program closes it, or reads it to its end, before it can
    * exit. A browser page first builds its connector with
-   * `idyl.computers.connector`.
+   * `idyl.computers.connector`, from a Worker it starts. Any other program,
+   * such as one on Node.js, needs nothing more: the client connects in the
+   * program's own thread, as `connectInThisThread` from
+   * `@idyl-sh/sdk/computer-connection` does.
    *
    * @throws {@link TypeError} the client has no connector to run it on: a
    * browser page that has not built one with `idyl.computers.connector`,

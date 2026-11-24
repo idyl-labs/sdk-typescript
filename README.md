@@ -23,9 +23,34 @@ no runtime dependencies.
 
 ## Quickstart
 
-Run an evaluation script in a fresh Computer and print what it reports:
+Run an evaluation script in a fresh Computer and print what it reports. You
+need Node.js 22.3 or later and an access key. To get your first key, sign in
+to the [IDYL Console](https://console.idyl.sh), open the **Account** menu
+and select **Access keys**. Select **Create access key**, enter `quickstart`
+under **Name**, choose when it **Expires**, then select **Create**. In
+**Your access key**, select **Download idyl-quickstart.json** before
+selecting **Done**: the Console offers the key file only once.
+[Get an access key](https://docs.idyl.sh/AGENTS#get-an-access-key) shows
+the same steps. Keep the key file out of logs and source control.
 
-```ts
+The program reads the key file's contents from `IDYL_ACCESS_KEY`.
+
+From an empty directory, install the package and write the script the
+Computer runs:
+
+```sh
+mkdir quickstart && cd quickstart
+npm init -y
+npm install @idyl-sh/sdk
+echo 'print("passed", 6 * 7)' > eval.py
+```
+
+Save this program beside it as `quickstart.mjs`. The `.mjs` name makes the
+file an ES module on every supported Node.js version, whatever
+`package.json` states, so its `import` statements and top-level `await`
+work as written:
+
+```js
 import { readFile } from "node:fs/promises";
 import { Idyl } from "@idyl-sh/sdk";
 
@@ -43,10 +68,21 @@ console.log(stdout);
 await computer.delete();
 ```
 
-`IDYL_ACCESS_KEY` holds the contents of an access key file; see
-[Authentication](#authentication).
+Run it with the contents of the key file in `IDYL_ACCESS_KEY`, here from
+`idyl-quickstart.json` in your Downloads folder:
+
+```sh
+IDYL_ACCESS_KEY="$(cat ~/Downloads/idyl-quickstart.json)" node quickstart.mjs
+```
+
+It prints `passed 42`.
 
 ## Usage
+
+Each example in this section and under [Errors](#errors) is an ES module,
+as `quickstart.mjs` is, and continues from the Quickstart: it uses the
+Quickstart's `idyl` client and its `computer`, before the last line
+deletes that Computer.
 
 ### Run your tests
 
@@ -108,19 +144,48 @@ await computer.exec("rm -rf data");
 await computer.restore(version); // data/ is back
 ```
 
-### Terminals in a browser
+### Terminals
 
-A browser page runs terminals and commands through a connector, whose
-connection lives in a dedicated Worker:
+On Node.js, `computer.terminal()` needs nothing more: the client connects
+in the program's own thread, as `connectInThisThread` from
+`@idyl-sh/sdk/computer-connection` does. The terminal keeps that connection,
+and with it the program, running until the shell exits or the terminal is
+closed. To share one connection among many sessions, build the connector
+from `connectInThisThread` and close it at the end:
 
-```ts
-// connection-worker.ts
+```js
+import { connectInThisThread } from "@idyl-sh/sdk/computer-connection";
+
+const { worker, module } = await connectInThisThread();
+const connector = idyl.computers.connector({ worker, module });
+await connector.ready();
+
+const terminal = await computer.terminal({ size: { cols: 120, rows: 40 } });
+// Read terminal.output and write to the terminal, then:
+terminal.close();
+connector.close();
+```
+
+A browser page runs terminals and commands through a connector whose
+connection lives in a dedicated Worker, which only the page can start. The
+Worker's module, `connection-worker.js`, stands alone:
+
+```js
+// connection-worker.js
 import { serveComputerConnections } from "@idyl-sh/sdk/computer-connection";
 
 serveComputerConnections(self);
 ```
 
-```ts
+The page starts that Worker and compiles the connection's WebAssembly,
+which the package exports as `@idyl-sh/sdk/computer-connection.wasm`. The
+page's bundler serves both files; with [Vite](https://vite.dev), the
+`?url` import gives the WebAssembly's address:
+
+```js
+// The page
+import connectionWasmUrl from "@idyl-sh/sdk/computer-connection.wasm?url";
+
 const connector = idyl.computers.connector({
   worker: new Worker(new URL("./connection-worker.js", import.meta.url), {
     type: "module",
@@ -132,9 +197,9 @@ await connector.ready();
 const terminal = await computer.terminal({ size: { cols: 120, rows: 40 } });
 ```
 
-`connectionWasmUrl` is where the page serves
-`@idyl-sh/sdk/computer-connection.wasm`.
-[`examples/browser-terminal.ts`](examples/browser-terminal.ts) connects a
+With another bundler, `connectionWasmUrl` is the address at which the page
+serves that file.
+[`examples/browser-terminal.ts`](https://github.com/idyl-labs/sdk-typescript/blob/main/examples/browser-terminal.ts) connects a
 terminal to xterm.js.
 
 ### Lists
@@ -166,13 +231,18 @@ history (`computer.history()`), wake and sleep (`computer.wake()`, `computer.sle
 
 ## Authentication
 
-Programs and servers authenticate with an access key. Create one with
-`idyl.accessKeys.create`, save the key file it returns, and pass the file's
-contents as `accessKey`:
+Programs and servers authenticate with an access key. Its key file is one
+JSON object; a program passes the file's text, unchanged, as `accessKey`:
 
 ```ts
 const idyl = new Idyl({ accessKey: process.env.IDYL_ACCESS_KEY });
 ```
+
+Your first key comes from the [IDYL Console](https://console.idyl.sh), as
+the [Quickstart](#quickstart) shows. A signed-in client creates further
+keys with `idyl.accessKeys.create`, which returns the key file's text as
+`keyFile`. Keep a key file out of logs and source control: whoever holds
+the file acts as the key's owner.
 
 People sign in with an email code through `idyl.identity`. Every token is
 bound to a key its holder keeps (DPoP, RFC 9449), and the package signs a
@@ -192,7 +262,22 @@ try {
   await computer.wake();
 } catch (error) {
   if (!isApiCode(error, ERROR_CODE_INSUFFICIENT_CAPACITY)) throw error;
-  // No capacity to run it now; a later wake may succeed.
+  // No machine has room for the Computer; a later wake may succeed.
+}
+```
+
+An `ApiError`'s `message` names only the status and the code, so it is safe
+to log. The platform's own explanation, for a person to read, is in
+`detail`, and `code` is `undefined` when the platform states none:
+
+```ts
+import { ApiError } from "@idyl-sh/sdk";
+
+try {
+  await idyl.computers.create({ name: "ci" });
+} catch (error) {
+  if (!(error instanceof ApiError)) throw error;
+  console.error(error.status, error.code, error.detail);
 }
 ```
 
@@ -205,10 +290,13 @@ command that exits other than with 0 with an `ExitError`.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and, for how the package is built,
-[ARCHITECTURE.md](ARCHITECTURE.md). Report security issues as
-[SECURITY.md](SECURITY.md) describes.
+See [CONTRIBUTING.md](https://github.com/idyl-labs/sdk-typescript/blob/main/CONTRIBUTING.md)
+and, for how the package is built,
+[ARCHITECTURE.md](https://github.com/idyl-labs/sdk-typescript/blob/main/ARCHITECTURE.md).
+Report security issues as
+[SECURITY.md](https://github.com/idyl-labs/sdk-typescript/blob/main/SECURITY.md)
+describes.
 
 ## License
 
-[Apache License 2.0](LICENSE)
+[Apache License 2.0](https://github.com/idyl-labs/sdk-typescript/blob/main/LICENSE)

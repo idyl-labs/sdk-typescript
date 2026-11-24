@@ -53,7 +53,11 @@ export type CommandSave =
   /** The outcome could not be read. Its save remains the platform's to finish. */
   | "unconfirmed";
 
-/** A command that ran to its end, with exit code 0, and whose save did not fail. */
+/**
+ * A command that ran to its end, with exit code 0, and whose save did not
+ * fail. It carries the command's `stdout` and `stderr`, as
+ * {@link CommandOutput} describes.
+ */
 export interface ExecResult extends CommandOutput {
   /** Always 0: any other exit rejects with {@link ExitError}. */
   readonly exitCode: 0;
