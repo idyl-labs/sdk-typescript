@@ -341,6 +341,9 @@ describe("runCommand", () => {
     expect(result).not.toHaveProperty("version");
   });
 
+  // Contract: the save outcome `off` arrives on the stream after exit and
+  // settles the command, whatever the handle last read of automatic
+  // saving, with no read of the Computer or the session.
   it.each([true, false])(
     "uses the stream's off outcome when the handle has autoSave %s",
     async (autoSave) => {
@@ -375,6 +378,8 @@ describe("runCommand", () => {
     },
   );
 
+  // Contract: a save result already on the stream settles the command with
+  // no read of the session.
   it("returns a queued save frame without a status read or stream closure", async () => {
     const { connector } = fake([opened, exit0, published], { stayOpen: true });
     const read = vi.fn(noRead);
@@ -389,6 +394,8 @@ describe("runCommand", () => {
     expect(read).not.toHaveBeenCalled();
   });
 
+  // Contract: a save outcome this package does not name reads as
+  // unconfirmed, with no read of the session.
   it("returns unconfirmed when the saved frame carries an unknown outcome", async () => {
     const { connector, closed } = fake([
       opened,
@@ -408,6 +415,8 @@ describe("runCommand", () => {
     expect(closed()).toBe(1);
   });
 
+  // Contract: a stream lost after exit leaves the save to one read of the
+  // session, and the command still rejects with its exit and output.
   it("preserves a nonzero exit and its output after transport loss", async () => {
     const { connector, opens, fail } = fake(
       [opened, data("stderr", "diagnostic"), { type: "exit", code: 3 }],
@@ -435,6 +444,8 @@ describe("runCommand", () => {
     expect(read).toHaveBeenCalledWith(SESSION, expect.any(AbortSignal));
   });
 
+  // Contract: an error frame after exit rejects the command with its code
+  // and the output so far, with no read of the session.
   it("preserves a session error reported after exit", async () => {
     const { connector } = fake([
       opened,
@@ -457,6 +468,8 @@ describe("runCommand", () => {
     expect(read).not.toHaveBeenCalled();
   });
 
+  // Contract: a frame that does not decode rejects the command with that
+  // error, with no read of the session.
   it("propagates a malformed frame after exit without reading status", async () => {
     const { connector, fail } = fake([opened, exit0], { stayOpen: true });
     const read = vi.fn(noRead);
@@ -476,6 +489,8 @@ describe("runCommand", () => {
     expect(read).not.toHaveBeenCalled();
   });
 
+  // Contract: while the stream stays open after exit, the save result is
+  // awaited on it alone, and the output before exit is kept whole.
   it("uses the stream alone for a delayed save and keeps all output preceding exit", async () => {
     vi.useFakeTimers();
     try {
@@ -513,6 +528,8 @@ describe("runCommand", () => {
     }
   });
 
+  // Contract: a stream that breaks after exit leaves the save to reads of
+  // the session within what is left of the 30 s after exit.
   it("uses only the remaining exit deadline if the stream breaks", async () => {
     vi.useFakeTimers();
     try {
@@ -546,6 +563,8 @@ describe("runCommand", () => {
     }
   });
 
+  // Contract: with no session ID to read, a stream that stays open after
+  // exit is waited on for 30 s, and the save reads as unconfirmed.
   it("bounds an open stream without a session ID", async () => {
     vi.useFakeTimers();
     try {
@@ -568,6 +587,8 @@ describe("runCommand", () => {
     }
   });
 
+  // Contract: cancelling while the save result is awaited rejects with the
+  // signal's reason and closes the session.
   it("propagates cancellation while waiting for the save frame", async () => {
     const { connector, closed } = fake([opened, exit0], { stayOpen: true });
     const controller = new AbortController();
@@ -589,6 +610,8 @@ describe("runCommand", () => {
     expect(closed()).toBe(1);
   });
 
+  // Contract: cancelling during a read of the session's save aborts that
+  // read and rejects with the signal's reason.
   it("aborts a recovery read with the caller's reason", async () => {
     const { connector, opens, closed } = fake([opened, exit0]);
     const controller = new AbortController();
