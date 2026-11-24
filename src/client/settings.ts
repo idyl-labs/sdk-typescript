@@ -43,7 +43,7 @@ export interface SecretAttachment {
 /** The settings a create may state; each one left out takes IDYL's default. */
 export interface ComputerSettingsOptions {
   /**
-   * The image: a catalogue name such as `ubuntu-24.04` (see
+   * The image: a catalogue name such as `ubuntu-26.04` (see
    * `idyl.computers.images()`), or the reference of your own public image
    * such as `ghcr.io/example/toolbox:1.4`. A value with `/`, `:` or `@` is
    * a reference; a catalogue name never has one.

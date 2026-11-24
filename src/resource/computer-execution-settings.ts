@@ -60,7 +60,7 @@ export interface ComputerExecutionSettingsImage {
   /**
    * The name of an IDYL image catalog entry: 1 to 63 lowercase letters,
    * digits, `.`, and `-`, beginning and ending with a letter or digit, such
-   * as `ubuntu-24.04`.
+   * as `ubuntu-26.04`.
    */
   readonly idyl?: string;
   /**

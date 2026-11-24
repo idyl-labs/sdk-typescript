@@ -1390,9 +1390,9 @@ export function computerInfoOf(record: ComputerRecord): ComputerInfo {
 
 /** The image catalogue entry a Computer can start from. */
 export interface ComputerImage {
-  /** The name a create or update states, such as `ubuntu-24.04`. */
+  /** The name a create or update states, such as `ubuntu-26.04`. */
   readonly name: string;
-  /** The name to show a person, such as `Ubuntu 24.04`. */
+  /** The name to show a person, such as `Ubuntu 26.04 LTS`. */
   readonly displayName: string;
   /** A sentence on what the image holds; absent when the catalogue states none. */
   readonly description?: string;
@@ -1480,7 +1480,7 @@ export interface ComputerSecretUsage {
  * ```ts
  * const computer = await idyl.computers.create({
  *   name: "research",
- *   image: "ubuntu-24.04",
+ *   image: "ubuntu-26.04",
  * });
  *
  * const same = await idyl.computers.get("research");

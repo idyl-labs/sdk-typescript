@@ -58,7 +58,7 @@ const idyl = new Idyl({ accessKey: process.env.IDYL_ACCESS_KEY });
 
 const computer = await idyl.computers.create({
   name: "eval",
-  image: "python-3.12-ubuntu-24.04",
+  image: "python-3.14-ubuntu-26.04",
 });
 
 await computer.files.upload("eval.py", await readFile("eval.py"));
@@ -91,7 +91,7 @@ import { ExitError } from "@idyl-sh/sdk";
 
 const runner = await idyl.computers.create({
   name: "test-runner",
-  image: "ubuntu-24.04",
+  image: "ubuntu-26.04",
   cpu: "4",
   memory: "8Gi",
 });
