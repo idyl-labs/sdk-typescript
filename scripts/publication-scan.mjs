@@ -166,11 +166,12 @@ export const RULES = [
     pattern:
       /\b(?:[a-z0-9-]+\.)+idyl\.(?:dev|network|sh|io|ai|cloud|app|com)\b/giu,
     // An email address is judged by the email rule. The production network's
-    // public endpoints are the client's documented default, and are
-    // published.
+    // public endpoints are the client's documented default, and the Console
+    // and the documentation site are the product's public addresses; all
+    // five are published.
     allows: (match) =>
       match.input[match.index - 1] === "@" ||
-      /^(?:api|identity|meta)\.idyl\.sh$/u.test(match[0]),
+      /^(?:api|identity|meta|console|docs)\.idyl\.sh$/u.test(match[0]),
   },
   {
     id: "email",

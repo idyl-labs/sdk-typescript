@@ -986,7 +986,10 @@ export class Computer {
    * shell exits or it is closed, and it holds the client's connection open
    * until then, so a program closes it, or reads it to its end, before it can
    * exit. A browser page first builds its connector with
-   * `idyl.computers.connector`.
+   * `idyl.computers.connector`, from a Worker it starts. Any other program,
+   * such as one on Node.js, needs nothing more: the client connects in the
+   * program's own thread, as `connectInThisThread` from
+   * `@idyl-sh/sdk/computer-connection` does.
    *
    * @throws {@link TypeError} the client has no connector to run it on: a
    * browser page that has not built one with `idyl.computers.connector`,
@@ -1011,8 +1014,10 @@ export class Computer {
 
   /**
    * Runs a command in the Computer and returns once it has ended and its
-   * changes are saved, so a read of the files after it sees what it wrote. A
-   * Computer that is asleep wakes. A string runs through `/bin/sh -c`, so its
+   * changes are saved, so a read of the files after it sees what it wrote.
+   * With automatic saving off at admission, it resolves at the command's end
+   * with `save: "off"`. Its exit does not trigger an automatic save.
+   * A Computer that is asleep wakes. A string runs through `/bin/sh -c`, so its
    * pipes, quotes and variables work; a list runs its program as given. It
    * starts in `/workspace`.
    *
@@ -1066,7 +1071,6 @@ export class Computer {
             signal === undefined ? {} : { signal },
           ),
         options.signal,
-        record.spec.autoSave !== false,
       ),
     );
   }
@@ -1386,9 +1390,9 @@ export function computerInfoOf(record: ComputerRecord): ComputerInfo {
 
 /** The image catalogue entry a Computer can start from. */
 export interface ComputerImage {
-  /** The name a create or update states, such as `ubuntu-24.04`. */
+  /** The name a create or update states, such as `ubuntu-26.04`. */
   readonly name: string;
-  /** The name to show a person, such as `Ubuntu 24.04`. */
+  /** The name to show a person, such as `Ubuntu 26.04 LTS`. */
   readonly displayName: string;
   /** A sentence on what the image holds; absent when the catalogue states none. */
   readonly description?: string;
@@ -1476,7 +1480,7 @@ export interface ComputerSecretUsage {
  * ```ts
  * const computer = await idyl.computers.create({
  *   name: "research",
- *   image: "ubuntu-24.04",
+ *   image: "ubuntu-26.04",
  * });
  *
  * const same = await idyl.computers.get("research");

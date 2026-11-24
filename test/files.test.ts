@@ -582,4 +582,25 @@ describe("computer.files", () => {
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).code).toBeUndefined();
   });
+
+  // Contract: an upload whose record ends failed with a reason that is not
+  // a size reason, such as a path that names a directory, rejects with an
+  // ApiError of status 409, no code, and the record's reason as its
+  // detail; the error's message states the status alone.
+  it("reports an upload refused for replacing a directory", async () => {
+    const reason =
+      '"build/out" is a directory; an upload does not replace a directory with a file';
+    const workspace = new FakeWorkspace(byId);
+    workspace.outcome = "failed";
+    workspace.reason = reason;
+    const { computer } = await computerWith(workspace);
+    const error = await computer.files
+      .upload("build/out", "x")
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).status).toBe(409);
+    expect((error as ApiError).code).toBeUndefined();
+    expect((error as ApiError).detail).toBe(reason);
+    expect((error as ApiError).message).toBe("IDYL API: 409 Conflict");
+  });
 });

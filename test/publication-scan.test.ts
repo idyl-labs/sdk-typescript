@@ -42,11 +42,20 @@ describe("publication scan rules", () => {
   });
 
   // Contract: the production network's three public endpoints, the client's
-  // default, are published; any other host under the domain is refused.
-  it("admits only the production network's public endpoints", () => {
+  // default, and the product's Console and documentation site are
+  // published; any other host under the domain is refused.
+  it("admits only the published hosts", () => {
     expect(rulesFor("https://api.idyl.sh/v1")).toEqual([]);
     expect(rulesFor("https://identity.idyl.sh/account")).toEqual([]);
     expect(rulesFor("https://meta.idyl.sh/v1/network")).toEqual([]);
+    expect(rulesFor("https://console.idyl.sh")).toEqual([]);
+    expect(rulesFor("https://docs.idyl.sh/AGENTS")).toEqual([]);
+    expect(rulesFor(`https://${["status", "idyl", "sh"].join(".")}`)).toEqual([
+      "idyl-host",
+    ]);
+    expect(
+      rulesFor(`https://${["x", "docs", "idyl", "sh"].join(".")}`),
+    ).toEqual(["idyl-host"]);
     expect(
       rulesFor(`https://${["console", "idyl", "network"].join(".")}`),
     ).toEqual(["idyl-host"]);

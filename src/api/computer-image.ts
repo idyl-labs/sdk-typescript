@@ -26,7 +26,7 @@ import type { ListResponse } from "./types.js";
 export interface ComputerImageOs {
   /** The OS, such as `ubuntu`, `debian`, or `alpine`. */
   readonly name: string;
-  /** The OS version, such as `24.04` or `12`. */
+  /** The OS version, such as `26.04` or `13`. */
   readonly version: string;
 }
 
@@ -43,9 +43,9 @@ export interface ComputerImageOs {
  * this SDK's contract.
  */
 export interface ComputerImage {
-  /** The entry's stable catalog name, what a Computer's settings store, such as `ubuntu-24.04`. */
+  /** The entry's stable catalog name, what a Computer's settings store, such as `ubuntu-26.04`. */
   readonly name: string;
-  /** The entry's name for a person, such as `Python 3.12 on Ubuntu 24.04`. */
+  /** The entry's name for a person, such as `Python 3.14 on Ubuntu 26.04`. */
   readonly displayName: string;
   /** What the image holds beyond its OS, such as `pip, numpy, pandas`. */
   readonly description?: string;

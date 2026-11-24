@@ -19,7 +19,7 @@ describe("the quickstart", () => {
   // compiled example file has it.
   it("is the README's quickstart", () => {
     const program = quickstart.split("\n").slice(2).join("\n");
-    expect(readme).toContain("```ts\n" + program + "```");
+    expect(readme).toContain("```js\n" + program + "```");
   });
 
   // Contract: the quickstart's calls do what its comments say: a restore

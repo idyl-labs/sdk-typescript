@@ -40,6 +40,7 @@ import { ApiError, ComputerNotAwakeError } from "../src/errors.js";
 import { ComputerSessionEndedError } from "../src/index.js";
 import type { FolderListing } from "../src/computer-connection/files.js";
 import { computerEndpointApi } from "../src/services/computer-endpoint-sessions.js";
+import { runCommand } from "../src/client/exec.js";
 import {
   FakeControlPlane,
   errorResponse,
@@ -125,6 +126,15 @@ class FakeWorker implements WorkerPort {
     [];
   /** The frames each stream was sent, as JSON, by stream handle. */
   readonly sent = new Map<number, unknown[]>();
+  /** The Computer connection each stream was opened on, by stream handle. */
+  readonly streamsOn = new Map<number, number>();
+  /** Whether the endpoint answers stdin with the same bytes as stdout. */
+  echo = true;
+  /**
+   * Whether the next stream's open finds its connection closed: the
+   * connection ends and the open is refused.
+   */
+  closeOnStream = false;
   /**
    * The frame the endpoint answers each `open` with; `undefined` leaves the
    * open unanswered.
@@ -142,10 +152,13 @@ class FakeWorker implements WorkerPort {
     this.#emit({ type: "data", ...this.#last, bytes: frame(json) });
   }
 
-  /** Ends the last stream opened, as the Computer ending it does. */
-  endStream(): void {
+  /**
+   * Ends the last stream opened, as the Computer ending it does, or as a
+   * broken one ends when `broken`.
+   */
+  endStream(broken = false): void {
     if (this.#last === undefined) throw new Error("no stream is open");
-    this.#emit({ type: "stream-ended", ...this.#last, broken: false });
+    this.#emit({ type: "stream-ended", ...this.#last, broken });
   }
 
   /** Ends the current dock, as a closed WebSocket does. */
@@ -230,7 +243,19 @@ class FakeWorker implements WorkerPort {
         return;
       }
       case "open-stream": {
+        if (this.closeOnStream) {
+          this.closeOnStream = false;
+          this.#emit({
+            type: "computer-ended",
+            dock: m.dock,
+            computer: m.computer,
+            reason: "closed",
+          });
+          this.#emit({ type: "reply", ref: m.ref, error: "no such computer" });
+          return;
+        }
         const stream = this.#handle++;
+        this.streamsOn.set(stream, m.computer);
         reply(stream);
         return;
       }
@@ -251,7 +276,7 @@ class FakeWorker implements WorkerPort {
             stream: m.stream,
             bytes: frame(this.answerOpen),
           });
-        } else if (sent.type === "stdin") {
+        } else if (sent.type === "stdin" && this.echo) {
           this.#emit({
             type: "data",
             dock: m.dock,
@@ -2046,5 +2071,349 @@ describe("a connection attempt", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     expect(h.worker.requests.some((r) => r.type === "finish")).toBe(false);
     session.close();
+  });
+});
+
+describe("a stream sent to an Activation the create moved past", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const EXEC = { mode: "exec", command: ["true"] } as const;
+
+  /**
+   * A harness whose creates wait for `h.release`, and whose Computer
+   * connection to Activation 12 is held from a first session that opened
+   * and closed. `answer` states each later create's answer.
+   */
+  async function heldConnection(
+    answer: (session: ServedSession) => ServedSession,
+    options: { cancels?: string[][] } = {},
+  ): Promise<Harness> {
+    let next = (session: ServedSession): ServedSession => session;
+    const h = await harness({
+      holdCreate: true,
+      answer: (session) => next(session),
+      ...options,
+    });
+    const opening = h.connector.open(COMPUTER, EXEC);
+    await vi.waitFor(() => {
+      expect(h.release).toBeDefined();
+    });
+    h.release?.();
+    const session = await opening;
+    expect(await first(session.output, 1)).toEqual([
+      { type: "opened", session: "s-1" },
+    ]);
+    session.close();
+    h.release = undefined;
+    next = answer;
+    h.worker.answerOpen = undefined;
+    return h;
+  }
+
+  /** The create's answer for the Computer's next Activation, 13, elsewhere. */
+  const nextActivation = (session: ServedSession): ServedSession =>
+    served(session.spec, 13, 4);
+
+  /** The handles of the streams whose open names `requestId`, in order. */
+  const handlesOf = (h: Harness, requestId: string): number[] =>
+    [...h.worker.sent]
+      .filter(([, frames]) =>
+        frames.some((f) => {
+          const open = f as { type: string; requestID?: string };
+          return open.type === "open" && open.requestID === requestId;
+        }),
+      )
+      .map(([stream]) => stream);
+
+  /** The streams whose open names `requestId`, as the connections they went to. */
+  const streamsOf = (h: Harness, requestId: string): number[] =>
+    handlesOf(h, requestId).map(
+      (stream) => h.worker.streamsOn.get(stream) ?? 0,
+    );
+
+  const connections = (h: Harness): { epoch: string; computer: string }[] =>
+    h.worker.requests
+      .filter((r) => r.type === "open-computer")
+      .map((r) => r as unknown as { epoch: string; computer: string });
+
+  /** Waits until a stream whose open names `requestId` has reached `count` connections. */
+  async function sentTo(
+    h: Harness,
+    requestId: string,
+    count: number,
+  ): Promise<void> {
+    await vi.waitFor(() => {
+      expect(streamsOf(h, requestId)).toHaveLength(count);
+    });
+  }
+
+  // Contract: an exec stream sent on the held connection that ends before
+  // its first frame waits for the create's answer; an answer naming a later
+  // Activation is connected to, the same open is sent there once, and the
+  // command's exit and save arrive from there. Each endpoint received the
+  // stream once, and the connection to the earlier Activation is closed.
+  it("sends an exec stream again to the later Activation the create answers", async () => {
+    const h = await heldConnection(nextActivation);
+    const running = runCommand(
+      h.connector,
+      COMPUTER,
+      EXEC,
+      () => Promise.reject(new Error("the session was read")),
+      undefined,
+    );
+    await vi.waitFor(() => {
+      expect(h.release).toBeDefined();
+    });
+    const requestId = h.creates.at(-1)?.idempotencyKey ?? "";
+    await sentTo(h, requestId, 1);
+    h.worker.endStream(true);
+    h.worker.next.push({ epoch: 13 });
+    h.worker.answerOpen = { type: "opened", session: "s-1" };
+    h.release?.();
+    await sentTo(h, requestId, 2);
+    h.worker.deliver({ type: "exit", code: 0 });
+    h.worker.deliver({ type: "saved", outcome: "published", revision: 7 });
+    expect(await running).toMatchObject({
+      exitCode: 0,
+      save: "published",
+      version: 7,
+    });
+    const [held, later] = streamsOf(h, requestId);
+    expect(held).not.toBe(later);
+    expect(connections(h).map((c) => c.epoch)).toEqual(["12", "13"]);
+    expect(connections(h)[1]).toMatchObject({
+      epoch: "13",
+      minEpoch: "13",
+      sequence: "4",
+    });
+    expect(
+      h.worker.requests.filter((r) => r.type === "close-computer"),
+    ).toMatchObject([{ computer: held }]);
+    for (const stream of [...h.worker.sent.keys()].slice(-2)) {
+      expect(h.worker.sent.get(stream)).toEqual([
+        expect.objectContaining({ type: "open", requestID: requestId }),
+      ]);
+    }
+    h.connector.close();
+  });
+
+  // Contract: a terminal stream is sent again the same way, followed by
+  // the input written to it before it ended, which reaches the later
+  // Activation in order.
+  it("sends a terminal stream again with the input written to it", async () => {
+    const h = await heldConnection(nextActivation);
+    h.worker.echo = false;
+    const session = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    session.write(enc.encode("hi"));
+    h.worker.endStream(true);
+    h.worker.next.push({ epoch: 13 });
+    h.worker.answerOpen = { type: "opened", session: "s-1" };
+    h.worker.echo = true;
+    h.release?.();
+    expect(await first(session.output, 2)).toEqual([
+      { type: "opened", session: "s-1" },
+      { type: "stdout", data: enc.encode("hi") },
+    ]);
+    const streams = streamsOf(h, session.requestId);
+    expect(streams).toHaveLength(2);
+    expect(new Set(streams).size).toBe(2);
+    const sent = [...h.worker.sent.values()].slice(-2);
+    for (const frames of sent) {
+      expect(frames.map((f) => (f as { type: string }).type)).toEqual([
+        "open",
+        "stdin",
+      ]);
+    }
+    session.close();
+    h.connector.close();
+  });
+
+  // Contract: an answer that names the Activation the stream was sent to
+  // sends nothing again: the stream that ended before its first frame ends
+  // its output broken.
+  it("ends broken when the create answers the same Activation", async () => {
+    const h = await heldConnection((session) => session);
+    const session = await h.connector.open(COMPUTER, EXEC);
+    h.worker.endStream(true);
+    h.release?.();
+    expect(await first(session.output, 2)).toEqual([{ type: "broken" }]);
+    expect(streamsOf(h, session.requestId)).toHaveLength(1);
+    expect(connections(h)).toHaveLength(1);
+    h.connector.close();
+  });
+
+  // Contract: a stream the endpoint answered is never sent again, even when
+  // the create then answers a later Activation.
+  it("never sends again a stream that ended after its first frame", async () => {
+    const h = await heldConnection(nextActivation);
+    h.worker.answerOpen = { type: "opened", session: "s-1" };
+    const session = await h.connector.open(COMPUTER, EXEC);
+    expect(await first(session.output, 1)).toEqual([
+      { type: "opened", session: "s-1" },
+    ]);
+    h.worker.endStream(true);
+    h.release?.();
+    expect(await first(session.output, 2)).toEqual([{ type: "broken" }]);
+    expect(streamsOf(h, session.requestId)).toHaveLength(1);
+    expect(connections(h)).toHaveLength(1);
+    h.connector.close();
+  });
+
+  // Contract: a stream not yet answered when the create answers a later
+  // Activation is left at once, without waiting for it to end, and sent
+  // there.
+  it("leaves an unanswered stream at once for the later Activation", async () => {
+    const h = await heldConnection(nextActivation);
+    const session = await h.connector.open(COMPUTER, EXEC);
+    h.worker.next.push({ epoch: 13 });
+    h.worker.answerOpen = { type: "opened", session: "s-1" };
+    h.release?.();
+    expect(await first(session.output, 1)).toEqual([
+      { type: "opened", session: "s-1" },
+    ]);
+    expect(new Set(streamsOf(h, session.requestId)).size).toBe(2);
+    const [left] = handlesOf(h, session.requestId);
+    expect(
+      h.worker.requests.filter(
+        (r) => r.type === "finish" && (r as { stream: number }).stream === left,
+      ),
+    ).toHaveLength(1);
+    session.close();
+    h.connector.close();
+  });
+
+  // Contract: cancelling while the open waits for the create's answer
+  // rejects with the signal's reason and sends nothing again once the
+  // answer arrives; no timer is left.
+  it("stops on cancellation while it waits for the create's answer", async () => {
+    const h = await heldConnection(nextActivation);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const controller = new AbortController();
+    const reason = new Error("stop");
+    const running = refusal(
+      runCommand(
+        h.connector,
+        COMPUTER,
+        EXEC,
+        () => Promise.reject(new Error("the session was read")),
+        controller.signal,
+      ),
+    );
+    await vi.waitFor(() => {
+      expect(h.release).toBeDefined();
+    });
+    const requestId = h.creates.at(-1)?.idempotencyKey ?? "";
+    await sentTo(h, requestId, 1);
+    h.worker.endStream(true);
+    controller.abort(reason);
+    expect(await running).toBe(reason);
+    h.worker.next.push({ epoch: 13 });
+    h.release?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(streamsOf(h, requestId)).toHaveLength(1);
+    expect(connections(h)).toHaveLength(1);
+    h.connector.close();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  // Contract: cancelling while the later Activation's connection is being
+  // made rejects with the signal's reason, closes that connection, sends
+  // nothing there, and cancels the session, whose stream no endpoint
+  // holds; no timer is left.
+  it("stops on cancellation while it connects to the later Activation", async () => {
+    const cancels: string[][] = [];
+    const h = await heldConnection(nextActivation, { cancels });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const controller = new AbortController();
+    const reason = new Error("stop");
+    const running = refusal(
+      runCommand(
+        h.connector,
+        COMPUTER,
+        EXEC,
+        () => Promise.reject(new Error("the session was read")),
+        controller.signal,
+      ),
+    );
+    await vi.waitFor(() => {
+      expect(h.release).toBeDefined();
+    });
+    const requestId = h.creates.at(-1)?.idempotencyKey ?? "";
+    await sentTo(h, requestId, 1);
+    h.worker.endStream(true);
+    h.worker.next.push({ silent: true });
+    h.release?.();
+    await vi.waitFor(() => {
+      expect(connections(h)).toHaveLength(2);
+    });
+    controller.abort(reason);
+    expect(await running).toBe(reason);
+    await vi.advanceTimersByTimeAsync(0);
+    const later = h.worker.requests.filter((r) => r.type === "open-computer");
+    expect(later).toHaveLength(2);
+    const closed = h.worker.requests
+      .filter((r) => r.type === "close-computer")
+      .map((r) => (r as { computer: number }).computer);
+    expect(closed).toHaveLength(1);
+    expect(streamsOf(h, requestId)).toHaveLength(1);
+    expect(streamsOf(h, requestId)).not.toContain(closed[0]);
+    expect(cancels).toContainEqual([COMPUTER, SESSION]);
+    h.connector.close();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  // Contract: on a healthy held connection the next session sends what it
+  // always sent, in the same order: one stream on that connection and its
+  // open, with no connection made, no read, and nothing sent again.
+  it("sends one stream on a healthy held connection", async () => {
+    const h = await heldConnection((session) => session);
+    h.worker.answerOpen = { type: "opened", session: "s-1" };
+    const before = h.worker.requests.length;
+    const session = await h.connector.open(COMPUTER, EXEC);
+    h.release?.();
+    expect(await first(session.output, 1)).toEqual([
+      { type: "opened", session: "s-1" },
+    ]);
+    await Promise.resolve();
+    expect(h.worker.requests.slice(before).map((r) => r.type)).toEqual([
+      "open-stream",
+      "write",
+    ]);
+    expect(streamsOf(h, session.requestId)).toHaveLength(1);
+    expect(h.reads).toEqual([]);
+    session.close();
+    expect(h.worker.requests.slice(before).map((r) => r.type)).toEqual([
+      "open-stream",
+      "write",
+      "finish",
+    ]);
+    h.connector.close();
+  });
+
+  // Contract: a held connection that closed before the stream could be
+  // opened on it carried nothing of the session, so the open connects once
+  // more and sends the stream there.
+  it("connects once more when the connection closed before the stream opened", async () => {
+    const h = await heldConnection((session) => session);
+    h.worker.answerOpen = { type: "opened", session: "s-1" };
+    h.worker.closeOnStream = true;
+    const opening = h.connector.open(COMPUTER, EXEC);
+    await vi.waitFor(() => {
+      expect(h.release).toBeDefined();
+    });
+    h.release?.();
+    const session = await opening;
+    expect(await first(session.output, 1)).toEqual([
+      { type: "opened", session: "s-1" },
+    ]);
+    expect(connections(h).map((c) => c.epoch)).toEqual(["12", "12"]);
+    expect(streamsOf(h, session.requestId)).toHaveLength(1);
+    session.close();
+    h.connector.close();
   });
 });

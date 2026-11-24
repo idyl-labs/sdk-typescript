@@ -28,7 +28,7 @@ import { formatVolume } from "../resource/volume.js";
  * is not stated and takes IDYL's default.
  */
 export interface ExecutionSettings {
-  /** The image: an IDYL catalogue name such as `ubuntu-24.04`, or an image reference. */
+  /** The image: an IDYL catalogue name such as `ubuntu-26.04`, or an image reference. */
   readonly image?: string;
   /** How it is isolated: `secure-container` or `vm`. Absent is `secure-container`. */
   readonly isolation?: string;

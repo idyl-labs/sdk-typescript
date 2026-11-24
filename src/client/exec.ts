@@ -11,9 +11,11 @@ import {
   CommandSaveError,
   CommandSessionError,
   ExitError,
+  TransportError,
   type CommandOutput,
 } from "../errors.js";
 import { abortable, managedSignal } from "../internal/abort.js";
+import { signalOption } from "../internal/options.js";
 import { pollUntil, saveResultPauses, type WaitEvents } from "../wait.js";
 import { connectorWaitEvents } from "../computer-connection/connector.js";
 import { sessionChange } from "./changes.js";
@@ -43,12 +45,19 @@ export type CommandSave =
   | "published"
   /** There was nothing to save. */
   | "unchanged"
-  /** The Computer does not save automatically; nothing was saved. */
+  /**
+   * Automatic saving was off when the session was admitted. The command ends
+   * without triggering an automatic save.
+   */
   | "off"
   /** The outcome could not be read. Its save remains the platform's to finish. */
   | "unconfirmed";
 
-/** A command that ran to its end, with exit code 0, and whose save did not fail. */
+/**
+ * A command that ran to its end, with exit code 0, and whose save did not
+ * fail. It carries the command's `stdout` and `stderr`, as
+ * {@link CommandOutput} describes.
+ */
 export interface ExecResult extends CommandOutput {
   /** Always 0: any other exit rejects with {@link ExitError}. */
   readonly exitCode: 0;
@@ -130,8 +139,7 @@ export async function openSession(
 
 /**
  * Runs the command `open` names on the Computer `computer` and
- * returns once it has ended and its changes are saved, so a read of the files
- * after it sees what it wrote. The session is closed however the call ends.
+ * returns its output and save outcome. The session closes however the call ends.
  */
 export async function runCommand(
   connector: ComputerConnector,
@@ -139,7 +147,6 @@ export async function runCommand(
   open: SessionOpen,
   readSession: SaveRead,
   signal: AbortSignal | undefined,
-  expectSaveFrame = true,
 ): Promise<ExecResult> {
   const session = await openSession(connector, computer, open, signal);
   const stdout = new Collected();
@@ -187,15 +194,7 @@ export async function runCommand(
     }
     const state: SaveState =
       saved ??
-      (await saveAfterExit(
-        reader,
-        connector,
-        id,
-        readSession,
-        output,
-        signal,
-        expectSaveFrame,
-      ));
+      (await saveAfterExit(reader, connector, id, readSession, output, signal));
     if (state.outcome === "failed") {
       throw new CommandSaveError(state.reason, exit.code, output());
     }
@@ -214,8 +213,7 @@ export async function runCommand(
   }
 }
 
-/** The endpoint can keep its stream open after exit while the session already
- * records a final save outcome. Either source can confirm the result. */
+/** Waits for the save frame, recovering from the session record if the stream is lost. */
 async function saveAfterExit(
   reader: ReadableStreamDefaultReader<SessionOutput>,
   connector: ComputerConnector,
@@ -223,59 +221,40 @@ async function saveAfterExit(
   read: SaveRead,
   output: () => CommandOutput,
   signal: AbortSignal | undefined,
-  expectSaveFrame: boolean,
 ): Promise<SaveState> {
   signal?.throwIfAborted();
   const until = performance.now() + SAVE_WAIT_MS;
-  const streamed = (async () => {
+  const wait = managedSignal(signal, SAVE_WAIT_MS, "command save wait expired");
+  try {
     for (;;) {
-      const { done, value } = await reader.read();
-      if (done || value.type === "broken") return undefined;
+      const { done, value } = await abortable(reader.read(), wait.signal);
+      if (done || value.type === "broken") break;
       if (value.type === "saved") return value;
       if (value.type === "error")
         throw new CommandSessionError(value.code, output());
     }
-  })();
-
-  if (expectSaveFrame || id === undefined) {
-    const wait = managedSignal(
-      signal,
-      SAVE_WAIT_MS,
-      "command save wait expired",
-    );
-    try {
-      const frame = await abortable(streamed, wait.signal);
-      if (frame !== undefined) return frame;
-    } catch (error) {
-      signal?.throwIfAborted();
-      if (!wait.signal.aborted) throw error;
-      return { outcome: "unconfirmed" };
-    } finally {
-      wait.cleanup();
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (wait.signal.aborted) return { outcome: "unconfirmed" };
+    if (
+      !(error instanceof TransportError) ||
+      (error.code !== "network_error" && error.code !== "timeout")
+    ) {
+      throw error;
     }
+  } finally {
+    wait.cleanup();
   }
 
-  // With saving disabled the endpoint can stay open without a save frame.
-  // A read can start at once in that case. Otherwise only loss of the
-  // stream brings us here, with the remainder of the same exit deadline.
   const remaining = until - performance.now();
   if (id === undefined || remaining <= 0) return { outcome: "unconfirmed" };
-  const stop = new AbortController();
-  const checking = signal
-    ? AbortSignal.any([stop.signal, signal])
-    : stop.signal;
-  try {
-    const recorded = sessionSave(
-      id,
-      read,
-      checking,
-      remaining,
-      connectorWaitEvents(connector, undefined, sessionChange(id)),
-    );
-    return (await Promise.race([streamed, recorded])) ?? (await recorded);
-  } finally {
-    stop.abort();
-  }
+  return await sessionSave(
+    id,
+    read,
+    signal,
+    remaining,
+    connectorWaitEvents(connector, undefined, sessionChange(id)),
+  );
 }
 
 function saveOf(outcome: string): CommandSave {
@@ -293,14 +272,14 @@ function saveOf(outcome: string): CommandSave {
 async function sessionSave(
   session: string,
   read: SaveRead,
-  signal: AbortSignal,
+  signal: AbortSignal | undefined,
   remaining: number,
   events: WaitEvents | undefined,
 ): Promise<SaveState> {
   let stated: SaveState | undefined;
   try {
     await pollUntil<true>(
-      { timeoutMs: remaining, signal },
+      { timeoutMs: remaining, ...signalOption(signal) },
       {
         pauses: saveResultPauses(),
         ...(events === undefined ? {} : { events }),
@@ -321,10 +300,10 @@ async function sessionSave(
         timeoutMessage: () => "",
       },
     );
-  } catch (error) {
+  } catch {
     // Every read failure is repeated, so the wait ends early only when it
     // is cancelled or runs out of time.
-    if (signal.aborted) throw error;
+    signal?.throwIfAborted();
   }
   return stated ?? { outcome: "unconfirmed" };
 }

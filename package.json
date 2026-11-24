@@ -1,6 +1,6 @@
 {
   "name": "@idyl-sh/sdk",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "The official TypeScript SDK for IDYL",
   "keywords": [
     "idyl",
@@ -102,6 +102,6 @@
     }
   },
   "idyl": {
-    "contract": "d2ed4a0c63b809a9664e365716c58f1c538cce9f"
+    "contract": "34524f515be6e91aec029f4e71a1e96c037060d4"
   }
 }

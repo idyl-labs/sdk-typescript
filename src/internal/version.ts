@@ -4,7 +4,7 @@
  * The package version, kept equal to `package.json` by test. It is the only
  * place the version is spelled in source.
  */
-export const SDK_VERSION = "0.1.3";
+export const SDK_VERSION = "0.1.4";
 
 /** The `User-Agent` sent when a client does not override it. */
 export const DEFAULT_USER_AGENT = `idyl-sdk-typescript/${SDK_VERSION}`;

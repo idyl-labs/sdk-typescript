@@ -19,6 +19,7 @@
       "renewal": "ok",
       "largestSize": "medium",
       "storedData": "10Gi",
+      "awakeVCPU": 12,
       "hasInvoices": false,
       "sizePlans": [
         {
