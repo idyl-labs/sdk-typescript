@@ -312,12 +312,17 @@ export interface SaveOptions extends CallOptions {
    */
   readonly client?: "sdk" | "console" | "cli";
   /**
-   * Called when the save starts waiting on a limit of its Account or its
-   * Computer, with the limit, `SAVE_WAITING_FOR_PUBLICATION_TURN` or
-   * `SAVE_REASON_PUBLICATION_HELD`, and for a hold the RFC 3339 instant it
-   * ends; and with `undefined` when it stops waiting. It is called only when
-   * that changes, as the save is read. The save goes on whatever it does,
-   * and a callback that throws rejects the wait; the save itself goes on.
+   * Called with what the save waits for when it starts to wait:
+   * `SAVE_WAITING_FOR_PUBLICATION_TURN` while it waits for its turn to
+   * publish, or `SAVE_REASON_PUBLICATION_HELD` while its Computer's
+   * publications are held, with the RFC 3339 instant the hold ends as
+   * `waitingUntil`. A value this SDK does not name is passed on as IDYL
+   * reports the value. Called with `undefined` when the save stops waiting,
+   * and called again only when what the save waits for is different, as
+   * the save is read. A save that waits for its Account's own turn reports
+   * `SAVE_REASON_ACCOUNT_TURN_WAITING` as the reason of its last attempt,
+   * not through this callback. A callback that throws rejects the wait,
+   * and the save goes on.
    */
   readonly onWaiting?: (
     waitingFor: string | undefined,
@@ -868,7 +873,7 @@ export class Computer {
    * page: when, which Secret and version, the start it was opened for, the
    * outcome and who reported the decryption. The record names the Computer
    * by its ID, so a Computer of the same name created after a delete has a
-   * record of its own. A decryption only the key service reported names no
+   * record of its own. A decryption only IDYL's key store reported names no
    * Computer and is in the Secret's record alone, `idyl.secrets.decryptions`.
    * No entry carries a value. The record is read only when asked for: a
    * Computer read, a listing and a wake never carry the record.
@@ -1018,7 +1023,8 @@ export class Computer {
    * Any other program needs nothing more: the client connects on the first
    * command and closes the connection a moment after the last.
    *
-   * After process exit, the client waits up to 30 seconds to confirm the save.
+   * After the command's process on the Computer exits, the client waits up
+   * to 30 seconds to confirm the save.
    * If the outcome is still unknown, the result reports `save: "unconfirmed"`.
    *
    * @param command a shell command line, run through `/bin/sh -c`, or a
@@ -1439,17 +1445,24 @@ export interface ComputerSizeInfo {
 }
 
 /**
- * How many of a Namespace's Computers attach one Secret, each count stopping
- * at 1,000.
+ * How many Computers of the Account's default Namespace name one Secret in
+ * their settings, each count stopping at 1,000.
  */
 export interface ComputerSecretUsage {
-  /** Every Computer whose settings attach it. */
+  /** Every Computer whose settings name the Secret. */
   readonly computers: BoundedCount;
-  /** Those where it is not attached, so its value is not sent. */
+  /**
+   * Of `computers`, those whose settings name the Secret but where the
+   * Secret was never attached, as when the settings came with a fork or a
+   * restore. The Secret's value is not sent to these Computers.
+   */
   readonly notAttached: BoundedCount;
-  /** Those that follow its current version. */
+  /** Of `computers`, those that follow the Secret's current version. */
   readonly following: BoundedCount;
-  /** For each version asked about, in the order asked, the Computers pinned to it. */
+  /**
+   * For each version asked about, in the order asked, the Computers pinned
+   * to that version.
+   */
   readonly pinned: readonly {
     readonly version: number;
     readonly count: BoundedCount;
@@ -1499,7 +1512,8 @@ export interface Computers {
    */
   get(name: string, options?: CallOptions): Promise<Computer>;
   /**
-   * The Computer with this ID, whatever it is called now.
+   * The Computer with this ID. A rename keeps the ID, so the read finds the
+   * Computer whatever its name.
    *
    * @param id the Computer's `id`, a canonical UUID
    * @throws {@link TypeError} `id` is not a canonical UUID, before any
@@ -1517,7 +1531,7 @@ export interface Computers {
    * listing read and acts on its Computer without reading it again, as a
    * handle from `get` does. A walk returns every Computer that exists for
    * the whole walk exactly once; one created during the walk is not
-   * returned by it.
+   * returned by that walk.
    *
    * @throws {@link TypeError} `limit` is not a positive integer or is above
    * the largest page

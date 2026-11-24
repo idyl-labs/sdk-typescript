@@ -100,22 +100,27 @@ export const COMPUTER_EVENTS_STREAM_PROFILE = "computer-events/json-v1";
 export const MAX_COMPUTER_EVENT_FRAME_BYTES = 4096;
 
 /**
- * Which part of a Computer an event says changed, and so what a client
- * reads again:
+ * Which part of a Computer an event names, and so what a client reads
+ * again:
  *
- * - `computer`: the Computer was created, renamed or deleted, or its state,
- *   settings or reasons for being awake changed, including its fork's copy;
- *   read the Computer and each list page that shows it.
- * - `session`: a session changed phase, was placed, or stated its save
- *   result; read that session if the client waits for it.
- * - `sessions`: the set of open sessions changed; read them if shown.
- * - `operation`: a wake, sleep, save, restore or upload changed state; read
- *   that operation if the client waits for it.
+ * - `computer`: the Computer was created, renamed or deleted, or its
+ *   state, its settings or its reasons for being awake were updated,
+ *   including its fork's copy; read the Computer again, and each list page
+ *   that shows the Computer.
+ * - `session`: a session entered another phase, was placed, or stated its
+ *   save result; read that session again if the client waits for the
+ *   session.
+ * - `sessions`: a session opened or ended; read the open sessions again if
+ *   the client shows them.
+ * - `operation`: a wake, sleep, save, restore or upload entered another
+ *   state; read that operation again if the client waits for the
+ *   operation.
  * - `version`: a saved version was added; read the newest version, the
  *   saved lists of open folders, and the history if shown.
- * - `reread`: read at once everything the client shows or waits for, of
- *   the event's Namespace or, when it names none, of every Namespace. The
- *   service paces the `reread`s it sends.
+ * - `reread`: read again at once everything the client shows or waits
+ *   for. A client reaches only the Computers of the Account's default
+ *   Namespace, so a `reread` asks for everything of that Namespace. IDYL
+ *   paces the `reread`s it sends.
  *
  * A part this SDK does not name reads as `reread`.
  */

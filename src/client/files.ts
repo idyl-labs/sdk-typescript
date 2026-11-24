@@ -155,14 +155,17 @@ export interface ListFilesOptions extends CallOptions {
   /** The saved version to read, by number or name; the latest when absent. */
   readonly version?: number | string;
   /**
-   * The most entries to read per page. `undefined` takes the platform's
-   * page of 10,000, which is also the largest page. Must be a positive
-   * integer.
+   * The most entries to read per page, up to 10,000, the largest page.
+   * `undefined`, or a number above 10,000, reads pages of 10,000. Must be a
+   * positive integer.
    */
   readonly limit?: number;
 }
 
-/** Selects one page of a directory's entries. */
+/**
+ * Selects one page of a directory's entries: at most `limit` of them, up
+ * to 10,000, the largest page.
+ */
 export interface ListFilesPageOptions extends PageOptions {
   /** The saved version to read, by number or name; the latest when absent. */
   readonly version?: number | string;
@@ -474,10 +477,12 @@ export interface Files {
   list(path?: string, options?: ListFilesOptions): AsyncIterable<FileEntry>;
   /**
    * One page of a directory's entries in byte order of name, the workspace
-   * itself when `path` is absent. `limit` `undefined` takes the platform's
-   * page of 10,000. The first page, read with no `continue`, carries
-   * `totalCount`, counted up to 1,000, and `totalCountIsLowerBound` when the
-   * directory holds more; `continue` reads the next page.
+   * itself when `path` is absent. A page holds at most `limit` entries, up
+   * to 10,000, the largest page; `undefined`, or a number above 10,000,
+   * reads a page of 10,000. The first page, read with no `continue`, also
+   * counts the directory's entries in `totalCount`, and that count stops at
+   * 1,000: a directory of more than 1,000 entries reads `totalCount` 1,000
+   * with `totalCountIsLowerBound` true. `continue` reads the next page.
    *
    * @param path - The directory's path, relative to the workspace; empty or
    *   absent for the workspace itself.

@@ -171,8 +171,8 @@ export const ERROR_CODE_INVALID_CONTINUE = "INVALID_CONTINUE";
 
 /**
  * A request made faster than the Account's plan allows, such as creating or
- * listing Computers (HTTP 429). Nothing changed; the same request succeeds
- * after the wait the error carries in `retryAfterMs`.
+ * listing Computers (HTTP 429). The request has no effect; the same request
+ * succeeds after the wait the error carries in `retryAfterMs`.
  */
 export const ERROR_CODE_RATE_LIMITED = "RATE_LIMITED";
 
