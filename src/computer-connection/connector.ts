@@ -12,7 +12,11 @@
 // the Computer's wake. The platform holds a session pending and unbound
 // while the Computer's previous Activation is released, as just after the
 // Computer went to sleep; only such an answer is read again, until the
-// session is bound.
+// session is bound. A session created while its Computer is put to sleep
+// is bound to the Computer's next Activation: a stream sent on the open
+// connection that has no frame of the endpoint when the create answers a
+// later Activation than the connection's, or that ended before its first
+// frame, is sent once more, at the answered endpoint.
 
 import {
   isComputerSessionPhaseTerminal,
@@ -369,6 +373,21 @@ function validateCommand(command: readonly string[]): void {
 function featuresFor(mode: StreamOpen["mode"]): readonly SessionFeature[] {
   return mode === "exec" ? ["save-result"] : [];
 }
+
+/** The open frame of a stream that names `requestID` and runs `open`. */
+function openFrame(requestID: string, open: StreamOpen): OpenFrame {
+  return {
+    requestID,
+    mode: open.mode,
+    tty: open.tty ?? false,
+    features: featuresFor(open.mode),
+    ...(open.shell === undefined ? {} : { shell: open.shell }),
+    ...(open.command === undefined ? {} : { command: open.command }),
+    ...(open.size === undefined ? {} : { size: open.size }),
+    ...(open.term === undefined ? {} : { term: open.term }),
+    ...(open.locale === undefined ? {} : { locale: open.locale }),
+  };
+}
 const RENEW_EVERY_MS = 60_000;
 const KEEPALIVE_MS = 20_000;
 /**
@@ -412,7 +431,30 @@ interface Connection {
   readonly established: Promise<number>;
   readonly streams: Map<number, SessionStream>;
   readonly listener: (m: WorkerToPage) => void;
+  /**
+   * The Activation epoch the endpoint's certificate names, once the
+   * connection is established; 0 before.
+   */
+  epoch: number;
+  /** The connection ended or was closed: no stream opens on it. */
+  closed: boolean;
 }
+
+/** One stream of a Computer connection, as a session uses it. */
+interface StreamPath {
+  /** Sends bytes on the stream. */
+  readonly send: (bytes: Uint8Array) => void;
+  /** Finishes the stream's write side. */
+  readonly finish: () => void;
+  /** Stops the stream's frames and end from reaching its session. */
+  readonly detach: () => void;
+}
+
+/**
+ * The most bytes of frames a session keeps, from its stream's open until
+ * its create answers, to send again on the stream that replaces it.
+ */
+const MAX_RESEND_BYTES = 1 << 20;
 
 /**
  * One page's end-to-end encrypted connections to the Account's Computers.
@@ -451,7 +493,16 @@ export interface ComputerConnector {
    * output with a `FrameError`, finishes the stream, and stops the
    * session's renewals, leaving it to its lease. An `ssh` session's stream carries raw SSH bytes
    * after `opened`, not frames, so the connector never opens one: OpenSSH
-   * does. An open of mode `ssh` or `reattach` rejects with a `TypeError`
+   * does.
+   *
+   * A stream with no frame of the endpoint yet when the create answers
+   * that the session's grant is installed on a later Activation of the
+   * Computer than the connection's, as when the Computer was put to sleep
+   * just before, is sent there once more, followed by the input written to
+   * it so far, up to 1 MiB; a stream that ended before its first frame
+   * waits for that answer. Both happen within the 30 s the open waits for
+   * the endpoint's first frame. Since the grant is installed on that
+   * Activation alone, and admits one stream, a command never runs twice. An open of mode `ssh` or `reattach` rejects with a `TypeError`
    * before anything is sent, so it neither wakes nor reaches the Computer.
    *
    * @param computer the Computer's ID
@@ -831,7 +882,39 @@ class Connector implements ComputerConnector {
       failure.stop();
       throw await this.#unopened(computer, created, error);
     }
-    const session = await this.#stream(computer, connection, requestID, open);
+    let session: SessionStream;
+    try {
+      session = await this.#stream(
+        computer,
+        connection,
+        requestID,
+        open,
+        created,
+      );
+    } catch (error) {
+      try {
+        // A connection that closed before the stream could be opened on it
+        // carried nothing of the session: the open connects once more.
+        if (!connection.closed) throw error;
+        connection = await this.#establish(
+          computer,
+          this.#known.get(computer) ?? known,
+          watched,
+          deadline,
+          true,
+        );
+        session = await this.#stream(
+          computer,
+          connection,
+          requestID,
+          open,
+          created,
+        );
+      } catch (again) {
+        failure.stop();
+        throw await this.#unopened(computer, created, again);
+      }
+    }
     session.answerBy(deadline, () => this.#late(computer, created));
     session.onSettled(failure.stop);
     failure.ended.catch((error: unknown) => {
@@ -845,12 +928,120 @@ class Connector implements ComputerConnector {
         session.fail(error);
       },
     );
-    // A stream sent before the answer is ended at once by a session that
+    // The answer names where the session's grant is installed, which
+    // decides whether a stream not yet answered is sent again there. A
+    // stream sent before the answer is ended at once by a session that
     // ended before it opened, as a refused create ends it.
-    answered.catch((error: unknown) => {
-      if (error instanceof ComputerSessionEndedError) session.fail(error);
-    });
+    answered.then(
+      (endpoint) => {
+        session.answered(endpoint);
+      },
+      (error: unknown) => {
+        session.unanswered(error);
+      },
+    );
     return session;
+  }
+
+  /**
+   * Sends the stream of `session` once more, on a connection to `endpoint`,
+   * where the create installed the session's grant: an Activation later
+   * than the one `from`, the connection the stream was first sent on,
+   * serves. A connection to the Computer that already serves that
+   * Activation is used; otherwise one is made there and replaces `from`,
+   * which is closed. The stream carries the same open, then the frames the
+   * session kept, and `session` continues on it.
+   *
+   * The session's grant is installed for the Activation `endpoint` names
+   * and no other, and an endpoint holds a stream until the grant it names
+   * is installed there, so the endpoint the stream first reached could not
+   * admit it. The stream sent again names the same request ID, whose grant
+   * the endpoint admits once, and a session runs its process once: a
+   * command never runs twice.
+   *
+   * It runs within the open's deadline: `signal` aborts when the session
+   * is closed, fails, or is given up on. A connection made here and not
+   * yet established is closed then, and a session aborted before its
+   * stream was sent again is cancelled, since no endpoint holds its
+   * stream. Any other failure rejects as an open whose connection was not
+   * made does.
+   */
+  async #resend(
+    computer: string,
+    from: Connection,
+    endpoint: ComputerSessionEndpoint,
+    requestID: string,
+    open: StreamOpen,
+    session: SessionStream,
+    created: Promise<ServedSession>,
+    signal: AbortSignal,
+  ): Promise<void> {
+    let dialed: Promise<Connection> | undefined;
+    let established = false;
+    try {
+      let connection = await this.#serving(computer, from, endpoint, signal);
+      if (connection === undefined) {
+        const opened = this.#connection(computer, endpoint, true);
+        dialed = opened;
+        connection = await abortable<Connection>(
+          opened.then(async (c) => {
+            await c.established;
+            return c;
+          }),
+          signal,
+        );
+        established = true;
+        if (!from.closed) this.#drop(computer, Promise.resolve(from));
+      }
+      const path = await this.#openPath(connection);
+      if (signal.aborted) {
+        path.finish();
+        throw signal.reason;
+      }
+      connection.streams.set(path.stream, session);
+      path.send(encodeFrame({ type: "open", ...openFrame(requestID, open) }));
+      session.adopt(path);
+    } catch (error) {
+      if (dialed !== undefined && !established) this.#drop(computer, dialed);
+      if (!signal.aborted) throw await this.#unopened(computer, created, error);
+      void created
+        .then((served) => {
+          this.#sessions.get(computer)?.delete(served.id);
+          return this.#o.api.cancelSession(computer, served.id);
+        })
+        .catch(() => undefined);
+      throw error;
+    }
+  }
+
+  /**
+   * The open connection to `computer` other than `from` that serves the
+   * Activation `endpoint` names or a later one, once established; or
+   * `undefined` when there is none.
+   */
+  async #serving(
+    computer: string,
+    from: Connection,
+    endpoint: ComputerSessionEndpoint,
+    signal: AbortSignal,
+  ): Promise<Connection | undefined> {
+    const current = this.#connections.get(computer);
+    if (current === undefined) return undefined;
+    const connection = await abortable(current, signal).catch(
+      (error: unknown) => {
+        if (signal.aborted) throw error;
+        return undefined;
+      },
+    );
+    if (connection === undefined || connection === from || connection.closed)
+      return undefined;
+    const served = await abortable(connection.established, signal).catch(
+      (error: unknown) => {
+        if (signal.aborted) throw error;
+        return 0;
+      },
+    );
+    return served >= endpoint.epoch ? connection : undefined;
   }
 
   /**
@@ -913,7 +1104,8 @@ class Connector implements ComputerConnector {
   }
 
   /**
-   * What an open whose connection was not made rejects with. A create that
+   * What an open whose connection was not made, or whose stream was not
+   * sent, rejects with. A create that
    * failed, or answered the session ended, ends it with its own failure.
    * Otherwise the session, once its create has answered, is read once: a
    * session in a final phase ends the open with a
@@ -1045,6 +1237,7 @@ class Connector implements ComputerConnector {
     }
     void opened.then(
       (connection) => {
+        connection.closed = true;
         this.#listeners.delete(connection.listener);
         for (const s of connection.streams.values()) s.ended(true);
         connection.streams.clear();
@@ -1286,6 +1479,7 @@ class Connector implements ComputerConnector {
       void opened.then(
         (connection) => {
           if (connection.dock !== m.dock) return;
+          connection.closed = true;
           this.#listeners.delete(connection.listener);
           for (const s of connection.streams.values()) s.ended(true);
           connection.streams.clear();
@@ -1417,7 +1611,9 @@ class Connector implements ComputerConnector {
         if (m.type === "computer-ended" || m.type === "dock-ended") {
           throw new Error(`the Computer connection ended: ${m.reason}`);
         }
-        return Number(m.type === "computer-established" ? m.epoch : 0);
+        const epoch = Number(m.type === "computer-established" ? m.epoch : 0);
+        connection.epoch = epoch;
+        return epoch;
       });
       // A connection readied ahead may end unawaited (the Computer left
       // its place); a session that waits on it still sees why.
@@ -1431,6 +1627,7 @@ class Connector implements ComputerConnector {
           streams.get(m.stream)?.ended(m.broken);
           streams.delete(m.stream);
         } else if (m.type === "computer-ended" && m.computer === handle) {
+          connection.closed = true;
           this.#listeners.delete(listener);
           for (const s of streams.values()) s.ended(true);
           streams.clear();
@@ -1446,6 +1643,8 @@ class Connector implements ComputerConnector {
         established,
         streams,
         listener,
+        epoch: 0,
+        closed: false,
       };
       this.#listeners.add(listener);
       return connection;
@@ -1458,36 +1657,23 @@ class Connector implements ComputerConnector {
     return opened;
   }
 
+  /**
+   * Opens a stream on `connection` and sends `open` on it, for the session
+   * `created` answers. The stream may be sent once more, where the create's
+   * answer places the session's grant.
+   */
   async #stream(
     computer: string,
     connection: Connection,
     requestID: string,
     open: StreamOpen,
+    created: Promise<ServedSession>,
   ): Promise<SessionStream> {
-    const { dock } = await this.#state();
-    const stream = (await this.#request({
-      type: "open-stream",
-      dock,
-      computer: connection.handle,
-    })) as number;
-    const send = (bytes: Uint8Array): void => {
-      void this.#request(
-        { type: "write", dock, computer: connection.handle, stream, bytes },
-        [bytes.buffer],
-      ).catch(() => undefined);
-    };
+    const path = await this.#openPath(connection);
     const session = new SessionStream(
       requestID,
       open.mode,
-      send,
-      () => {
-        void this.#request({
-          type: "finish",
-          dock,
-          computer: connection.handle,
-          stream,
-        }).catch(() => undefined);
-      },
+      path,
       () => {
         this.#sessions.get(computer)?.delete(session.id ?? "");
       },
@@ -1498,20 +1684,53 @@ class Connector implements ComputerConnector {
         void this.#o.api.cancelSession(computer, id).catch(() => undefined);
       },
     );
-    connection.streams.set(stream, session);
-    const frame: OpenFrame = {
-      requestID,
-      mode: open.mode,
-      tty: open.tty ?? false,
-      features: featuresFor(open.mode),
-      ...(open.shell === undefined ? {} : { shell: open.shell }),
-      ...(open.command === undefined ? {} : { command: open.command }),
-      ...(open.size === undefined ? {} : { size: open.size }),
-      ...(open.term === undefined ? {} : { term: open.term }),
-      ...(open.locale === undefined ? {} : { locale: open.locale }),
-    };
-    send(encodeFrame({ type: "open", ...frame }));
+    session.movable(connection.epoch, (endpoint, signal) =>
+      this.#resend(
+        computer,
+        connection,
+        endpoint,
+        requestID,
+        open,
+        session,
+        created,
+        signal,
+      ),
+    );
+    connection.streams.set(path.stream, session);
+    path.send(encodeFrame({ type: "open", ...openFrame(requestID, open) }));
     return session;
+  }
+
+  /** Opens a stream on `connection`. */
+  async #openPath(
+    connection: Connection,
+  ): Promise<StreamPath & { readonly stream: number }> {
+    const { dock } = await this.#state();
+    const stream = (await this.#request({
+      type: "open-stream",
+      dock,
+      computer: connection.handle,
+    })) as number;
+    return {
+      stream,
+      send: (bytes) => {
+        void this.#request(
+          { type: "write", dock, computer: connection.handle, stream, bytes },
+          [bytes.buffer],
+        ).catch(() => undefined);
+      },
+      finish: () => {
+        void this.#request({
+          type: "finish",
+          dock,
+          computer: connection.handle,
+          stream,
+        }).catch(() => undefined);
+      },
+      detach: () => {
+        connection.streams.delete(stream);
+      },
+    };
   }
 
   #request(request: Request, transfer: Transferable[] = []): Promise<unknown> {
@@ -1766,8 +1985,8 @@ class SessionStream implements ComputerSessionStream {
   /** The mode the stream's open names, which its `opened` must answer. */
   readonly #mode: SessionMode;
   #id: string | undefined;
-  readonly #send: (bytes: Uint8Array) => void;
-  readonly #finish: () => void;
+  // The stream the session runs on.
+  #path: StreamPath;
   readonly #forget: () => void;
   readonly #abandon: (id: string) => void;
   readonly #reader = new FrameReader();
@@ -1790,6 +2009,26 @@ class SessionStream implements ComputerSessionStream {
   #gaveUp = false;
   // Called once the open is answered, given up on, or the stream ends.
   #settled: (() => void)[] = [];
+  // The Activation epoch of the endpoint the stream was sent to.
+  #served = 0;
+  // Sends the stream again where the create's answer places the session's
+  // grant; unset once the answer is in, the stream is answered, or it was
+  // sent again.
+  #resend:
+    | ((
+        endpoint: ComputerSessionEndpoint,
+        signal: AbortSignal,
+      ) => Promise<void>)
+    | undefined;
+  // The frames sent since the open while the stream may be sent again, as
+  // copies, and their size; they follow the open on the stream sent again.
+  #kept: Uint8Array[] | undefined = [];
+  #keptBytes = 0;
+  // The stream ended before its first frame and before the create's
+  // answer, which decides; `true` when it broke.
+  #lost: boolean | undefined;
+  // Aborted when the stream being sent again is no longer wanted.
+  #moving: AbortController | undefined;
 
   /**
    * `abandon` cancels the session by its ID, once, when the endpoint
@@ -1799,15 +2038,13 @@ class SessionStream implements ComputerSessionStream {
   constructor(
     requestId: string,
     mode: SessionMode,
-    send: (bytes: Uint8Array) => void,
-    finish: () => void,
+    path: StreamPath,
     forget: () => void,
     abandon: (id: string) => void,
   ) {
     this.requestId = requestId;
     this.#mode = mode;
-    this.#send = send;
-    this.#finish = finish;
+    this.#path = path;
     this.#forget = forget;
     this.#abandon = abandon;
     this.output = new ReadableStream<SessionOutput>({
@@ -1844,25 +2081,152 @@ class SessionStream implements ComputerSessionStream {
 
   /**
    * Ends the session on purpose: its stream is finished, unless it has
-   * ended, and the session is no longer renewed.
+   * ended, and the session is no longer renewed. A stream that ended before
+   * its first frame, or was being sent again, ends its output.
    */
   close(): void {
     this.#stopAnswerTimer();
     this.#closed = true;
+    const lost = this.#moving === undefined ? this.#lost : true;
+    this.#stopMove();
     this.#release();
     this.#forget();
+    if (lost !== undefined) this.#end(lost);
   }
 
   /** @internal Sends one encoded frame, unless the stream has ended. */
   sendFrame(frame: Uint8Array): void {
-    if (!this.#released) this.#send(frame);
+    if (!this.#released || this.#moving !== undefined) this.#send(frame);
+  }
+
+  /**
+   * Sends one frame on the stream, and keeps a copy while the stream may
+   * be sent again; while it is being sent again, the frame waits for it.
+   * Frames past {@link MAX_RESEND_BYTES} are not kept, and the stream is
+   * then not sent again.
+   */
+  #send(frame: Uint8Array): void {
+    const kept = this.#kept;
+    if (kept !== undefined) {
+      this.#keptBytes += frame.byteLength;
+      if (this.#keptBytes <= MAX_RESEND_BYTES) {
+        kept.push(frame.slice());
+      } else if (this.#moving === undefined) {
+        this.#resend = undefined;
+        this.#kept = undefined;
+      } else {
+        this.#stopMove();
+        this.#end(true);
+        return;
+      }
+    }
+    if (this.#moving === undefined) this.#path.send(frame);
   }
 
   /** Finishes the Worker's stream once. */
   #release(): void {
     if (this.#released) return;
     this.#released = true;
-    this.#finish();
+    this.#path.finish();
+  }
+
+  /**
+   * @internal Lets the stream be sent once more: `served` is the Activation
+   * epoch of the endpoint it was sent to, and `resend` sends it again where
+   * the create's answer places the session's grant.
+   */
+  movable(
+    served: number,
+    resend: (
+      endpoint: ComputerSessionEndpoint,
+      signal: AbortSignal,
+    ) => Promise<void>,
+  ): void {
+    this.#served = served;
+    this.#resend = resend;
+  }
+
+  /**
+   * @internal The create answered that the session's grant is installed at
+   * `endpoint`. A stream with no frame yet, sent to an earlier Activation
+   * than that, is sent again there; any other stream stays as it is, and
+   * one that ended before its first frame ends.
+   */
+  answered(endpoint: ComputerSessionEndpoint): void {
+    const resend = this.#resend;
+    if (resend === undefined) return;
+    this.#resend = undefined;
+    if (
+      !this.#answered &&
+      !this.#done &&
+      this.#served > 0 &&
+      endpoint.epoch > this.#served
+    ) {
+      this.#move(resend, endpoint);
+      return;
+    }
+    this.#kept = undefined;
+    if (this.#lost !== undefined) this.#end(this.#lost);
+  }
+
+  /**
+   * @internal The create's answer failed. A session that ended before it
+   * opened fails with it, as does a stream that ended before its first
+   * frame.
+   */
+  unanswered(error: unknown): void {
+    const lost = this.#resend !== undefined && this.#lost !== undefined;
+    this.#resend = undefined;
+    this.#kept = undefined;
+    if (error instanceof ComputerSessionEndedError || lost) this.fail(error);
+  }
+
+  /**
+   * Leaves the stream for one sent again at `endpoint`. A failure to send
+   * it there fails the output, and the session is no longer renewed.
+   */
+  #move(
+    resend: (
+      endpoint: ComputerSessionEndpoint,
+      signal: AbortSignal,
+    ) => Promise<void>,
+    endpoint: ComputerSessionEndpoint,
+  ): void {
+    const moving = new AbortController();
+    this.#moving = moving;
+    this.#lost = undefined;
+    this.#path.detach();
+    this.#release();
+    resend(endpoint, moving.signal).catch((error: unknown) => {
+      if (moving.signal.aborted) return;
+      this.#moving = undefined;
+      this.#kept = undefined;
+      this.#closed = true;
+      this.#forget();
+      this.fail(error);
+    });
+  }
+
+  /**
+   * @internal The stream was sent again on `path`, its open already sent:
+   * the frames kept follow it, and the session continues on it.
+   */
+  adopt(path: StreamPath): void {
+    const kept = this.#kept ?? [];
+    this.#moving = undefined;
+    this.#kept = undefined;
+    this.#path = path;
+    this.#released = false;
+    for (const frame of kept) path.send(frame);
+  }
+
+  /** Stops a stream being sent again; it is never sent again after. */
+  #stopMove(): void {
+    this.#resend = undefined;
+    this.#kept = undefined;
+    const moving = this.#moving;
+    this.#moving = undefined;
+    moving?.abort();
   }
 
   /**
@@ -1882,6 +2246,7 @@ class SessionStream implements ComputerSessionStream {
         // Nothing waits for this session any more: it is no longer renewed,
         // and is cancelled once its create has answered.
         this.#gaveUp = true;
+        this.#stopMove();
         this.#settle();
         this.#closed = true;
         this.#forget();
@@ -1933,6 +2298,8 @@ class SessionStream implements ComputerSessionStream {
   #first(frame: SessionOutput): void {
     if (this.#answered) return;
     this.#answered = true;
+    this.#resend = undefined;
+    this.#kept = undefined;
     this.#stopAnswerTimer();
     if (frame.type === "opened") {
       try {
@@ -1964,6 +2331,7 @@ class SessionStream implements ComputerSessionStream {
   /** @internal The session's create failed. */
   fail(error: unknown): void {
     this.#stopAnswerTimer();
+    this.#stopMove();
     if (this.#done) return;
     this.#done = true;
     this.#controller.error(error);
@@ -1987,8 +2355,22 @@ class SessionStream implements ComputerSessionStream {
     }
   }
 
-  /** @internal The stream ended. */
+  /**
+   * @internal The stream ended. One that ended before its first frame,
+   * while the stream may still be sent again, waits for the create's
+   * answer, within the open's deadline.
+   */
   ended(broken: boolean): void {
+    this.#released = true;
+    if (!this.#answered && this.#resend !== undefined && !this.#done) {
+      this.#lost = broken;
+      return;
+    }
+    this.#end(broken);
+  }
+
+  /** Ends the output: as broken when `broken`. */
+  #end(broken: boolean): void {
     this.#stopAnswerTimer();
     this.#released = true;
     // An open given up on fails with its reason once the read settles.
