@@ -53,16 +53,16 @@ await computer.delete();
 ```ts
 import { ExitError } from "@idyl-sh/sdk";
 
-const ci = await idyl.computers.create({
-  name: "ci",
+const runner = await idyl.computers.create({
+  name: "test-runner",
   image: "ubuntu-24.04",
   cpu: "4",
   memory: "8Gi",
 });
 
-await ci.exec("git clone https://github.com/example/app.git");
+await runner.exec("git clone https://github.com/example/app.git");
 try {
-  await ci.exec("cd app && make test");
+  await runner.exec("cd app && make test");
 } catch (error) {
   if (!(error instanceof ExitError)) throw error;
   console.error(`tests failed with exit code ${error.code}`);
