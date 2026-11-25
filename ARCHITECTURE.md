@@ -643,8 +643,8 @@ operation uses, to choose among them, so no place reaches a caller.
 
 Billing is never read before a wake, a session or a command: each of those
 answers a billing refusal itself, and `isOutOfUsage`, `sizeNotInPlan`,
-`sizeBelowUsage` and `spendCapReached` classify the refusal and read its
-details.
+`tierNotInPlan`, `sizeBelowUsage` and `spendCapReached` classify the refusal
+and read its details.
 
 ## The contract
 

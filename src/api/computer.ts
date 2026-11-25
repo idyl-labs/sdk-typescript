@@ -106,6 +106,7 @@ import {
   type ComputerExecutionSettingsImage,
   type ComputerEnvironmentVariable,
   type ComputerIsolationClass,
+  type ComputerTier,
   type ImageShell,
 } from "../resource/computer-execution-settings.js";
 
@@ -192,6 +193,13 @@ export interface ComputerEffectiveExecutionSettings {
   /** The OS image the settings name; absent while they name none. */
   readonly image?: ComputerExecutionSettingsImage;
   /**
+   * The tier setting the computer's next start uses: the one the settings
+   * state, or IDYL's default setting, `best-available`, when they state
+   * none. Absent while the platform reports none. A tier newer than this SDK
+   * is carried, and `validateComputerTier` judges it.
+   */
+  readonly tier?: ComputerTier;
+  /**
    * The name of the size whose CPU and memory the computer's limits are. Absent
    * while they are no size's, and while the platform runs no execution for the
    * Computer's Subnet.
@@ -224,6 +232,7 @@ export interface ComputerEffectiveExecutionSettings {
 const computerEffectiveExecutionSettingsShape: Shape<ComputerEffectiveExecutionSettings> =
   object<ComputerEffectiveExecutionSettings>({
     image: pointer(computerExecutionSettingsImageShape),
+    tier: omitEmpty(string<ComputerTier>()),
     size: omitEmpty(string()),
     sizeLabel: omitEmpty(string()),
     cpu: omitZero(cpuQuantityShape),
@@ -252,9 +261,10 @@ export interface ComputerExecutionSettingsStatus {
    */
   readonly entry?: JournalEntryId;
   /**
-   * Whether the computer is running, for the sessions that run on it, on
-   * settings older than `revision`. The settings in force take effect once
-   * those sessions end. Always written.
+   * Whether the computer is running on settings older than `revision`: its
+   * sessions have not ended, its save before sleeping has not settled, or it
+   * saves only when asked and has not slept since the change. The settings in
+   * force take effect at its next start. Always written.
    */
   readonly pending: boolean;
   /**
@@ -281,13 +291,14 @@ export interface ComputerExecutionSettingsStatus {
    */
   readonly shells?: readonly ImageShell[];
   /**
-   * The largest size the Computer's Subnet can run now: the largest size
-   * whose CPU and memory, with the runtime's own allowance, fit a ready host
-   * of the Subnet. A create or a change of the settings at a larger size is
-   * refused with {@link ERROR_CODE_COMPUTER_DOES_NOT_FIT}; every size up to
-   * it is accepted. Absent while the Subnet has
-   * no ready host, and no size is then refused for want of a host that fits
-   * it. `validateComputerSize` judges its form.
+   * The largest size the Computer's Subnet can run now on the tiers its
+   * settings may run on: the largest size whose CPU and memory, with the
+   * runtime's own allowance, fit a ready host of those tiers in the Subnet.
+   * A create or a change of the settings at a larger size is refused with
+   * {@link ERROR_CODE_COMPUTER_DOES_NOT_FIT}; every size up to it is
+   * accepted. Absent while no ready host of those tiers exists. A Subnet
+   * with no ready host at all refuses no size or tier for want of a host.
+   * `validateComputerSize` judges its form.
    */
   readonly largestSize?: ComputerSize;
 }
@@ -466,9 +477,11 @@ export function decodeComputer(document: unknown): Computer {
  * `ERROR_CODE_IMAGE_NOT_IN_CATALOG`, a computer whose isolation class the
  * Subnet does not admit with `ERROR_CODE_ISOLATION_CLASS_NOT_ADMITTED`, one
  * whose network class it does not admit with
- * `ERROR_CODE_NETWORK_CLASS_NOT_ADMITTED`, and one that fits no host of the
- * Subnet with
- * {@link ERROR_CODE_COMPUTER_DOES_NOT_FIT}; either way nothing is created.
+ * `ERROR_CODE_NETWORK_CLASS_NOT_ADMITTED`, one that names a tier above the
+ * highest its Account's plan may name with `ERROR_CODE_TIER_NOT_IN_PLAN`,
+ * and one that fits no host of the Subnet, or names a tier no host of the
+ * Subnet serves, with {@link ERROR_CODE_COMPUTER_DOES_NOT_FIT}; either way
+ * nothing is created.
  */
 export interface CreateComputerRequest {
   /** Exact source history point copied at creation; source authority remains a server decision. */
@@ -586,8 +599,8 @@ function validateComputerName(name: string): void {
  * recorded in the Computer's journal.
  *
  * The other fields change the execution settings, and the platform merges
- * them into the settings in force: `image`, `isolation`, `cpu`, `memory`,
- * `network`, and `shell` replace the setting of the same name; `size` replaces the CPU and
+ * them into the settings in force: `image`, `isolation`, `tier`, `cpu`,
+ * `memory`, `network`, and `shell` replace the setting of the same name; `size` replaces the CPU and
  * memory together with those of the size it names, and is never stated with
  * either; `cpu`, `memory`, and
  * `network` stated as `null` return to IDYL's default for the Subnet, as it
@@ -600,18 +613,27 @@ function validateComputerName(name: string): void {
  * default, so it is only ever replaced. Changes that leave the settings as
  * they were record nothing. Any other change is recorded as one entry in the
  * Computer's journal, holding the whole settings after it, and takes effect
- * from the computer's next start: at once when nothing runs on it, and,
- * while sessions run, once the last of them ends, without disturbing them;
- * `ComputerExecutionSettingsStatus.pending` reports the wait. A change of the
- * shell alone applies from the next session and leaves `pending` as it was.
+ * from the computer's next start, never under a running command. While
+ * sessions run, the change waits for the last of them to end, without
+ * disturbing them. A computer that is awake with no session and saves
+ * automatically (`ComputerSpec.autoSave`) is saved and then put to sleep by
+ * the change, and the update answers once it is asleep; when its save has
+ * not settled within the update's bounded wait, the update answers with the
+ * change pending, and the computer sleeps once the save settles. A computer
+ * that saves only when asked is left awake by the change, which discards
+ * none of its unsaved work, and the change waits for its next sleep and
+ * start. `ComputerExecutionSettingsStatus.pending` reports each wait. A
+ * change of the shell alone applies from the next session and leaves
+ * `pending` as it was.
  * The merged settings are judged as a create's are: an IDYL image the
  * catalog does not hold for the isolation class is refused with
  * `ERROR_CODE_IMAGE_NOT_IN_CATALOG`, an isolation class the Subnet does not
  * admit with `ERROR_CODE_ISOLATION_CLASS_NOT_ADMITTED`, a network class it
- * does not admit with `ERROR_CODE_NETWORK_CLASS_NOT_ADMITTED`, and a size the
- * platform does not
- * offer or settings that fit no host of the Subnet with
- * {@link ERROR_CODE_COMPUTER_DOES_NOT_FIT}; a refused update
+ * does not admit with `ERROR_CODE_NETWORK_CLASS_NOT_ADMITTED`, a named tier
+ * above the highest the Account's plan may name with
+ * `ERROR_CODE_TIER_NOT_IN_PLAN`, and a size the platform does not offer,
+ * settings that fit no host of the Subnet, or a named tier no host of the
+ * Subnet serves, with {@link ERROR_CODE_COMPUTER_DOES_NOT_FIT}; a refused update
  * changes nothing, its idle timeout included.
  *
  * Only the fields a request states reach the wire, in a fixed order, a
@@ -656,6 +678,13 @@ export interface UpdateComputerRequest {
    * is never `null`.
    */
   readonly isolation?: ComputerIsolationClass;
+  /**
+   * Replaces the tier the computer runs on, as
+   * `ComputerExecutionSettings.tier` states it: `economy`, `standard`,
+   * `performance` or `best-available`. `undefined` or empty leaves the tier
+   * as it is, and none is written; it is never `null`.
+   */
+  readonly tier?: ComputerTier;
   /**
    * Replaces the CPU and memory limits with those of the size it names, such
    * as `small`. It is never stated with `cpu` or `memory`, not even as `null`,
@@ -739,6 +768,7 @@ const UPDATE_FIELDS: readonly (readonly [
   ["saveWindow", durationShape as Shape<unknown>],
   ["image", computerExecutionSettingsImageShape as Shape<unknown>],
   ["isolation", string<ComputerIsolationClass>() as Shape<unknown>],
+  ["tier", string<ComputerTier>() as Shape<unknown>],
   ["size", string() as Shape<unknown>],
   ["cpu", cpuQuantityShape as Shape<unknown>],
   ["memory", memoryQuantityShape as Shape<unknown>],
@@ -764,6 +794,7 @@ const RESETTABLE: ReadonlySet<string> = new Set([
 /** The fields an update writes only when they are not empty. */
 const OMITTED_WHEN_EMPTY: ReadonlySet<string> = new Set([
   "isolation",
+  "tier",
   "setVariables",
   "removeVariables",
   "setSecrets",
@@ -775,7 +806,7 @@ const OMITTED_WHEN_EMPTY: ReadonlySet<string> = new Set([
  * The wire shape of an update request. It writes each field the request
  * states, in the order the interface declares them: `cpu`, `memory`,
  * `network`, `shell`, and `identity` as `null` when they are, and `isolation`,
- * `setVariables`, `removeVariables`, `setSecrets`, `removeSecrets`, and
+ * `tier`, `setVariables`, `removeVariables`, `setSecrets`, `removeSecrets`, and
  * `client` only when not empty.
  * A read carries `null` for the five settings that `null` resets and
  * refuses it for every other field when strict.
@@ -865,6 +896,7 @@ function statesComputer(request: UpdateComputerRequest): boolean {
   return (
     request.image !== undefined ||
     (request.isolation ?? "") !== "" ||
+    (request.tier ?? "") !== "" ||
     request.size !== undefined ||
     request.cpu !== undefined ||
     request.memory !== undefined ||
@@ -885,7 +917,7 @@ function statesComputer(request: UpdateComputerRequest): boolean {
  * - the name is present and not in the form of a Computer ID, as a
  *   create's is;
  * - the idle timeout is one `validateIdleTimeout` admits;
- * - the image, isolation class, size, CPU, memory, network, shell,
+ * - the image, isolation class, tier, size, CPU, memory, network, shell,
  *   variables to set, and Secret attachments to set are what
  *   `validateComputerExecutionSettings` admits, a stated CPU or memory greater than
  *   zero, a stated shell not empty, and a stated size in identifier form with no
@@ -898,7 +930,8 @@ function statesComputer(request: UpdateComputerRequest): boolean {
  * carries, as its `cause`, a `ComputerExecutionSettingsError` whose `field` is the
  * path within this request, such as `cpu` or `setVariables[1].name`.
  * Whether the platform offers the size, whether the merged settings fit a host
- * of the Subnet, whether the Subnet admits their isolation and network classes,
+ * of the Subnet, whether the Account's plan may name their tier and a host
+ * of the Subnet serves it, whether the Subnet admits their isolation and network classes,
  * and whether its catalog holds the image named for the class, are the
  * platform's decision. Throws a
  * `TypeError`.
@@ -990,6 +1023,7 @@ function validateUpdateComputer(request: UpdateComputerRequest): void {
     ...(request.isolation === undefined
       ? {}
       : { isolation: request.isolation }),
+    ...(request.tier === undefined ? {} : { tier: request.tier }),
     ...(request.size === undefined ? {} : { size: request.size }),
     ...(request.cpu === undefined || request.cpu === null
       ? {}
@@ -1085,12 +1119,17 @@ function updateComputerField(field: string): string {
 }
 
 /**
- * Returned with HTTP 422 when a computer's CPU and memory, with the
- * runtime's own allowance, fit no host of the Computer's Subnet, so it
- * could never start. The details state the largest size that fits a host
- * of the Subnet now, the size `ComputerExecutionSettingsStatus.largestSize`
- * reports, as its CPU and memory under `maxCPU` and `maxMemory`, in the
- * quantity spelling. The request changes nothing.
+ * Returned with HTTP 422 when a computer's size is one the platform does not
+ * offer, or its CPU and memory, with the runtime's own allowance, fit no
+ * host of its tiers in the Computer's Subnet, so it could never start. The
+ * details state the largest size that fits a host of those tiers now, the
+ * size `ComputerExecutionSettingsStatus.largestSize` reports, as its CPU and
+ * memory under `maxCPU` and `maxMemory`, in the quantity spelling. It is
+ * also returned for a named tier no host of a Subnet that has hosts serves;
+ * its details then carry the tier under `tier` and no `maxCPU` or
+ * `maxMemory`.
+ * A computer set to `best-available` fits when it fits a host of any of its
+ * tiers. The request changes nothing.
  */
 export const ERROR_CODE_COMPUTER_DOES_NOT_FIT = "COMPUTER_DOES_NOT_FIT";
 

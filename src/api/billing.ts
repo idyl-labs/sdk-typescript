@@ -17,8 +17,9 @@
  * Billing is read when a client starts and in the background, never on a
  * Computer's wake, session or cell. A wake, a session or a resize that the
  * Account's billing refuses is refused by that call itself, with
- * `ERROR_CODE_OUT_OF_USAGE`, `ERROR_CODE_SIZE_NOT_IN_PLAN` or
- * `ERROR_CODE_VCPU_LIMIT_REACHED`, so nothing has to be checked first.
+ * `ERROR_CODE_OUT_OF_USAGE`, `ERROR_CODE_SIZE_NOT_IN_PLAN`,
+ * `ERROR_CODE_TIER_NOT_IN_PLAN` or `ERROR_CODE_VCPU_LIMIT_REACHED`, so
+ * nothing has to be checked first.
  *
  * Every amount of money is in US dollars, as a whole number of
  * micro-dollars (`MICROS_PER_DOLLAR` to the dollar), so amounts sum without

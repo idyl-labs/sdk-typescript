@@ -8,6 +8,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "microvm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -56,6 +57,56 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "machine",
+      "tier": "performance",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an unknown tier",
+    "field": "execution.tier",
+    "refusal": "execution.tier: must be economy, standard, performance or best-available",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "tier": "frontier",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -105,6 +156,7 @@
         "ref": "python:3.12"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -151,6 +203,7 @@
     "value": {
       "image": {},
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -199,6 +252,7 @@
         "idyl": "Ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -247,6 +301,7 @@
         "ref": "python:3.12 --privileged"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -295,6 +350,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "size": "Small",
       "cpu": "2",
       "memory": "4Gi",
@@ -344,6 +400,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "size": "small",
       "cpu": "2",
       "memory": "4Gi",
@@ -393,6 +450,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -434,6 +492,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -482,6 +541,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -531,6 +591,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -611,6 +672,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -659,6 +721,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -707,6 +770,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -755,6 +819,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -803,6 +868,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -851,6 +917,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -899,6 +966,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -947,6 +1015,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -995,6 +1064,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1043,6 +1113,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1091,6 +1162,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1139,6 +1211,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1187,6 +1260,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1241,6 +1315,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1290,6 +1365,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1335,6 +1411,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1383,6 +1460,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1431,6 +1509,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1479,6 +1558,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1523,6 +1603,7 @@
         "idyl": "python-3.12-ubuntu-24.04"
       },
       "isolation": "vm",
+      "tier": "performance",
       "cpu": "2",
       "memory": "4Gi",
       "network": {

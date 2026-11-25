@@ -471,6 +471,11 @@ export function isComputerSessionPhaseTerminal(
  *   `ERROR_CODE_SIZE_NOT_IN_PLAN` describes. A new session can succeed once
  *   the Computer is resized to a size the plan includes, or the plan is
  *   upgraded.
+ * - `TIER_NOT_IN_PLAN`: a failed session whose Computer names a tier above
+ *   the highest its Account's plan may name, as
+ *   `ERROR_CODE_TIER_NOT_IN_PLAN` describes. A new session can succeed once
+ *   the Computer's tier is changed to one the plan may name, or the plan is
+ *   upgraded.
  * - `VCPU_LIMIT_REACHED`: a failed session whose wake would take the vCPU of
  *   its Account's awake Computers past what its plan allows at once, as
  *   `ERROR_CODE_VCPU_LIMIT_REACHED` describes. A new session can succeed once
@@ -515,6 +520,7 @@ export type ComputerSessionReason =
   | "OUT_OF_USAGE"
   | "ISOLATION_CLASS_NOT_ADMITTED"
   | "SIZE_NOT_IN_PLAN"
+  | "TIER_NOT_IN_PLAN"
   | "VCPU_LIMIT_REACHED"
   | "mode-unavailable"
   | "ATTACH_TIMEOUT"
@@ -546,6 +552,7 @@ const REASON_CLASSES: ReadonlyMap<string, ConditionReasonClass> = new Map([
   ["OUT_OF_USAGE", "blocked"],
   ["ISOLATION_CLASS_NOT_ADMITTED", "blocked"],
   ["SIZE_NOT_IN_PLAN", "blocked"],
+  ["TIER_NOT_IN_PLAN", "blocked"],
   ["VCPU_LIMIT_REACHED", "blocked"],
   ["mode-unavailable", "transient"],
   ["ATTACH_TIMEOUT", "transient"],

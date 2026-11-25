@@ -148,6 +148,7 @@ const PUBLIC_SURFACE = [
   "ERROR_CODE_SLEEP_TIMEOUT",
   "ERROR_CODE_SPEND_CAP_REACHED",
   "ERROR_CODE_STORAGE_NOT_OPEN",
+  "ERROR_CODE_TIER_NOT_IN_PLAN",
   "ERROR_CODE_UPLOAD_CANCELLED",
   "ERROR_CODE_UPLOAD_CONFLICT",
   "ERROR_CODE_UPLOAD_EXPIRED",
@@ -238,6 +239,7 @@ const PUBLIC_SURFACE = [
   "SpendCapReachedDetails",
   "TerminalOptions",
   "TerminalSize",
+  "TierNotInPlanDetails",
   "TransportError",
   "TransportErrorCode",
   "TrustFloor",
@@ -267,6 +269,7 @@ const PUBLIC_SURFACE = [
   "sizeNotInPlan",
   "spendCapReached",
   "staticCredential",
+  "tierNotInPlan",
 ];
 
 describe("built declarations", () => {

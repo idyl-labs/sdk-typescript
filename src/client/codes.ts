@@ -91,9 +91,11 @@ export const ERROR_CODE_IMAGE_NOT_IN_CATALOG = "IMAGE_NOT_IN_CATALOG";
 
 /**
  * The CPU and memory asked for fit no machine that could run the Computer
- * (HTTP 422). The details state the largest size that fits one at the time
- * of the request, the size the snapshot's `largestSize` names, as its CPU
- * and memory under `maxCPU` and `maxMemory`.
+ * on its tiers (HTTP 422). The details state the largest size that fits one
+ * at the time of the request, the size the snapshot's `largestSize` names,
+ * as its CPU and memory under `maxCPU` and `maxMemory`. For a named tier no
+ * machine where the Computer lives serves, the details carry the tier under
+ * `tier` instead.
  */
 export const ERROR_CODE_COMPUTER_DOES_NOT_FIT = "COMPUTER_DOES_NOT_FIT";
 
@@ -193,6 +195,17 @@ export const ERROR_CODE_OUT_OF_USAGE = "OUT_OF_USAGE";
  * and the smallest plan that includes the size.
  */
 export const ERROR_CODE_SIZE_NOT_IN_PLAN = "SIZE_NOT_IN_PLAN";
+
+/**
+ * A create, a change of a Computer's tier, or a wake names a tier above the
+ * highest tier the Account's plan may name (HTTP 402). A Computer set to
+ * `best-available` is never refused with this error. It refuses a create or
+ * a change at once, and a wake, a pending session or a notebook cell that
+ * fails later for the same cause carries it as its reason. `tierNotInPlan`
+ * reads its details: the tier refused, the plan's highest tier, and the
+ * smallest plan that may name the tier.
+ */
+export const ERROR_CODE_TIER_NOT_IN_PLAN = "TIER_NOT_IN_PLAN";
 
 /**
  * A wake would take the vCPU of the Account's awake Computers past what its
@@ -327,6 +340,7 @@ export type ApiErrorCode =
   | typeof ERROR_CODE_RATE_LIMITED
   | typeof ERROR_CODE_OUT_OF_USAGE
   | typeof ERROR_CODE_SIZE_NOT_IN_PLAN
+  | typeof ERROR_CODE_TIER_NOT_IN_PLAN
   | typeof ERROR_CODE_VCPU_LIMIT_REACHED
   | typeof ERROR_CODE_DOWNLOAD_LIMIT_REACHED
   | typeof ERROR_CODE_PAYMENT_DECLINED

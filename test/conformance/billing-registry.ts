@@ -38,6 +38,7 @@ import {
   ERROR_CODE_PLAN_NOT_OFFERED,
   ERROR_CODE_SIZE_NOT_IN_PLAN,
   ERROR_CODE_SPEND_CAP_REACHED,
+  ERROR_CODE_TIER_NOT_IN_PLAN,
 } from "../../src/api/billing-errors.js";
 import { signupOfferShape, validateSignupOffer } from "../../src/api/signup.js";
 import { ERROR_CODE_SIZE_BELOW_USAGE } from "../../src/api/storage-errors.js";
@@ -46,6 +47,7 @@ import {
   sizeBelowUsage,
   sizeNotInPlan,
   spendCapReached,
+  tierNotInPlan,
 } from "../../src/errors.js";
 import {
   always,
@@ -175,6 +177,7 @@ const servedCodes: ReadonlyMap<string, string> = new Map([
   ["autoRefillNeedsSpendCap", ERROR_CODE_AUTO_REFILL_NEEDS_SPEND_CAP],
   ["planNotOffered", ERROR_CODE_PLAN_NOT_OFFERED],
   ["computerLimitReached", ERROR_CODE_COMPUTER_LIMIT_REACHED],
+  ["tierNotInPlan", ERROR_CODE_TIER_NOT_IN_PLAN],
 ]);
 
 /**
@@ -197,6 +200,17 @@ function readDetails(error: ApiError): JsonObject | undefined {
       largestSize: notInPlan.largestSize,
       ...(notInPlan.plan === "" ? {} : { plan: notInPlan.plan }),
       ...(notInPlan.planName === "" ? {} : { planName: notInPlan.planName }),
+    };
+  }
+  const tierRefused = tierNotInPlan(error);
+  if (tierRefused !== undefined) {
+    return {
+      tier: tierRefused.tier,
+      highestTier: tierRefused.highestTier,
+      ...(tierRefused.plan === "" ? {} : { plan: tierRefused.plan }),
+      ...(tierRefused.planName === ""
+        ? {}
+        : { planName: tierRefused.planName }),
     };
   }
   const belowUsage = sizeBelowUsage(error);

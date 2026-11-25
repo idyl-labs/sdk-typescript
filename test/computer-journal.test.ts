@@ -344,6 +344,42 @@ describe("Computer journal", () => {
     }).not.toThrow();
   });
 
+  // Contract: a change of the tier is recorded under the changed path
+  // "tier", with the tier in the settings after it; a tier this SDK does not
+  // name is carried by the read and refused by the validator.
+  it("reads a change of the tier", () => {
+    const full = golden("computer-journal.execution-settings-full");
+    const change = full["executionSettings"] as JsonObject;
+    const settings = change["settings"] as JsonObject;
+    const tierChange = decodeJournalEntry({
+      ...full,
+      executionSettings: {
+        ...change,
+        settings: { ...settings, tier: "economy" },
+        changed: ["tier"],
+      },
+    });
+    expect(tierChange.executionSettings?.changed).toEqual(["tier"]);
+    expect(tierChange.executionSettings?.settings.tier).toBe("economy");
+    expect(() => {
+      validateJournalEntry(tierChange);
+    }).not.toThrow();
+    const unknown = decodeJournalEntry({
+      ...full,
+      executionSettings: {
+        ...change,
+        settings: { ...settings, tier: "frontier" },
+        changed: ["tier"],
+      },
+    });
+    expect(unknown.executionSettings?.settings.tier).toBe("frontier");
+    expect(() => {
+      validateJournalEntry(unknown);
+    }).toThrow(
+      "execution.tier: must be economy, standard, performance or best-available",
+    );
+  });
+
   // Contract: an endpoint cell's command is held by the Computer alone: the
   // Cell is judged valid with no command member, and refused with any, known
   // or not, as the reference contract holds.
@@ -594,6 +630,19 @@ describe("wake and sleep entries", () => {
     );
     expect(() => {
       validateComputerCellErrorReason("isolation-class-not-admitted");
+    }).not.toThrow();
+  });
+
+  // Contract: a session that failed because its Computer names a tier above
+  // its plan's highest is named: the session reason is blocked, and a
+  // notebook cell reads the matching error reason.
+  it("name a session refused for its tier", () => {
+    expect(() => {
+      validateComputerSessionReason("TIER_NOT_IN_PLAN");
+    }).not.toThrow();
+    expect(computerSessionReasonClass("TIER_NOT_IN_PLAN")).toBe("blocked");
+    expect(() => {
+      validateComputerCellErrorReason("tier-not-in-plan");
     }).not.toThrow();
   });
 });

@@ -13,6 +13,7 @@ import {
   sizeBelowUsage,
   sizeNotInPlan,
   spendCapReached,
+  tierNotInPlan,
 } from "../src/index.js";
 import {
   decodeAccountBilling,
@@ -795,6 +796,31 @@ describe("billing refusal helpers", () => {
       ),
     ).toEqual({ size: "", largestSize: "large", plan: "", planName: "" });
     expect(sizeNotInPlan(apiError("OUT_OF_USAGE"))).toBeUndefined();
+
+    expect(
+      tierNotInPlan(
+        apiError("TIER_NOT_IN_PLAN", {
+          tier: "performance",
+          highestTier: "standard",
+          plan: "max",
+          planName: "Max",
+          added: "ignored",
+        }),
+      ),
+    ).toEqual({
+      tier: "performance",
+      highestTier: "standard",
+      plan: "max",
+      planName: "Max",
+    });
+    expect(
+      tierNotInPlan(
+        apiError("TIER_NOT_IN_PLAN", { tier: 3, highestTier: "standard" }),
+      ),
+    ).toEqual({ tier: "", highestTier: "standard", plan: "", planName: "" });
+    expect(tierNotInPlan(apiError("SIZE_NOT_IN_PLAN"))).toBeUndefined();
+    expect(sizeNotInPlan(apiError("TIER_NOT_IN_PLAN"))).toBeUndefined();
+    expect(tierNotInPlan(new Error("TIER_NOT_IN_PLAN"))).toBeUndefined();
 
     expect(
       sizeBelowUsage(

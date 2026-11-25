@@ -33,6 +33,14 @@ export interface ExecutionSettings {
   /** How it is isolated: `secure-container` or `vm`. Absent is `secure-container`. */
   readonly isolation?: string;
   /**
+   * The tier of machine it runs on: `economy`, `standard`, `performance` or
+   * `best-available`. The settings as stated leave it out when they state
+   * none; the effective settings hold the setting the next start uses, IDYL's
+   * default `best-available` when none is stated. A tier this package does
+   * not name is carried unchanged from IDYL's report.
+   */
+  readonly tier?: string;
+  /**
    * The size by name, such as `small`. Settings as stated hold it or `cpu` and
    * `memory`; the effective settings hold all three, with `disk`, and leave it
    * out while the limits are no size's.
@@ -174,6 +182,13 @@ export interface AwakeHold {
 export interface Awake {
   /** When its current execution started, as an RFC 3339 instant. */
   readonly since: string;
+  /**
+   * The tier of the machine it runs on: `economy`, `standard` or
+   * `performance`. A `best-available` Computer can run on another tier at
+   * each start, and this says which it took. Absent while the machine states
+   * no tier.
+   */
+  readonly tier?: string;
   /** What keeps it awake at the read; empty while it counts down. */
   readonly holds: readonly AwakeHold[];
   /** When it sleeps by IDYL's clock, as an RFC 3339 instant. */
@@ -337,6 +352,7 @@ export function settingsOf(
           settings.isolation === "" ? undefined : settings.isolation,
         )
       : {}),
+    ...present("tier", settings.tier === "" ? undefined : settings.tier),
     ...present("shell", settings.shell === "" ? undefined : settings.shell),
   });
 }
@@ -411,6 +427,7 @@ export function historyEntryOf(entry: JournalEntry): HistoryEntry {
 export function awakeOf(awake: ComputerAwake): Awake {
   return Object.freeze({
     since: awake.since,
+    ...present("tier", awake.tier === "" ? undefined : awake.tier),
     holds: Object.freeze(
       awake.holds.map((hold) =>
         Object.freeze({ kind: hold.kind, count: numberOf(hold.count) }),

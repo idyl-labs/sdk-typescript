@@ -293,6 +293,7 @@ describe("Computer sessions", () => {
       OUT_OF_USAGE: "blocked",
       ISOLATION_CLASS_NOT_ADMITTED: "blocked",
       SIZE_NOT_IN_PLAN: "blocked",
+      TIER_NOT_IN_PLAN: "blocked",
       VCPU_LIMIT_REACHED: "blocked",
       "mode-unavailable": "transient",
       ATTACH_TIMEOUT: "transient",

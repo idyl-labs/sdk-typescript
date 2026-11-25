@@ -108,9 +108,9 @@ export function validateComputerSize(size: ComputerSize): void {
 }
 
 /**
- * The execution settings of a Computer: its OS image, its CPU and memory, its
- * network, its environment variables, its attached Secrets, its workload
- * identity, and its default shell. A create
+ * The execution settings of a Computer: its OS image, its isolation class,
+ * its tier, its CPU and memory, its network, its environment variables, its
+ * attached Secrets, its workload identity, and its default shell. A create
  * states the whole document, and a field it leaves out takes IDYL's
  * default. An update changes the
  * settings field by field, as `UpdateComputerRequest` describes: a field it
@@ -118,12 +118,15 @@ export function validateComputerSize(size: ComputerSize): void {
  * Computer exists, is only ever replaced.
  *
  * A change takes effect from the computer's next start and never disturbs a
- * command already running: a computer with nothing running starts on the
- * new settings at the next command, and one with sessions running keeps
- * running them on the settings it started with until they end. The shell is
- * the exception: it is chosen per session, so a change of it applies from
- * the next session and needs no start. Every change is an entry in the
- * Computer's journal holding the whole document after it.
+ * command already running: a computer with sessions running keeps running
+ * them on the settings it started with until they end, an awake computer
+ * that saves automatically is saved and put to sleep once no session holds
+ * it, and one that saves only when asked is left awake by the change, which
+ * discards none of its unsaved work, and keeps its earlier settings until
+ * it next sleeps and starts. The shell is the exception: it is chosen per
+ * session, so a change of it applies from the next session and needs no
+ * start. Every change is an entry in the Computer's journal holding the
+ * whole document after it.
  */
 export interface ComputerExecutionSettings {
   /**
@@ -134,6 +137,16 @@ export interface ComputerExecutionSettings {
    * be one the subnet's runtime policy admits.
    */
   readonly isolation?: ComputerIsolationClass;
+  /**
+   * The tier of machine the computer runs on: one tier by name, `economy`,
+   * `standard` or `performance`, which the computer runs on alone, or
+   * `best-available`, the first of its Account's plan's tiers, in the plan's
+   * order, with room at each start. A named tier must be one the Account's
+   * plan may name and one a host of the Subnet serves. `undefined` takes
+   * IDYL's default setting, `best-available`, as it stands each time the
+   * computer starts. See {@link ComputerTier}.
+   */
+  readonly tier?: ComputerTier;
   /**
    * The OS image: an IDYL image by catalog name, or an image of the user's
    * own. It is chosen when the Computer is created; a create that states
@@ -290,6 +303,78 @@ export type ComputerIsolationClass =
   "secure-container" | "vm" | (string & Record<never, never>);
 
 /**
+ * The tier of a machine: how fast a machine is offered as being, on one scale
+ * of three, `economy` below `standard` below `performance`. A machine states
+ * exactly one, and a Computer that names a tier runs only on a machine of that
+ * tier. A tier names a class of service, never a model of hardware.
+ *
+ * The union is open: a token the platform reports that this SDK does not
+ * know is carried as a string, and {@link validateMachineTier} judges
+ * membership.
+ */
+export type MachineTier =
+  "economy" | "standard" | "performance" | (string & Record<never, never>);
+
+/**
+ * The tier a Computer asks to run on: one of the three {@link MachineTier}s by
+ * name, which the Computer runs on alone, or `best-available`, the first of
+ * its Account's plan's tiers, in the order the plan states, that has room,
+ * chosen again at each start. A Computer that names a tier waits for room
+ * on a machine of that tier when every such machine is full, and its wake is then
+ * refused, as a wake that finds no room is. A `best-available` wake is
+ * refused for want of room only when none of its plan's tiers has any, and
+ * never for its plan.
+ *
+ * The union is open: a token the platform reports that this SDK does not
+ * know is carried as a string, and {@link validateComputerTier} judges
+ * membership.
+ */
+export type ComputerTier =
+  | "economy"
+  | "standard"
+  | "performance"
+  | "best-available"
+  | (string & Record<never, never>);
+
+/**
+ * Judges that the tier is one of the three this SDK names. The empty string
+ * is reported as missing. Throws a `TypeError`.
+ */
+export function validateMachineTier(tier: MachineTier): void {
+  switch (tier) {
+    case "economy":
+    case "standard":
+    case "performance":
+      return;
+    case "":
+      throw new TypeError("tier is required");
+    default:
+      throw new TypeError("tier must be economy, standard or performance");
+  }
+}
+
+/**
+ * Judges that the tier is one this SDK names: a machine tier or
+ * `best-available`. The empty string is reported as missing. Throws a
+ * `TypeError`.
+ */
+export function validateComputerTier(tier: ComputerTier): void {
+  switch (tier) {
+    case "economy":
+    case "standard":
+    case "performance":
+    case "best-available":
+      return;
+    case "":
+      throw new TypeError("tier is required");
+    default:
+      throw new TypeError(
+        "tier must be economy, standard, performance or best-available",
+      );
+  }
+}
+
+/**
  * A shell an image holds, as the image's `/etc/shells` lists it and a
  * terminal offers it.
  */
@@ -426,6 +511,7 @@ export const computerExecutionSettingsShape: Shape<ComputerExecutionSettings> =
   object<ComputerExecutionSettings>({
     image: pointer(computerExecutionSettingsImageShape),
     isolation: omitEmpty(string<ComputerIsolationClass>()),
+    tier: omitEmpty(string<ComputerTier>()),
     size: omitEmpty(string()),
     cpu: omitZero(cpuQuantityShape),
     memory: omitZero(memoryQuantityShape),
@@ -466,6 +552,8 @@ const NANOCPUS_PER_MILLICORE = 1_000_000n;
  *
  * - the image, when stated, is one {@link validateComputerExecutionSettingsImage}
  *   admits;
+ * - the isolation class, when stated, is `secure-container` or `vm`;
+ * - the tier, when stated, is one {@link validateComputerTier} admits;
  * - the CPU and memory limits, when stated, are representable as a
  *   Micropod's limits are (CPU in 64-bit signed nanoCPUs, memory in 64-bit
  *   unsigned bytes);
@@ -485,7 +573,8 @@ const NANOCPUS_PER_MILLICORE = 1_000_000n;
  *   {@link MAX_COMPUTER_EXECUTION_SETTINGS_BYTES}.
  *
  * Whether the platform offers the size, whether the computer fits a host of
- * the Computer's Subnet, whether the Subnet admits its network class,
+ * the Computer's Subnet, whether the Account's plan may name its tier and a
+ * host of the Subnet serves it, whether the Subnet admits its network class,
  * whether its catalog holds the image named, and whether each attached Secret
  * exists, may be attached by the writer, and has origins the computer's
  * network reaches, are the platform's decision.
@@ -506,6 +595,17 @@ export function validateComputerExecutionSettings(
       "execution.isolation",
       "must be secure-container or vm",
     );
+  }
+  const tier = computer.tier ?? "";
+  if (tier !== "") {
+    try {
+      validateComputerTier(tier);
+    } catch (cause) {
+      throw new ComputerExecutionSettingsError(
+        "execution.tier",
+        errorMessage(cause).replace(/^tier /u, ""),
+      );
+    }
   }
   const size = computer.size ?? "";
   if (size !== "") {

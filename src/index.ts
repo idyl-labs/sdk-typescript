@@ -231,10 +231,12 @@ export {
   sizeBelowUsage,
   sizeNotInPlan,
   spendCapReached,
+  tierNotInPlan,
   type ApiErrorOptions,
   type SizeBelowUsageDetails,
   type SizeNotInPlanDetails,
   type SpendCapReachedDetails,
+  type TierNotInPlanDetails,
   type TransportErrorCode,
 } from "./errors.js";
 export * from "./client/codes.js";

@@ -6,7 +6,8 @@
  * clients classify on the code, never on the message. A refused request
  * changes nothing. The helpers that read each refusal's details, and the
  * details types they return, are `isOutOfUsage`, `sizeNotInPlan`,
- * `sizeBelowUsage` and `spendCapReached` beside the error classes.
+ * `tierNotInPlan`, `sizeBelowUsage` and `spendCapReached` beside the error
+ * classes.
  */
 
 /**
@@ -32,6 +33,22 @@ export const ERROR_CODE_OUT_OF_USAGE = "OUT_OF_USAGE";
  * Computer wake.
  */
 export const ERROR_CODE_SIZE_NOT_IN_PLAN = "SIZE_NOT_IN_PLAN";
+
+/**
+ * Returned with HTTP 402 when a create, a change of a Computer's tier, or a
+ * wake names a tier above the highest tier the Account's plan may name. A
+ * Computer set to `best-available` is never refused with it, and a change to
+ * a tier the plan may name never is either. It refuses a create or a change
+ * at once, and fails a wake, a pending session (reason `TIER_NOT_IN_PLAN`)
+ * and a notebook cell (reason `tier-not-in-plan`). The details carry the
+ * keys {@link TIER_NOT_IN_PLAN_DETAIL_TIER},
+ * {@link TIER_NOT_IN_PLAN_DETAIL_HIGHEST_TIER},
+ * {@link TIER_NOT_IN_PLAN_DETAIL_PLAN} and
+ * {@link TIER_NOT_IN_PLAN_DETAIL_PLAN_NAME}; see `TierNotInPlanDetails`. A
+ * change to a tier the plan may name, to `best-available`, or an upgrade to
+ * the plan named, lets the Computer wake.
+ */
+export const ERROR_CODE_TIER_NOT_IN_PLAN = "TIER_NOT_IN_PLAN";
 
 /**
  * The reason a wake fails when it would take the vCPU of the Account's awake
@@ -158,6 +175,29 @@ export const SIZE_NOT_IN_PLAN_DETAIL_PLAN = "plan";
  * includes the size.
  */
 export const SIZE_NOT_IN_PLAN_DETAIL_PLAN_NAME = "planName";
+
+/** The details key of a `TIER_NOT_IN_PLAN` refusal naming the tier refused, a `MachineTier` string. */
+export const TIER_NOT_IN_PLAN_DETAIL_TIER = "tier";
+
+/**
+ * The details key of a `TIER_NOT_IN_PLAN` refusal naming the highest tier
+ * the Account's plan may name, a `MachineTier` string.
+ */
+export const TIER_NOT_IN_PLAN_DETAIL_HIGHEST_TIER = "highestTier";
+
+/**
+ * The details key of a `TIER_NOT_IN_PLAN` refusal naming the smallest plan
+ * that may name the tier, a `BillingPlan` string. It is absent when no plan
+ * may.
+ */
+export const TIER_NOT_IN_PLAN_DETAIL_PLAN = "plan";
+
+/**
+ * The details key of a `TIER_NOT_IN_PLAN` refusal naming that plan's name
+ * for display, such as `Max`, a string. It is absent when no plan may name
+ * the tier.
+ */
+export const TIER_NOT_IN_PLAN_DETAIL_PLAN_NAME = "planName";
 
 /**
  * The details key of a `COMPUTER_LIMIT_REACHED` refusal naming the Computers

@@ -57,8 +57,8 @@ export interface CreateComputerWakeRequest {
  * `INSUFFICIENT_CAPACITY`, `INSUFFICIENT_DISK`, `EXECUTION_NOT_ENABLED`,
  * `IMAGE_NOT_IN_CATALOG`, `NETWORK_CLASS_NOT_ADMITTED`,
  * `ISOLATION_CLASS_NOT_ADMITTED`, `VERSION_DAMAGED`, `OUT_OF_USAGE`,
- * `SIZE_NOT_IN_PLAN` or `VCPU_LIMIT_REACHED`. A pending or
- * awake wake carries no reason.
+ * `SIZE_NOT_IN_PLAN`, `TIER_NOT_IN_PLAN` or `VCPU_LIMIT_REACHED`. A pending
+ * or awake wake carries no reason.
  *
  * A pending wake that cannot be placed yet, for a cause that can clear with no
  * change by the caller, carries `waitingFor`. It is spelled as the `reason`

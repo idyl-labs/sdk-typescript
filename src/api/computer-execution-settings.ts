@@ -45,6 +45,8 @@ export const COMPUTER_EXECUTION_SETTINGS_CHANGED_IMAGE = "image";
  * moves between `secure-container` and `vm`.
  */
 export const COMPUTER_EXECUTION_SETTINGS_CHANGED_ISOLATION = "isolation";
+/** The changed path of a change of the tier. */
+export const COMPUTER_EXECUTION_SETTINGS_CHANGED_TIER = "tier";
 /** The changed path of a change of the CPU limit. */
 export const COMPUTER_EXECUTION_SETTINGS_CHANGED_CPU = "cpu";
 /** The changed path of a change of the memory limit. */
@@ -161,8 +163,9 @@ export interface ComputerExecutionSettingsChange {
   readonly revision: Integer;
   /**
    * What a change of the settings changed against the settings before it,
-   * each path once: `image`, `cpu`, `memory`, `network`, or `variables.`
-   * and a variable's name. The first change, recorded when the Computer is
+   * each path once: `image`, `isolation`, `tier`, `cpu`, `memory`,
+   * `network`, `shell`, `identity`, `variables.` and a variable's name, or
+   * `secrets.` and an attachment's variable. The first change, recorded when the Computer is
    * created, is made against IDYL's defaults. Empty for an image patch.
    * Always written.
    */
@@ -323,6 +326,7 @@ function validateChangedPath(path: string): void {
   switch (path) {
     case COMPUTER_EXECUTION_SETTINGS_CHANGED_IMAGE:
     case COMPUTER_EXECUTION_SETTINGS_CHANGED_ISOLATION:
+    case COMPUTER_EXECUTION_SETTINGS_CHANGED_TIER:
     case COMPUTER_EXECUTION_SETTINGS_CHANGED_CPU:
     case COMPUTER_EXECUTION_SETTINGS_CHANGED_MEMORY:
     case COMPUTER_EXECUTION_SETTINGS_CHANGED_NETWORK:
