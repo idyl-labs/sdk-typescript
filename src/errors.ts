@@ -47,6 +47,7 @@ import {
   ERROR_CODE_OUT_OF_USAGE,
   ERROR_CODE_SIZE_NOT_IN_PLAN,
   ERROR_CODE_SPEND_CAP_REACHED,
+  ERROR_CODE_TIER_NOT_IN_PLAN,
   SIZE_BELOW_USAGE_DETAIL_COMPUTER_SIZE,
   SIZE_BELOW_USAGE_DETAIL_SIZE_BYTES,
   SIZE_BELOW_USAGE_DETAIL_USED_BYTES,
@@ -56,6 +57,10 @@ import {
   SIZE_NOT_IN_PLAN_DETAIL_SIZE,
   SPEND_CAP_REACHED_DETAIL_BOUGHT,
   SPEND_CAP_REACHED_DETAIL_SPEND_CAP,
+  TIER_NOT_IN_PLAN_DETAIL_HIGHEST_TIER,
+  TIER_NOT_IN_PLAN_DETAIL_PLAN,
+  TIER_NOT_IN_PLAN_DETAIL_PLAN_NAME,
+  TIER_NOT_IN_PLAN_DETAIL_TIER,
 } from "./api/billing-errors.js";
 import { ERROR_CODE_SIZE_BELOW_USAGE } from "./api/storage-errors.js";
 
@@ -103,7 +108,8 @@ export class ApiError extends Error {
   declare readonly detail?: string;
   /**
    * Structured context, where the code documents one; {@link sizeNotInPlan},
-   * {@link sizeBelowUsage} and {@link spendCapReached} are its readers.
+   * {@link tierNotInPlan}, {@link sizeBelowUsage} and
+   * {@link spendCapReached} are its readers.
    */
   declare readonly details?: JsonObject;
   /** The server's request identifier, when it returned one. */
@@ -285,6 +291,24 @@ export interface SizeNotInPlanDetails {
 }
 
 /**
+ * The details of a `TIER_NOT_IN_PLAN` refusal. A key the refusal does not
+ * carry, or carries in another form, reads as the empty string.
+ */
+export interface TierNotInPlanDetails {
+  /** The tier refused: `economy`, `standard` or `performance`. */
+  readonly tier: string;
+  /** The highest tier the Account's plan may name, such as `standard`. */
+  readonly highestTier: string;
+  /**
+   * The smallest plan that may name `tier`; the empty string when no plan
+   * may.
+   */
+  readonly plan: BillingPlan;
+  /** That plan's name for display, such as "Max"; the empty string when no plan may name `tier`. */
+  readonly planName: string;
+}
+
+/**
  * The details of a `SIZE_BELOW_USAGE` refusal. A key the refusal does not
  * carry, or carries in another form, reads as zero or the empty string.
  */
@@ -350,6 +374,30 @@ export function sizeNotInPlan(
     largestSize: detailString(details, SIZE_NOT_IN_PLAN_DETAIL_LARGEST_SIZE),
     plan: detailString(details, SIZE_NOT_IN_PLAN_DETAIL_PLAN),
     planName: detailString(details, SIZE_NOT_IN_PLAN_DETAIL_PLAN_NAME),
+  });
+}
+
+/**
+ * The details of `error` when it is the refusal of a Computer's tier as
+ * above the highest tier its Account's plan may name, an {@link ApiError}
+ * carrying `ERROR_CODE_TIER_NOT_IN_PLAN`: the tier refused, the plan's
+ * highest tier, and the smallest plan that may name the tier. `undefined`
+ * for any other error. The details are read as {@link sizeNotInPlan} reads
+ * its own: a key the details do not name is ignored, and a key the error
+ * does not carry, or carries in another form, reads as the empty string.
+ *
+ * @param error any value a `catch` receives
+ */
+export function tierNotInPlan(
+  error: unknown,
+): TierNotInPlanDetails | undefined {
+  if (!isApiCode(error, ERROR_CODE_TIER_NOT_IN_PLAN)) return undefined;
+  const details = error.details;
+  return Object.freeze({
+    tier: detailString(details, TIER_NOT_IN_PLAN_DETAIL_TIER),
+    highestTier: detailString(details, TIER_NOT_IN_PLAN_DETAIL_HIGHEST_TIER),
+    plan: detailString(details, TIER_NOT_IN_PLAN_DETAIL_PLAN),
+    planName: detailString(details, TIER_NOT_IN_PLAN_DETAIL_PLAN_NAME),
   });
 }
 

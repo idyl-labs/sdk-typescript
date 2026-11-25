@@ -56,5 +56,15 @@
       "boughtMicros": 90000000,
       "spendCapMicros": 100000000
     }
+  },
+  "tierNotInPlan": {
+    "error": "the tier performance is not in this Account's plan, whose highest tier is standard: choose another tier or best-available, or upgrade to Max, which includes it",
+    "code": "TIER_NOT_IN_PLAN",
+    "details": {
+      "highestTier": "standard",
+      "plan": "max",
+      "planName": "Max",
+      "tier": "performance"
+    }
   }
 }

@@ -58,6 +58,17 @@ export interface ComputerSettingsOptions {
    */
   readonly isolation?: "secure-container" | "vm";
   /**
+   * The tier of machine it runs on: `economy`, `standard` or `performance`,
+   * which it runs on alone, or `best-available` (the default), the first of
+   * the Account's plan's tiers with room, chosen again at each start. A
+   * named tier above the highest the plan may name is refused with
+   * `ERROR_CODE_TIER_NOT_IN_PLAN`, which `tierNotInPlan` reads, and one no
+   * machine where the Computer lives serves with
+   * `ERROR_CODE_COMPUTER_DOES_NOT_FIT`. A `best-available` Computer is never
+   * refused for its plan. An `update` can change it later.
+   */
+  readonly tier?: "economy" | "standard" | "performance" | "best-available";
+  /**
    * The size by name, such as `small`, which sets its CPU, memory and disk.
    * `idyl.computers.sizes()` lists the sizes. It is never stated with `cpu` or
    * `memory`.
@@ -144,6 +155,12 @@ export interface UpdateComputerOptions extends CallOptions {
    */
   readonly isolation?: "secure-container" | "vm";
   /**
+   * The tier of machine it runs on, as on create, from its next start. A
+   * `best-available` Computer may run on another tier at each start;
+   * `awake.tier` names the tier it runs on.
+   */
+  readonly tier?: "economy" | "standard" | "performance" | "best-available";
+  /**
    * The size by name, as on create, which replaces the CPU and memory
    * together; never stated with `cpu` or `memory`.
    */
@@ -207,6 +224,7 @@ export function settingsRequest(
     ...field("cpu", options.cpu, (cpu) => decodeCpu(text(cpu))),
     ...field("memory", options.memory, (memory) => decodeMemory(text(memory))),
     ...field("isolation", options.isolation, text),
+    ...field("tier", options.tier, text),
     ...networkField(options.network, options.allow),
     ...(options.env === undefined
       ? {}
@@ -248,6 +266,7 @@ export function updateRequest(
     ...field("name", options.name, text),
     ...field("image", options.image, image),
     ...field("isolation", options.isolation, text),
+    ...field("tier", options.tier, text),
     ...field("size", options.size, text),
     ...nullable("cpu", options.cpu, (cpu) => decodeCpu(text(cpu))),
     ...nullable("memory", options.memory, (memory) =>

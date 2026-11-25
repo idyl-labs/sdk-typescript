@@ -138,8 +138,10 @@ export interface ComputerInfo {
    */
   readonly effectiveSettings?: ExecutionSettings;
   /**
-   * Whether it is still running on earlier settings, which it leaves once
-   * the commands running on them end.
+   * Whether it is still running on earlier settings, which it leaves at its
+   * next start: once the commands running on them end, once its save before
+   * sleeping settles, or, for a Computer that saves only when asked, once it
+   * next sleeps.
    */
   readonly settingsPending: boolean;
   /**
@@ -151,7 +153,7 @@ export interface ComputerInfo {
   readonly shells?: readonly ImageShell[];
   /**
    * The largest size it can run at when it was read: the largest size that fits
-   * a machine ready for the Computer. A create or a change at a larger size is
+   * a machine of its tiers ready for the Computer. A create or a change at a larger size is
    * refused with `COMPUTER_DOES_NOT_FIT`; every size up to it is accepted.
    * Absent while no machine is ready for the Computer, or when IDYL reports no
    * value.
@@ -558,7 +560,8 @@ export class Computer {
    * @throws {@link TypeError} the update states nothing or a field is
    * invalid, naming the field, before any request is sent
    * @throws {@link ApiError} IDYL refuses the update, such as for a name
-   * another Computer holds or a size the plan does not include
+   * another Computer holds, a size the plan does not include, or a tier
+   * above the highest the plan may name (`ERROR_CODE_TIER_NOT_IN_PLAN`)
    * @throws {@link TransportError} the request does not complete, or the
    * answer names another Account or Namespace
    */
@@ -1498,8 +1501,8 @@ export interface Computers {
    * @throws {@link TypeError} an option is invalid, naming the field, before
    * any request is sent
    * @throws {@link ApiError} IDYL refuses the create, such as for a name
-   * another Computer holds, or with `ERROR_CODE_IMAGE_NOT_IN_CATALOG` or
-   * `ERROR_CODE_SIZE_NOT_IN_PLAN`
+   * another Computer holds, or with `ERROR_CODE_IMAGE_NOT_IN_CATALOG`,
+   * `ERROR_CODE_SIZE_NOT_IN_PLAN` or `ERROR_CODE_TIER_NOT_IN_PLAN`
    * @throws {@link TransportError} the request does not complete, or the
    * answer names another Account or Namespace
    */

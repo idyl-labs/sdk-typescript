@@ -95,6 +95,9 @@ export type ComputerCellState =
  * - `size-not-in-plan`: the Computer runs at a size larger than its
  *   Account's plan includes, as session reason `SIZE_NOT_IN_PLAN`
  *   describes.
+ * - `tier-not-in-plan`: the Computer names a tier above the highest its
+ *   Account's plan may name, as session reason `TIER_NOT_IN_PLAN`
+ *   describes.
  * - `vcpu-limit-reached`: the wake would take the vCPU of the Account's awake
  *   Computers past what its plan allows at once, as session reason
  *   `VCPU_LIMIT_REACHED` describes.
@@ -124,6 +127,7 @@ export type ComputerCellErrorReason =
   | "out-of-usage"
   | "isolation-class-not-admitted"
   | "size-not-in-plan"
+  | "tier-not-in-plan"
   | "vcpu-limit-reached"
   | "attach-timeout"
   | "cancelled"
@@ -253,6 +257,7 @@ export const validateComputerCellErrorReason: (
   "out-of-usage",
   "isolation-class-not-admitted",
   "size-not-in-plan",
+  "tier-not-in-plan",
   "vcpu-limit-reached",
   "attach-timeout",
   "cancelled",

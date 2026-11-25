@@ -220,6 +220,30 @@ if (first.continue !== undefined) {
 `computer.files.list(path, { limit })` and `computer.files.listPage(path)`
 page a directory the same way.
 
+### Tiers
+
+A Computer runs on machines of one tier, `economy`, `standard` or
+`performance`, or on `best-available`, the default: the first of the
+plan's tiers with room, chosen again at each start. A tier above the
+highest the plan may name is refused with `ERROR_CODE_TIER_NOT_IN_PLAN`,
+and `tierNotInPlan` reads the refusal's details:
+
+```ts
+import { tierNotInPlan } from "@idyl-sh/sdk";
+
+try {
+  await idyl.computers.create({ name: "render", tier: "performance" });
+} catch (error) {
+  const refused = tierNotInPlan(error);
+  if (refused === undefined) throw error;
+  console.error(`the plan's highest tier is ${refused.highestTier}`);
+}
+```
+
+`computer.update({ tier })` changes the tier from the Computer's next
+start, and `computer.snapshot.awake?.tier` names the tier an awake
+Computer runs on.
+
 ### More
 
 Every export is documented in its type declarations. The client also covers
