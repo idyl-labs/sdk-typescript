@@ -14,8 +14,8 @@ import {
   type Shape,
 } from "../internal/strictdecode.js";
 import {
-  validateNodeTier,
-  type NodeTier,
+  validateMachineTier,
+  type MachineTier,
 } from "../resource/computer-execution-settings.js";
 import { parseJson } from "../resource/json.js";
 import type { Integer } from "../resource/json.js";
@@ -111,12 +111,12 @@ export interface ComputerAwake {
   /** When the Computer's current execution started, as an RFC 3339 instant. */
   readonly since: string;
   /**
-   * The tier of the Node the current execution runs on: `economy`,
+   * The tier of the machine the current execution runs on: `economy`,
    * `standard` or `performance`. A Computer set to `best-available` can run
    * on another tier at each start, and this says which it took. Absent while
-   * the Node states no tier.
+   * the machine states no tier.
    */
-  readonly tier?: NodeTier;
+  readonly tier?: MachineTier;
   /**
    * What is keeping the Computer awake now, each kind at most once. Always
    * written, empty when the Computer is counting down.
@@ -143,7 +143,7 @@ const computerAwakeHoldShape: Shape<ComputerAwakeHold> =
 /** The wire shape of {@link ComputerAwake}. */
 export const computerAwakeShape: Shape<ComputerAwake> = object<ComputerAwake>({
   since: always(timestampShape),
-  tier: omitEmpty(string<NodeTier>()),
+  tier: omitEmpty(string<MachineTier>()),
   holds: always(array(computerAwakeHoldShape)),
   sleepsAt: pointer(timestampShape),
   sleepsIn: pointer(integer({ unsigned: false, bits: 64 })),
@@ -161,13 +161,13 @@ export function decodeComputerAwake(document: unknown): ComputerAwake {
 
 /**
  * Judges the value against this SDK's contract: a start time, holds that are
- * valid and name each kind once, a tier, when stated, that `validateNodeTier`
+ * valid and name each kind once, a tier, when stated, that `validateMachineTier`
  * admits, and a sleep time stated whole. Throws a `TypeError`.
  */
 export function validateComputerAwake(awake: ComputerAwake): void {
   if (isZeroInstant(awake.since)) throw new TypeError("since is required");
   const tier = awake.tier ?? "";
-  if (tier !== "") validateNodeTier(tier);
+  if (tier !== "") validateMachineTier(tier);
   const seen = new Set<string>();
   awake.holds.forEach((hold, index) => {
     prefixed(`holds[${String(index)}]`, () => {

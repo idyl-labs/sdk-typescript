@@ -176,12 +176,12 @@ export const SIZE_NOT_IN_PLAN_DETAIL_PLAN = "plan";
  */
 export const SIZE_NOT_IN_PLAN_DETAIL_PLAN_NAME = "planName";
 
-/** The details key of a `TIER_NOT_IN_PLAN` refusal naming the tier refused, a `NodeTier` string. */
+/** The details key of a `TIER_NOT_IN_PLAN` refusal naming the tier refused, a `MachineTier` string. */
 export const TIER_NOT_IN_PLAN_DETAIL_TIER = "tier";
 
 /**
  * The details key of a `TIER_NOT_IN_PLAN` refusal naming the highest tier
- * the Account's plan may name, a `NodeTier` string.
+ * the Account's plan may name, a `MachineTier` string.
  */
 export const TIER_NOT_IN_PLAN_DETAIL_HIGHEST_TIER = "highestTier";
 

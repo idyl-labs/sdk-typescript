@@ -24,7 +24,7 @@ import {
   computerExecutionSettingsShape,
   validateComputerExecutionSettings,
   validateComputerTier,
-  validateNodeTier,
+  validateMachineTier,
 } from "../src/resource/computer-execution-settings.js";
 import { decodeText } from "../src/internal/strictdecode.js";
 import { StrictDecodeError } from "../src/resource/decode-error.js";
@@ -55,13 +55,13 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
 }
 
 describe("tiers", () => {
-  // Contract: a Node tier is one of three and a Computer's tier one of those
+  // Contract: a machine tier is one of three and a Computer's tier one of those
   // or best-available; the empty string is reported as missing, and any
   // other token is refused with the rule.
   it("judge the tier vocabularies", () => {
     for (const tier of ["economy", "standard", "performance"]) {
       expect(() => {
-        validateNodeTier(tier);
+        validateMachineTier(tier);
       }).not.toThrow();
       expect(() => {
         validateComputerTier(tier);
@@ -72,7 +72,7 @@ describe("tiers", () => {
     }).not.toThrow();
     expect(
       refusal(() => {
-        validateNodeTier("best-available");
+        validateMachineTier("best-available");
       }).message,
     ).toBe("tier must be economy, standard or performance");
     expect(
@@ -82,7 +82,7 @@ describe("tiers", () => {
     ).toBe("tier must be economy, standard, performance or best-available");
     expect(
       refusal(() => {
-        validateNodeTier("");
+        validateMachineTier("");
       }).message,
     ).toBe("tier is required");
     expect(
@@ -170,7 +170,7 @@ describe("tiers", () => {
   });
 
   // Contract: a read carries the tier setting the next start uses and the
-  // tier of the Node a running Computer is on, a newer tier included, and
+  // tier of the machine a running Computer is on, a newer tier included, and
   // writes both back as read.
   it("are read from a Computer", () => {
     const read = decodeComputer({

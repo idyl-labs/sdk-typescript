@@ -138,7 +138,7 @@ export interface ComputerExecutionSettings {
    */
   readonly isolation?: ComputerIsolationClass;
   /**
-   * The tier of Node the computer runs on: one tier by name, `economy`,
+   * The tier of machine the computer runs on: one tier by name, `economy`,
    * `standard` or `performance`, which the computer runs on alone, or
    * `best-available`, the first of its Account's plan's tiers, in the plan's
    * order, with room at each start. A named tier must be one the Account's
@@ -303,24 +303,24 @@ export type ComputerIsolationClass =
   "secure-container" | "vm" | (string & Record<never, never>);
 
 /**
- * The tier of a Node: how fast a machine is offered as being, on one scale
- * of three, `economy` below `standard` below `performance`. A Node states
- * exactly one, and a Computer that names a tier runs only on a Node of that
+ * The tier of a machine: how fast a machine is offered as being, on one scale
+ * of three, `economy` below `standard` below `performance`. A machine states
+ * exactly one, and a Computer that names a tier runs only on a machine of that
  * tier. A tier names a class of service, never a model of hardware.
  *
  * The union is open: a token the platform reports that this SDK does not
- * know is carried as a string, and {@link validateNodeTier} judges
+ * know is carried as a string, and {@link validateMachineTier} judges
  * membership.
  */
-export type NodeTier =
+export type MachineTier =
   "economy" | "standard" | "performance" | (string & Record<never, never>);
 
 /**
- * The tier a Computer asks to run on: one of the three {@link NodeTier}s by
+ * The tier a Computer asks to run on: one of the three {@link MachineTier}s by
  * name, which the Computer runs on alone, or `best-available`, the first of
  * its Account's plan's tiers, in the order the plan states, that has room,
  * chosen again at each start. A Computer that names a tier waits for room
- * on a Node of that tier when every such Node is full, and its wake is then
+ * on a machine of that tier when every such machine is full, and its wake is then
  * refused, as a wake that finds no room is. A `best-available` wake is
  * refused for want of room only when none of its plan's tiers has any, and
  * never for its plan.
@@ -340,7 +340,7 @@ export type ComputerTier =
  * Judges that the tier is one of the three this SDK names. The empty string
  * is reported as missing. Throws a `TypeError`.
  */
-export function validateNodeTier(tier: NodeTier): void {
+export function validateMachineTier(tier: MachineTier): void {
   switch (tier) {
     case "economy":
     case "standard":
@@ -354,7 +354,7 @@ export function validateNodeTier(tier: NodeTier): void {
 }
 
 /**
- * Judges that the tier is one this SDK names: a Node tier or
+ * Judges that the tier is one this SDK names: a machine tier or
  * `best-available`. The empty string is reported as missing. Throws a
  * `TypeError`.
  */
