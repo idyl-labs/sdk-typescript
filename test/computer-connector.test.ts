@@ -963,9 +963,10 @@ describe("a pending answer without its endpoint", () => {
     vi.useRealTimers();
   });
 
-  // Contract: a lane to a Computer's machine that ends after it was ready
-  // is forgotten with the Computer connections on it, so the next session
-  // there opens a lane of its own instead of asking for the ended one.
+  // Contract: a lane to a Computer's machine that ends after becoming ready
+  // is forgotten, with the Computer connections on that lane, so the next
+  // session on that machine opens another lane instead of asking for the
+  // ended lane.
   it("opens a new lane once the lane to the Computer's machine has ended", async () => {
     const h = await harness();
     const before = await h.connector.open(COMPUTER, {

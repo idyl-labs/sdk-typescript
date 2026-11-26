@@ -1565,9 +1565,9 @@ class Connector implements ComputerConnector {
             `the lane to the Computer's machine ended: ${outcome.reason}`,
           );
         }
-        // A lane that ends after it was ready is forgotten, so the next
-        // connection to its machine opens a lane of its own. The Worker
-        // ends the lane's Computer connections with it.
+        // A lane that ends after becoming ready is forgotten, so the next
+        // connection to the lane's machine opens another lane. The Worker
+        // ends the Computer connections on a lane when the lane ends.
         const gone = (m: WorkerToPage): boolean =>
           onDock(m, dock) &&
           (m.type === "dock-ended" ||
