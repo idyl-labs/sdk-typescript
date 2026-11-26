@@ -109,8 +109,9 @@ export function validateComputerSize(size: ComputerSize): void {
 
 /**
  * The execution settings of a Computer: its OS image, its isolation class,
- * its tier, its CPU and memory, its network, its environment variables, its
- * attached Secrets, its workload identity, and its default shell. A create
+ * its tier, its CPU allocation policy, its CPU and memory, its network, its
+ * environment variables, its attached Secrets, its workload identity, and
+ * its default shell. A create
  * states the whole document, and a field it leaves out takes IDYL's
  * default. An update changes the
  * settings field by field, as `UpdateComputerRequest` describes: a field it
@@ -147,6 +148,16 @@ export interface ComputerExecutionSettings {
    * computer starts. See {@link ComputerTier}.
    */
   readonly tier?: ComputerTier;
+  /**
+   * How the computer's vCPUs are arranged on the machine's physical cores:
+   * `full-cores`, whole cores no other computer uses, or `spread-cores`,
+   * each vCPU on a different core where the machine has room, with threads that
+   * stay the computer's own while other `spread-cores` computers may use the
+   * threads beside them. `undefined` runs the computer under `full-cores`.
+   * A change applies at the computer's next start. See
+   * {@link ComputerCpuAllocationPolicy}.
+   */
+  readonly cpuAllocationPolicy?: ComputerCpuAllocationPolicy;
   /**
    * The OS image: an IDYL image by catalog name, or an image of the user's
    * own. It is chosen when the Computer is created; a create that states
@@ -375,6 +386,52 @@ export function validateComputerTier(tier: ComputerTier): void {
 }
 
 /**
+ * How a Computer's vCPUs are arranged on the machine's physical cores, and who
+ * may use the hardware threads beside them. Under every policy one vCPU is
+ * one hardware thread that the Computer alone runs on: no thread is
+ * time-shared, and the policy changes neither the Computer's size nor its
+ * price.
+ *
+ * - `full-cores`, the policy of a Computer that states none, runs the
+ *   Computer on whole physical cores that no other Computer uses. A vCPU
+ *   count that does not fill its last core leaves that core's other threads
+ *   idle. The machine never moves such a Computer to other cores while it runs.
+ * - `spread-cores` places each vCPU on a different physical core where the
+ *   machine has room, and on any free thread otherwise. The Computer's threads
+ *   are its own, but other `spread-cores` Computers may run on the threads
+ *   beside them, so the Computer does not have physical cores to itself and
+ *   its speed varies with what those Computers do. The machine may move the
+ *   Computer's threads to other cores while it runs, keeping their number.
+ *
+ * The union is open: a token the platform reports that this SDK does not
+ * know is carried as a string, and
+ * {@link validateComputerCpuAllocationPolicy} judges membership.
+ */
+export type ComputerCpuAllocationPolicy =
+  "full-cores" | "spread-cores" | (string & Record<never, never>);
+
+/**
+ * Judges that the CPU allocation policy is one this SDK names: `full-cores`
+ * or `spread-cores`. The empty string is reported as missing. Throws a
+ * `TypeError`.
+ */
+export function validateComputerCpuAllocationPolicy(
+  policy: ComputerCpuAllocationPolicy,
+): void {
+  switch (policy) {
+    case "full-cores":
+    case "spread-cores":
+      return;
+    case "":
+      throw new TypeError("cpuAllocationPolicy is required");
+    default:
+      throw new TypeError(
+        "cpuAllocationPolicy must be full-cores or spread-cores",
+      );
+  }
+}
+
+/**
  * A shell an image holds, as the image's `/etc/shells` lists it and a
  * terminal offers it.
  */
@@ -512,6 +569,7 @@ export const computerExecutionSettingsShape: Shape<ComputerExecutionSettings> =
     image: pointer(computerExecutionSettingsImageShape),
     isolation: omitEmpty(string<ComputerIsolationClass>()),
     tier: omitEmpty(string<ComputerTier>()),
+    cpuAllocationPolicy: omitEmpty(string<ComputerCpuAllocationPolicy>()),
     size: omitEmpty(string()),
     cpu: omitZero(cpuQuantityShape),
     memory: omitZero(memoryQuantityShape),
@@ -554,6 +612,8 @@ const NANOCPUS_PER_MILLICORE = 1_000_000n;
  *   admits;
  * - the isolation class, when stated, is `secure-container` or `vm`;
  * - the tier, when stated, is one {@link validateComputerTier} admits;
+ * - the CPU allocation policy, when stated, is one
+ *   {@link validateComputerCpuAllocationPolicy} admits;
  * - the CPU and memory limits, when stated, are representable as a
  *   Micropod's limits are (CPU in 64-bit signed nanoCPUs, memory in 64-bit
  *   unsigned bytes);
@@ -604,6 +664,17 @@ export function validateComputerExecutionSettings(
       throw new ComputerExecutionSettingsError(
         "execution.tier",
         errorMessage(cause).replace(/^tier /u, ""),
+      );
+    }
+  }
+  const cpuAllocationPolicy = computer.cpuAllocationPolicy ?? "";
+  if (cpuAllocationPolicy !== "") {
+    try {
+      validateComputerCpuAllocationPolicy(cpuAllocationPolicy);
+    } catch (cause) {
+      throw new ComputerExecutionSettingsError(
+        "execution.cpuAllocationPolicy",
+        errorMessage(cause).replace(/^cpuAllocationPolicy /u, ""),
       );
     }
   }

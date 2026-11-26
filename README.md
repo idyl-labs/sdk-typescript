@@ -244,6 +244,32 @@ try {
 start, and `computer.snapshot.awake?.tier` names the tier an awake
 Computer runs on.
 
+### CPU allocation policies
+
+A Computer's size states how many vCPUs it gets; its CPU allocation policy
+states how they are arranged on the machine's physical cores. One vCPU is one
+hardware thread under either policy, and the policy changes neither the
+size nor the price.
+
+- `full-cores`, the default, runs the Computer on whole physical cores no
+  other Computer uses.
+- `spread-cores` places each vCPU on a different core where the machine has
+  room. The Computer's threads stay its own, but other `spread-cores`
+  Computers may use the threads beside them, and the machine may move its
+  threads to other cores while it runs. It is a best-effort spread, not
+  exclusive physical cores.
+
+```ts
+await idyl.computers.create({
+  name: "build",
+  size: "medium",
+  cpuAllocationPolicy: "spread-cores",
+});
+```
+
+`computer.update({ cpuAllocationPolicy })` changes the policy from the
+Computer's next start.
+
 ### More
 
 Every export is documented in its type declarations. The client also covers

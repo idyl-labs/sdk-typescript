@@ -9,6 +9,7 @@
       },
       "isolation": "microvm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -58,6 +59,7 @@
       },
       "isolation": "machine",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -107,6 +109,57 @@
       },
       "isolation": "vm",
       "tier": "frontier",
+      "cpuAllocationPolicy": "spread-cores",
+      "cpu": "2",
+      "memory": "4Gi",
+      "network": {
+        "class": "restricted-egress",
+        "egress": {
+          "allow": [
+            "dns",
+            "tcp:443:pypi.example.com"
+          ],
+          "denyLocalNetworks": true
+        }
+      },
+      "variables": [
+        {
+          "name": "LOG_LEVEL",
+          "value": "debug"
+        },
+        {
+          "name": "EMPTY",
+          "value": ""
+        }
+      ],
+      "secrets": [
+        {
+          "env": "GITHUB_TOKEN",
+          "secret": {
+            "id": "01954e20-7540-7ec4-93ec-14f783e6ab1a",
+            "version": 3
+          }
+        }
+      ],
+      "identity": {
+        "aws": {
+          "roleArn": "arn:aws:iam::123456789012:role/ci/push"
+        }
+      },
+      "shell": "/usr/bin/zsh"
+    }
+  },
+  {
+    "case": "an unknown CPU allocation policy",
+    "field": "execution.cpuAllocationPolicy",
+    "refusal": "execution.cpuAllocationPolicy: must be full-cores or spread-cores",
+    "value": {
+      "image": {
+        "idyl": "python-3.12-ubuntu-24.04"
+      },
+      "isolation": "vm",
+      "tier": "performance",
+      "cpuAllocationPolicy": "dedicated",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -157,6 +210,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -204,6 +258,7 @@
       "image": {},
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -253,6 +308,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -302,6 +358,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -351,6 +408,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "size": "Small",
       "cpu": "2",
       "memory": "4Gi",
@@ -401,6 +459,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "size": "small",
       "cpu": "2",
       "memory": "4Gi",
@@ -451,6 +510,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -493,6 +553,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -542,6 +603,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -592,6 +654,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -673,6 +736,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -722,6 +786,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -771,6 +836,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -820,6 +886,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -869,6 +936,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -918,6 +986,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -967,6 +1036,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1016,6 +1086,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1065,6 +1136,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1114,6 +1186,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1163,6 +1236,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1212,6 +1286,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1261,6 +1336,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1316,6 +1392,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1366,6 +1443,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1412,6 +1490,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1461,6 +1540,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1510,6 +1590,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1559,6 +1640,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
@@ -1604,6 +1686,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
+      "cpuAllocationPolicy": "spread-cores",
       "cpu": "2",
       "memory": "4Gi",
       "network": {

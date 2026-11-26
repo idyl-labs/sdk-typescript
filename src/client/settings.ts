@@ -69,6 +69,22 @@ export interface ComputerSettingsOptions {
    */
   readonly tier?: "economy" | "standard" | "performance" | "best-available";
   /**
+   * How its vCPUs are arranged on the machine's physical cores. One vCPU is one
+   * hardware thread under either policy, and neither changes the size or
+   * the price.
+   *
+   * - `full-cores` (the default) runs it on whole physical cores no other
+   *   Computer uses.
+   * - `spread-cores` places each vCPU on a different core where the machine has
+   *   room. Its threads stay its own, but other `spread-cores` Computers may
+   *   use the threads beside them, and the machine may move its threads to
+   *   other cores while it runs. It is a best-effort spread, not exclusive
+   *   physical cores.
+   *
+   * An `update` can change it later.
+   */
+  readonly cpuAllocationPolicy?: "full-cores" | "spread-cores";
+  /**
    * The size by name, such as `small`, which sets its CPU, memory and disk.
    * `idyl.computers.sizes()` lists the sizes. It is never stated with `cpu` or
    * `memory`.
@@ -161,6 +177,11 @@ export interface UpdateComputerOptions extends CallOptions {
    */
   readonly tier?: "economy" | "standard" | "performance" | "best-available";
   /**
+   * How its vCPUs are arranged on the machine's physical cores, `full-cores` or
+   * `spread-cores`, as on create, from its next start.
+   */
+  readonly cpuAllocationPolicy?: "full-cores" | "spread-cores";
+  /**
    * The size by name, as on create, which replaces the CPU and memory
    * together; never stated with `cpu` or `memory`.
    */
@@ -225,6 +246,7 @@ export function settingsRequest(
     ...field("memory", options.memory, (memory) => decodeMemory(text(memory))),
     ...field("isolation", options.isolation, text),
     ...field("tier", options.tier, text),
+    ...field("cpuAllocationPolicy", options.cpuAllocationPolicy, text),
     ...networkField(options.network, options.allow),
     ...(options.env === undefined
       ? {}
@@ -267,6 +289,7 @@ export function updateRequest(
     ...field("image", options.image, image),
     ...field("isolation", options.isolation, text),
     ...field("tier", options.tier, text),
+    ...field("cpuAllocationPolicy", options.cpuAllocationPolicy, text),
     ...field("size", options.size, text),
     ...nullable("cpu", options.cpu, (cpu) => decodeCpu(text(cpu))),
     ...nullable("memory", options.memory, (memory) =>

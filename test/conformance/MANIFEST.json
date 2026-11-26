@@ -1,5 +1,5 @@
 {
-  "revision": "a0665f29541b208027b967336f6b79533938eacf",
+  "revision": "3e5e7b2a6fc5e7bf1decd3c64f1d08264895430a",
   "files": {
     "api/testdata/golden/billing-plan-change.applied.json": "da96b96a19647c6b98ccd1a217724bb1a4623efc1cb59dca25d035637b3f4da8",
     "api/testdata/golden/billing-plan-change.create-response.json": "aa1d4e99b24cc892925dbbfb11669689250503e751d890eed33ce02b49747785",
@@ -183,7 +183,7 @@
     "api/testdata/golden/vault-secret-usage.json": "14386b74c987501511f8575fc29bc909686202bc18107f8a781b17d5e9c26e1e",
     "api/testdata/golden/version.full.json": "bb0a2ccb8d14c4b7aca6b9e9f865878f1c9bcbc62b43bd8579af7d2a5709395c",
     "api/testdata/golden/version.minimal.json": "2c41fe5d4708281fb90508e8a4faccd02f030fc1cc561e57db549545a36f3f3e",
-    "resource/testdata/golden/computer.execution-refusals.json": "672c1aba35d3470e4bd7bca08d1613ef18d614dec33b99180ccd3d246b1ba110",
+    "resource/testdata/golden/computer.execution-refusals.json": "a646c98522c266de5a83812cde43bbe94684c2297dbe88dbdffae166691c8e42",
     "resource/testdata/golden/micropod.network-refusals.json": "57dd4dc276884c7ca3ac6cb5b85cb201bd32c94f4777ddc05ccff63aff851c47",
     "resource/testdata/golden/redactedsecret.egress-authorization-token.json": "dce40e01cc6a787bf0b62f625f409aa7fc24f425f474c4906d5afa9b88276e8c",
     "resource/testdata/golden/redactedsecret.egress-githubapp.json": "632d07384bc92c2d5d2674618f12a5a4238c70521a7cabe4afc6fc1b1dd3126b",
