@@ -159,7 +159,7 @@
       },
       "isolation": "vm",
       "tier": "performance",
-      "cpuAllocationPolicy": "dedicated",
+      "cpuAllocationPolicy": "no-such-policy",
       "cpu": "2",
       "memory": "4Gi",
       "network": {
