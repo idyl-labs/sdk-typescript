@@ -140,6 +140,11 @@ class FakeWorker implements WorkerPort {
    * open unanswered.
    */
   answerOpen: unknown = { type: "opened", session: "s-1" };
+  /** The lanes opened, in order, and those the edge has ended. */
+  readonly lanes: number[] = [];
+  readonly #endedLanes = new Set<number>();
+  /** The lane each Computer connection was opened on, by handle. */
+  readonly #computersOn = new Map<number, number>();
   #listener: ((event: MessageEvent<WorkerToPage>) => void) | undefined;
   #last: { dock: number; computer: number; stream: number } | undefined;
   #handle = 1;
@@ -159,6 +164,29 @@ class FakeWorker implements WorkerPort {
   endStream(broken = false): void {
     if (this.#last === undefined) throw new Error("no stream is open");
     this.#emit({ type: "stream-ended", ...this.#last, broken });
+  }
+
+  /**
+   * Ends `lane` after it was ready, as the edge closing it does: the Worker
+   * ends the Computer connections on it, and refuses any later one there.
+   */
+  endLane(lane: number): void {
+    this.#endedLanes.add(lane);
+    this.#emit({
+      type: "lane-ended",
+      dock: this.#dock,
+      lane,
+      reason: "closed",
+    });
+    for (const [computer, on] of this.#computersOn) {
+      if (on !== lane) continue;
+      this.#emit({
+        type: "computer-ended",
+        dock: this.#dock,
+        computer,
+        reason: "transport",
+      });
+    }
   }
 
   /** Ends the current dock, as a closed WebSocket does. */
@@ -215,12 +243,18 @@ class FakeWorker implements WorkerPort {
       }
       case "open-lane": {
         const lane = this.#handle++;
+        this.lanes.push(lane);
         reply(lane);
         this.#emit({ type: "lane-ready", dock: m.dock, lane });
         return;
       }
       case "open-computer": {
+        if (this.#endedLanes.has(m.lane)) {
+          this.#emit({ type: "reply", ref: m.ref, error: "no such lane" });
+          return;
+        }
         const computer = this.#handle++;
+        this.#computersOn.set(computer, m.lane);
         reply(computer);
         const next = this.next.shift() ?? { epoch: 12 };
         if ("silent" in next) return;
@@ -927,6 +961,30 @@ async function refusal(opening: Promise<unknown>): Promise<unknown> {
 describe("a pending answer without its endpoint", () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  // Contract: a lane to a Computer's machine that ends after it was ready
+  // is forgotten with the Computer connections on it, so the next session
+  // there opens a lane of its own instead of asking for the ended one.
+  it("opens a new lane once the lane to the Computer's machine has ended", async () => {
+    const h = await harness();
+    const before = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    expect(await first(before.output, 1)).toEqual([
+      { type: "opened", session: "s-1" },
+    ]);
+    expect(h.worker.lanes).toHaveLength(1);
+    h.worker.endLane(h.worker.lanes[0] ?? 0);
+    const after = await h.connector.open(COMPUTER, {
+      mode: "shell",
+      ...TERMINAL,
+    });
+    expect(await first(after.output, 1)).toEqual([
+      { type: "opened", session: "s-1" },
+    ]);
+    expect(h.worker.lanes).toHaveLength(2);
   });
 
   // Contract: a create answered pending without the session's endpoint, as
