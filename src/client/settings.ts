@@ -70,18 +70,17 @@ export interface ComputerSettingsOptions {
   readonly tier?: "economy" | "standard" | "performance" | "best-available";
   /**
    * How its vCPUs are arranged on the machine's physical cores. One vCPU is one
-   * hardware thread under either policy, and neither changes the size or
-   * the price.
+   * hardware thread under either policy, and no two Computers share a thread.
    *
-   * - `full-cores` (the default) runs it on whole physical cores no other
-   *   Computer uses.
-   * - `spread-cores` places each vCPU on a different core where the machine has
-   *   room. Its threads stay its own, but other `spread-cores` Computers may
-   *   use the threads beside them, and the machine may move its threads to
-   *   other cores while it runs. It is a best-effort spread, not exclusive
-   *   physical cores.
+   * - `full-cores` (the default) runs the Computer on whole physical cores
+   *   that no other Computer uses, which gives the steadiest speed.
+   * - `spread-cores` places each vCPU on a different physical core where the
+   *   machine has room, which suits work that runs many threads at once.
+   *   Other `spread-cores` Computers may use the other threads of those
+   *   cores, and the machine may move the Computer's threads to other cores
+   *   while the Computer runs.
    *
-   * An `update` can change it later.
+   * An `update` can change the policy later.
    */
   readonly cpuAllocationPolicy?: "full-cores" | "spread-cores";
   /**

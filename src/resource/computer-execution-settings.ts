@@ -386,22 +386,22 @@ export function validateComputerTier(tier: ComputerTier): void {
 }
 
 /**
- * How a Computer's vCPUs are arranged on the machine's physical cores, and who
- * may use the hardware threads beside them. Under every policy one vCPU is
- * one hardware thread that the Computer alone runs on: no thread is
- * time-shared, and the policy changes neither the Computer's size nor its
- * price.
+ * How a Computer's vCPUs are arranged on the machine's physical cores, and
+ * which Computers may use the hardware threads beside them. Under every
+ * policy one vCPU is one hardware thread that the Computer alone runs on,
+ * and no thread is time-shared.
  *
  * - `full-cores`, the policy of a Computer that states none, runs the
- *   Computer on whole physical cores that no other Computer uses. A vCPU
- *   count that does not fill its last core leaves that core's other threads
- *   idle. The machine never moves such a Computer to other cores while it runs.
+ *   Computer on whole physical cores that no other Computer uses, which
+ *   gives the steadiest speed. A vCPU count that does not fill its last core
+ *   leaves that core's other threads idle. The machine never moves such a
+ *   Computer to other cores while the Computer runs.
  * - `spread-cores` places each vCPU on a different physical core where the
- *   machine has room, and on any free thread otherwise. The Computer's threads
- *   are its own, but other `spread-cores` Computers may run on the threads
- *   beside them, so the Computer does not have physical cores to itself and
- *   its speed varies with what those Computers do. The machine may move the
- *   Computer's threads to other cores while it runs, keeping their number.
+ *   machine has room, and on any free thread otherwise, which suits work
+ *   that runs many threads at once. Other `spread-cores` Computers may run
+ *   on the other threads of those cores, so Computers of this policy can
+ *   share a core. The machine may move the Computer's threads to other cores
+ *   while the Computer runs, keeping their number.
  *
  * The union is open: a token the platform reports that this SDK does not
  * know is carried as a string, and

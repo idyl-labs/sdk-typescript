@@ -246,18 +246,18 @@ Computer runs on.
 
 ### CPU allocation policies
 
-A Computer's size states how many vCPUs it gets; its CPU allocation policy
-states how they are arranged on the machine's physical cores. One vCPU is one
-hardware thread under either policy, and the policy changes neither the
-size nor the price.
+A Computer's size states how many vCPUs the Computer has. Its CPU allocation
+policy states how those vCPUs are arranged on the machine's physical cores.
+One vCPU is one hardware thread under either policy, and no two Computers
+share a thread.
 
-- `full-cores`, the default, runs the Computer on whole physical cores no
-  other Computer uses.
-- `spread-cores` places each vCPU on a different core where the machine has
-  room. The Computer's threads stay its own, but other `spread-cores`
-  Computers may use the threads beside them, and the machine may move its
-  threads to other cores while it runs. It is a best-effort spread, not
-  exclusive physical cores.
+- `full-cores`, the default, runs the Computer on whole physical cores that
+  no other Computer uses, which gives the steadiest speed.
+- `spread-cores` places each vCPU on a different physical core where the
+  machine has room, which suits work that runs many threads at once. Other
+  `spread-cores` Computers may use the other threads of those cores, and the
+  machine may move the Computer's threads to other cores while the Computer
+  runs.
 
 ```ts
 await idyl.computers.create({
