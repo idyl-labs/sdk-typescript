@@ -41,6 +41,20 @@ export interface ExecutionSettings {
    */
   readonly tier?: string;
   /**
+   * How its vCPUs are arranged on the machine's physical cores. `full-cores`
+   * runs the Computer on whole physical cores that no other Computer uses,
+   * which gives the steadiest speed. `spread-cores` places each vCPU on a
+   * different physical core where the machine has room, which suits work
+   * that runs many threads at once; other `spread-cores` Computers may use
+   * the other threads of those cores, and the machine may move the
+   * Computer's threads to other cores while the Computer runs. The settings
+   * as stated leave the policy out when they state none; the effective
+   * settings hold the policy the next start uses, `full-cores` when none is
+   * stated. A policy this package does not name is carried unchanged from
+   * IDYL's report.
+   */
+  readonly cpuAllocationPolicy?: string;
+  /**
    * The size by name, such as `small`. Settings as stated hold it or `cpu` and
    * `memory`; the effective settings hold all three, with `disk`, and leave it
    * out while the limits are no size's.
@@ -353,6 +367,12 @@ export function settingsOf(
         )
       : {}),
     ...present("tier", settings.tier === "" ? undefined : settings.tier),
+    ...present(
+      "cpuAllocationPolicy",
+      settings.cpuAllocationPolicy === ""
+        ? undefined
+        : settings.cpuAllocationPolicy,
+    ),
     ...present("shell", settings.shell === "" ? undefined : settings.shell),
   });
 }

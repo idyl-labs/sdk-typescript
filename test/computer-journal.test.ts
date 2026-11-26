@@ -380,6 +380,49 @@ describe("Computer journal", () => {
     );
   });
 
+  // Contract: a change of the CPU allocation policy is recorded under the
+  // changed path "cpuAllocationPolicy", with the policy in the settings after
+  // it; a policy this SDK does not name is carried by the read and refused by
+  // the validator.
+  it("reads a change of the CPU allocation policy", () => {
+    const full = golden("computer-journal.execution-settings-full");
+    const change = full["executionSettings"] as JsonObject;
+    const settings = change["settings"] as JsonObject;
+    const policyChange = decodeJournalEntry({
+      ...full,
+      executionSettings: {
+        ...change,
+        settings: { ...settings, cpuAllocationPolicy: "spread-cores" },
+        changed: ["cpuAllocationPolicy"],
+      },
+    });
+    expect(policyChange.executionSettings?.changed).toEqual([
+      "cpuAllocationPolicy",
+    ]);
+    expect(policyChange.executionSettings?.settings.cpuAllocationPolicy).toBe(
+      "spread-cores",
+    );
+    expect(() => {
+      validateJournalEntry(policyChange);
+    }).not.toThrow();
+    const unknown = decodeJournalEntry({
+      ...full,
+      executionSettings: {
+        ...change,
+        settings: { ...settings, cpuAllocationPolicy: "no-such-policy" },
+        changed: ["cpuAllocationPolicy"],
+      },
+    });
+    expect(unknown.executionSettings?.settings.cpuAllocationPolicy).toBe(
+      "no-such-policy",
+    );
+    expect(() => {
+      validateJournalEntry(unknown);
+    }).toThrow(
+      "execution.cpuAllocationPolicy: must be full-cores or spread-cores",
+    );
+  });
+
   // Contract: an endpoint cell's command is held by the Computer alone: the
   // Cell is judged valid with no command member, and refused with any, known
   // or not, as the reference contract holds.
