@@ -1565,6 +1565,22 @@ class Connector implements ComputerConnector {
             `the lane to the Computer's machine ended: ${outcome.reason}`,
           );
         }
+        // A lane that ends after becoming ready is forgotten, so the next
+        // connection to the lane's machine opens another lane. The Worker
+        // ends the Computer connections on a lane when the lane ends.
+        const gone = (m: WorkerToPage): boolean =>
+          onDock(m, dock) &&
+          (m.type === "dock-ended" ||
+            (m.type === "lane-ended" && m.lane === handle));
+        const forget = (): void => {
+          this.#listeners.delete(watch);
+          if (this.#lanes.get(key) === lane) this.#lanes.delete(key);
+        };
+        const watch = (m: WorkerToPage): void => {
+          if (gone(m)) forget();
+        };
+        this.#listeners.add(watch);
+        if (this.#log.some((e) => e.seq > since && gone(e.message))) forget();
         return handle;
       })();
       this.#lanes.set(key, lane);
