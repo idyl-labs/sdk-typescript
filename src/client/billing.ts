@@ -112,19 +112,31 @@ export interface AccountBillingSpec {
 }
 
 /**
- * What one awake hour of a size costs, before tax, and the size this rate
- * prices, so a page can show the size with no second request. IDYL may leave out
- * every field but `size` and `perHourMicros`.
+ * What one awake hour of a size costs, before tax, on the standard tier and on
+ * each machine tier, and the size this rate prices, so a page can show the size
+ * with no second request. IDYL may leave out every field but `size` and
+ * `perHourMicros`.
  */
 export interface BillingSizeRate {
   /** The size this rate prices. */
   readonly size: ComputerSize;
   /**
-   * The price of one hour a Computer is awake at `size`, in micro-dollars.
-   * A Computer is billed for the time it is awake at this rate: half an
-   * hour costs half the rate. Zero is a rate.
+   * The price of one hour a Computer is awake at `size` on the standard
+   * tier, in micro-dollars. A Computer is billed for the time it is awake:
+   * half an hour costs half the rate. Zero is a rate.
    */
   readonly perHourMicros: number;
+  /**
+   * The price of one hour a Computer is awake at `size` on each machine tier:
+   * `economy`, `standard` and `performance` once each, lowest first, the
+   * standard tier's equal to `perHourMicros`. A Computer that names a tier
+   * is charged that tier's rate. A `best-available` Computer is charged the
+   * rate of the tier it runs on, never more than the rate of
+   * {@link AccountBillingStatus.highestTier}, so that rate is the most an
+   * awake hour of it at `size` costs. `undefined` when IDYL states no tier
+   * rates, and then every tier is charged `perHourMicros`.
+   */
+  readonly tierRates?: readonly BillingTierRate[];
   /** The name to show a person for the size, such as `Small`. */
   readonly label?: string;
   /** The CPU limit of a Computer of the size, such as `2`. */
@@ -135,6 +147,20 @@ export interface BillingSizeRate {
   readonly disk?: string;
   /** `true` when a Computer that states no size, CPU or memory runs at the size. */
   readonly default?: boolean;
+}
+
+/** What one awake hour of a size costs on one machine tier, before tax. */
+export interface BillingTierRate {
+  /**
+   * The machine tier: `economy`, `standard` or `performance`. A tier this
+   * package does not name is carried as IDYL states it.
+   */
+  readonly tier: string;
+  /**
+   * The price of one hour a Computer is awake at the size on `tier`, in
+   * micro-dollars. Zero is a rate.
+   */
+  readonly perHourMicros: number;
 }
 
 /**
@@ -285,6 +311,16 @@ export interface AccountBillingStatus {
    */
   readonly largestSize: ComputerSize;
   /**
+   * The highest machine tier a Computer of the Account may name under the plan
+   * in force, such as `standard`; a Computer that names a higher one is
+   * refused with `ERROR_CODE_TIER_NOT_IN_PLAN`. A `best-available` Computer
+   * is charged the rate of the tier it runs on, never more than this tier's
+   * rate in {@link BillingSizeRate.tierRates}. `undefined` when the plan
+   * states no tier access, and then a Computer is charged the rate of the
+   * tier it runs on.
+   */
+  readonly highestTier?: string;
+  /**
    * The most data the Account stores across all its Computers under the
    * plan in force, saved history included, such as `400Gi`. `undefined`
    * when the plan has no such limit.
@@ -328,7 +364,8 @@ export interface AccountBillingStatus {
   readonly plans: readonly BillingPlanOffer[];
   /**
    * What an awake hour of each size costs the Account's Computers under the
-   * rate card in force: one entry per size, smallest first.
+   * rate card in force: one entry per size, smallest first, each with its
+   * rate on every machine tier when IDYL states them.
    */
   readonly sizeRates: readonly BillingSizeRate[];
   /**
@@ -877,6 +914,7 @@ async function billingOf(
       lifecycle: text(status["lifecycle"]),
       renewal: text(status["renewal"]),
       largestSize: text(status["largestSize"]),
+      ...optionalText(status, "highestTier"),
       ...quantityText(
         "storedData",
         status["storedData"] as VolumeQuantity | undefined,
@@ -928,10 +966,10 @@ async function billingOf(
 }
 
 /**
- * The rates the Account's Computers are charged. The billing read names
- * the default rates and, apart, the rates of every place the Account may
- * use whose rate card differs; only when it names any is the client's one
- * place resolved to choose among them.
+ * The rates the Account's Computers are charged, each size with its tier
+ * rates. The billing read names the default rates and, apart, the rates of
+ * every place the Account may use whose rate card differs; only when it
+ * names any is the client's one place resolved to choose among them.
  */
 async function chargedRates(
   record: AccountBillingRecord,
@@ -955,6 +993,7 @@ async function chargedRates(
     Object.freeze({
       size: text(item["size"]),
       perHourMicros: micros(item["perHourMicros"]),
+      ...tierRatesOf(item["tierRates"]),
       ...optionalText(item, "label"),
       ...quantityText("cpu", item["cpu"] as CpuQuantity | undefined, formatCpu),
       ...quantityText(
@@ -970,6 +1009,19 @@ async function chargedRates(
       ...(item["default"] === true ? { default: true } : {}),
     } satisfies BillingSizeRate),
   );
+}
+
+/** A served size's tier rates, present only when it states any. */
+function tierRatesOf(value: unknown): {
+  readonly tierRates?: readonly BillingTierRate[];
+} {
+  const tierRates = listOf(value, (item) =>
+    Object.freeze({
+      tier: text(item["tier"]),
+      perHourMicros: micros(item["perHourMicros"]),
+    } satisfies BillingTierRate),
+  );
+  return tierRates.length === 0 ? {} : { tierRates };
 }
 
 /** The public view of a served plan change. */
