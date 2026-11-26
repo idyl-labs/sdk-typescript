@@ -29,7 +29,9 @@
  */
 import {
   validateComputerSize,
+  validateMachineTier,
   type ComputerSize,
+  type MachineTier,
 } from "../resource/computer-execution-settings.js";
 import {
   always,
@@ -375,9 +377,10 @@ export function validateBillingLifecycle(lifecycle: BillingLifecycle): void {
 }
 
 /**
- * What one awake hour of a size costs, before tax, and the size this rate
- * prices, stated as `ComputerSizeInfo` states it, so a reader of the Account's
- * billing needs no second request to show the size. `label`, `cpu`, `memory`,
+ * What one awake hour of a size costs, before tax, on the standard tier and
+ * on each machine tier, and the size this rate prices, stated as
+ * `ComputerSizeInfo` states it, so a reader of the Account's billing needs no
+ * second request to show the size. `tierRates`, `label`, `cpu`, `memory`,
  * `disk` and `default` are optional: a platform that leaves them out still
  * validates.
  */
@@ -385,11 +388,21 @@ export interface BillingSizeRate {
   /** The size. Always written. */
   readonly size: ComputerSize;
   /**
-   * The price of one hour the Computer is awake at `size`, in
-   * micro-dollars. A Computer is billed for the time it is awake at this
-   * rate: half an hour costs half the rate. Zero is a rate. Always written.
+   * The price of one hour the Computer is awake at `size` on the standard
+   * tier, in micro-dollars. A Computer is billed for the time it is awake:
+   * half an hour costs half the rate. Zero is a rate. Always written.
    */
   readonly perHourMicros: Integer;
+  /**
+   * The price of one hour the Computer is awake at `size` on each machine tier:
+   * `economy`, `standard` and `performance` once each, lowest first, the
+   * standard tier's equal to `perHourMicros`. A Computer that names a tier is
+   * charged that tier's rate; a `best-available` Computer is charged the rate
+   * of the tier it runs on, never more than the rate of
+   * {@link AccountBillingStatus.highestTier}. `undefined` when the platform
+   * states none, and then every tier is charged `perHourMicros`.
+   */
+  readonly tierRates?: readonly BillingTierRate[];
   /** The name a person reads for the size this rate prices, such as `Small`. */
   readonly label?: string;
   /** The CPU limit of a Computer of the size this rate prices. */
@@ -405,11 +418,40 @@ export interface BillingSizeRate {
   readonly default?: boolean;
 }
 
+/** What one awake hour of a size costs on one machine tier, before tax. */
+export interface BillingTierRate {
+  /**
+   * The machine tier. A tier this SDK does not name is carried, and
+   * `validateMachineTier` judges it. Always written.
+   */
+  readonly tier: MachineTier;
+  /**
+   * The price of one hour the Computer is awake at the size on `tier`, in
+   * micro-dollars. Zero is a rate. Always written.
+   */
+  readonly perHourMicros: Integer;
+}
+
+/** The wire shape of the rate of one size on one tier. */
+export const billingTierRateShape: Shape<BillingTierRate> =
+  object<BillingTierRate>({
+    tier: always(string<MachineTier>()),
+    perHourMicros: always(microsShape),
+  });
+
+/** The machine tiers a size's tier rates list, lowest first. */
+const TIERS: readonly MachineTier[] = ["economy", "standard", "performance"];
+
+/** The refusal of tier rates that do not list {@link TIERS} in order. */
+const TIER_ORDER =
+  "tierRates must list economy, standard and performance once each, lowest first";
+
 /** The wire shape of the rate of one size. */
 export const billingSizeRateShape: Shape<BillingSizeRate> =
   object<BillingSizeRate>({
     size: always(string()),
     perHourMicros: always(microsShape),
+    tierRates: omitEmpty(array(billingTierRateShape)),
     label: omitEmpty(string()),
     cpu: omitZero(cpuQuantityShape),
     memory: omitZero(memoryQuantityShape),
@@ -455,8 +497,9 @@ export function validateBillingSubnetSizeRates(
 
 /**
  * Requires sizes in identifier form, each once, with rates that are not
- * negative. The platform states their order, smallest first. Its refusals begin
- * with the refused entry's index, for the caller to prefix with the field.
+ * negative and tier rates as {@link BillingSizeRate.tierRates} states them.
+ * The platform states their order, smallest first. Its refusals begin with
+ * the refused entry's index, for the caller to prefix with the field.
  */
 function validateSizeRates(rates: readonly BillingSizeRate[]): void {
   const seen = new Set<ComputerSize>();
@@ -474,7 +517,41 @@ function validateSizeRates(rates: readonly BillingSizeRate[]): void {
     if (isNegative(rate.perHourMicros)) {
       throw new TypeError(`${at}: perHourMicros must not be negative`);
     }
+    prefixed(at, () => {
+      validateTierRates(rate);
+    });
   });
+}
+
+/**
+ * Requires a size's tier rates, when it states any, to name each machine tier
+ * once, lowest first, with rates that are not negative and the standard
+ * tier's equal to the size's own rate. Throws a `TypeError`.
+ */
+function validateTierRates(rate: BillingSizeRate): void {
+  const tierRates = rate.tierRates ?? [];
+  if (tierRates.length === 0) return;
+  tierRates.forEach((tierRate, index) => {
+    const at = `tierRates[${String(index)}]`;
+    prefixed(`${at}: tier`, () => {
+      validateMachineTier(tierRate.tier);
+    });
+    if (tierRate.tier !== TIERS[index]) {
+      throw new TypeError(TIER_ORDER);
+    }
+    if (isNegative(tierRate.perHourMicros)) {
+      throw new TypeError(`${at}: perHourMicros must not be negative`);
+    }
+    if (
+      tierRate.tier === "standard" &&
+      BigInt(tierRate.perHourMicros) !== BigInt(rate.perHourMicros)
+    ) {
+      throw new TypeError(`${at}: the standard rate must equal perHourMicros`);
+    }
+  });
+  if (tierRates.length !== TIERS.length) {
+    throw new TypeError(TIER_ORDER);
+  }
 }
 
 /**
@@ -760,6 +837,19 @@ export interface AccountBillingStatus {
    */
   readonly largestSize: ComputerSize;
   /**
+   * The highest machine tier a Computer of the Account may name under the plan
+   * in force; a Computer that names a higher one is refused with
+   * `ERROR_CODE_TIER_NOT_IN_PLAN`. A Computer that names a tier is charged
+   * that tier's rate ({@link BillingSizeRate.tierRates}). A `best-available`
+   * Computer is charged the rate of the tier it runs on, never more than
+   * this tier's, so one that runs above this tier when the tiers before it
+   * are full pays this tier's rate. `undefined` when the plan states no tier
+   * access, and then its Computers are charged the rate of the tier they run
+   * on. A tier this SDK does not name is carried, and `validateMachineTier`
+   * judges it.
+   */
+  readonly highestTier?: MachineTier;
+  /**
    * The most data the Account stores across all its Computers under the
    * plan in force, as {@link BillingPlanOffer.storedData} states it.
    * `undefined` when the plan has no such limit.
@@ -810,10 +900,10 @@ export interface AccountBillingStatus {
   readonly plans: readonly BillingPlanOffer[];
   /**
    * What an awake hour of each size costs under the platform's default
-   * rate card in force now: one entry per size, smallest first. A Computer
-   * is charged its Subnet's rate, which is this one unless
-   * `subnetSizeRates` names the Subnet. Always written, empty rather than
-   * omitted.
+   * rate card in force now: one entry per size, smallest first, each with
+   * its rate on every machine tier. A Computer is charged its Subnet's rate,
+   * which is this one unless `subnetSizeRates` names the Subnet, at the tier
+   * `highestTier` describes. Always written, empty rather than omitted.
    */
   readonly sizeRates: readonly BillingSizeRate[];
   /**
@@ -850,6 +940,7 @@ export const accountBillingStatusShape: Shape<AccountBillingStatus> =
     lifecycle: always(string<BillingLifecycle>()),
     renewal: always(string<BillingRenewalState>()),
     largestSize: always(string()),
+    highestTier: omitEmpty(string<MachineTier>()),
     storedData: omitZero(volumeQuantityShape),
     awakeVCPU: omitEmpty(integer({ unsigned: false, bits: 64 })),
     fileRetention: omitZero(durationShape),
@@ -867,15 +958,16 @@ export const accountBillingStatusShape: Shape<AccountBillingStatus> =
 
 /**
  * Judges the status: a plan and sizes in identifier form; a standing, a
- * lifecycle and a renewal state this SDK names; a period whose end follows its
- * start; amounts and rates that are not negative, with no more used than
- * allowed; a withheld allowance with a
+ * lifecycle and a renewal state this SDK names, and a highest tier when one is
+ * stated; a period whose end follows its start; amounts and rates that are
+ * not negative, with no more used than allowed; a withheld allowance with a
  * reason this SDK names and a zero amount; a valid stored-data limit when
  * one is stated; a valid scheduled change and auto-refill stop; sizes named
  * once each in `sizePlans`; plans listed once
  * each; the plan in force and the scheduled plan among `plans`; rates for
- * sizes in identifier form, each once, that are not negative; and Subnets named
- * by slug, each once. Throws a `TypeError`.
+ * sizes in identifier form, each once, that are not negative, with tier rates
+ * as {@link BillingSizeRate.tierRates} states them; and Subnets named by slug,
+ * each once. Throws a `TypeError`.
  */
 export function validateAccountBillingStatus(
   status: AccountBillingStatus,
@@ -930,6 +1022,12 @@ export function validateAccountBillingStatus(
   prefixed("largestSize", () => {
     validateComputerSize(status.largestSize);
   });
+  const highestTier = status.highestTier;
+  if (highestTier !== undefined && highestTier !== "") {
+    prefixed("highestTier", () => {
+      validateMachineTier(highestTier);
+    });
+  }
   validateStoredData(status.storedData);
   validateFileRetention(status.fileRetention, status.deletionWarnings);
   const scheduled = status.scheduledChange;

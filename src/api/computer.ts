@@ -107,6 +107,7 @@ import {
   type ComputerEnvironmentVariable,
   type ComputerIsolationClass,
   type ComputerTier,
+  type ComputerCpuAllocationPolicy,
   type ImageShell,
 } from "../resource/computer-execution-settings.js";
 
@@ -200,6 +201,14 @@ export interface ComputerEffectiveExecutionSettings {
    */
   readonly tier?: ComputerTier;
   /**
+   * The CPU allocation policy the computer's next start uses: the one the
+   * settings state, or `full-cores` when they state none. Absent while the
+   * platform reports none. A policy newer than this SDK is carried, and
+   * `validateComputerCpuAllocationPolicy` judges whether this SDK names the
+   * policy.
+   */
+  readonly cpuAllocationPolicy?: ComputerCpuAllocationPolicy;
+  /**
    * The name of the size whose CPU and memory the computer's limits are. Absent
    * while they are no size's, and while the platform runs no execution for the
    * Computer's Subnet.
@@ -233,6 +242,7 @@ const computerEffectiveExecutionSettingsShape: Shape<ComputerEffectiveExecutionS
   object<ComputerEffectiveExecutionSettings>({
     image: pointer(computerExecutionSettingsImageShape),
     tier: omitEmpty(string<ComputerTier>()),
+    cpuAllocationPolicy: omitEmpty(string<ComputerCpuAllocationPolicy>()),
     size: omitEmpty(string()),
     sizeLabel: omitEmpty(string()),
     cpu: omitZero(cpuQuantityShape),
@@ -599,8 +609,9 @@ function validateComputerName(name: string): void {
  * recorded in the Computer's journal.
  *
  * The other fields change the execution settings, and the platform merges
- * them into the settings in force: `image`, `isolation`, `tier`, `cpu`,
- * `memory`, `network`, and `shell` replace the setting of the same name; `size` replaces the CPU and
+ * them into the settings in force: `image`, `isolation`, `tier`,
+ * `cpuAllocationPolicy`, `cpu`, `memory`, `network`, and `shell` replace the
+ * setting of the same name; `size` replaces the CPU and
  * memory together with those of the size it names, and is never stated with
  * either; `cpu`, `memory`, and
  * `network` stated as `null` return to IDYL's default for the Subnet, as it
@@ -686,6 +697,13 @@ export interface UpdateComputerRequest {
    */
   readonly tier?: ComputerTier;
   /**
+   * Replaces the policy by which the computer's vCPUs are arranged on the
+   * machine's cores, which `ComputerExecutionSettings.cpuAllocationPolicy`
+   * describes: `full-cores` or `spread-cores`. `undefined` or empty leaves
+   * the policy unchanged, and none is written; the policy is never `null`.
+   */
+  readonly cpuAllocationPolicy?: ComputerCpuAllocationPolicy;
+  /**
    * Replaces the CPU and memory limits with those of the size it names, such
    * as `small`. It is never stated with `cpu` or `memory`, not even as `null`,
    * and it is never `null` itself: `cpu` and `memory` stated as `null` return a
@@ -769,6 +787,10 @@ const UPDATE_FIELDS: readonly (readonly [
   ["image", computerExecutionSettingsImageShape as Shape<unknown>],
   ["isolation", string<ComputerIsolationClass>() as Shape<unknown>],
   ["tier", string<ComputerTier>() as Shape<unknown>],
+  [
+    "cpuAllocationPolicy",
+    string<ComputerCpuAllocationPolicy>() as Shape<unknown>,
+  ],
   ["size", string() as Shape<unknown>],
   ["cpu", cpuQuantityShape as Shape<unknown>],
   ["memory", memoryQuantityShape as Shape<unknown>],
@@ -795,6 +817,7 @@ const RESETTABLE: ReadonlySet<string> = new Set([
 const OMITTED_WHEN_EMPTY: ReadonlySet<string> = new Set([
   "isolation",
   "tier",
+  "cpuAllocationPolicy",
   "setVariables",
   "removeVariables",
   "setSecrets",
@@ -806,7 +829,8 @@ const OMITTED_WHEN_EMPTY: ReadonlySet<string> = new Set([
  * The wire shape of an update request. It writes each field the request
  * states, in the order the interface declares them: `cpu`, `memory`,
  * `network`, `shell`, and `identity` as `null` when they are, and `isolation`,
- * `tier`, `setVariables`, `removeVariables`, `setSecrets`, `removeSecrets`, and
+ * `tier`, `cpuAllocationPolicy`, `setVariables`, `removeVariables`,
+ * `setSecrets`, `removeSecrets`, and
  * `client` only when not empty.
  * A read carries `null` for the five settings that `null` resets and
  * refuses it for every other field when strict.
@@ -897,6 +921,7 @@ function statesComputer(request: UpdateComputerRequest): boolean {
     request.image !== undefined ||
     (request.isolation ?? "") !== "" ||
     (request.tier ?? "") !== "" ||
+    (request.cpuAllocationPolicy ?? "") !== "" ||
     request.size !== undefined ||
     request.cpu !== undefined ||
     request.memory !== undefined ||
@@ -917,7 +942,8 @@ function statesComputer(request: UpdateComputerRequest): boolean {
  * - the name is present and not in the form of a Computer ID, as a
  *   create's is;
  * - the idle timeout is one `validateIdleTimeout` admits;
- * - the image, isolation class, tier, size, CPU, memory, network, shell,
+ * - the image, isolation class, tier, CPU allocation policy, size, CPU,
+ *   memory, network, shell,
  *   variables to set, and Secret attachments to set are what
  *   `validateComputerExecutionSettings` admits, a stated CPU or memory greater than
  *   zero, a stated shell not empty, and a stated size in identifier form with no
@@ -1024,6 +1050,9 @@ function validateUpdateComputer(request: UpdateComputerRequest): void {
       ? {}
       : { isolation: request.isolation }),
     ...(request.tier === undefined ? {} : { tier: request.tier }),
+    ...(request.cpuAllocationPolicy === undefined
+      ? {}
+      : { cpuAllocationPolicy: request.cpuAllocationPolicy }),
     ...(request.size === undefined ? {} : { size: request.size }),
     ...(request.cpu === undefined || request.cpu === null
       ? {}

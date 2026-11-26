@@ -200,6 +200,7 @@ describe("idyl.billing", () => {
         lifecycle: "trial",
         renewal: "ok",
         largestSize: "medium",
+        highestTier: "standard",
         storedData: "10Gi",
         hasInvoices: false,
         sizePlans: status["sizePlans"],
@@ -371,7 +372,7 @@ describe("idyl.billing", () => {
   it("reads a rate with or without the size it prices", () => {
     const document = golden("billing.trial.json");
     const status = document["status"] as JsonObject;
-    const bare = { size: "xs", perHourMicros: 50_000 };
+    const bare = { size: "xs", perHourMicros: 25_000 };
     const read = decodeAccountBilling({
       ...document,
       status: { ...status, sizeRates: [bare] },
@@ -451,8 +452,8 @@ describe("idyl.billing", () => {
     const status = record["status"] as JsonObject;
     const overrides = status["subnetSizeRates"] as JsonObject[];
     const charged = [
-      { size: "xs", perHourMicros: 70_000 },
-      { size: "small", perHourMicros: 140_000 },
+      { size: "xs", perHourMicros: 35_000 },
+      { size: "small", perHourMicros: 70_000 },
     ];
     const responses = [
       served("billing.get-response.json"),
@@ -500,6 +501,94 @@ describe("idyl.billing", () => {
     const here = await idyl.billing.get();
     expect(here.status.sizeRates).toEqual(charged);
     expect(placementReads()).toBe(1);
+  });
+
+  // Contract: each rate carries its size's rate on every machine tier, lowest
+  // first, and the status the highest tier the plan may name. A platform
+  // that states neither still validates, writes neither back, and its
+  // public view carries neither.
+  it("reads a billing with or without tier rates and a highest tier", async () => {
+    const document = golden("billing.trial.json");
+    const status = document["status"] as JsonObject;
+    const withoutTierRates = (rate: JsonObject): JsonObject =>
+      Object.fromEntries(
+        Object.entries(rate).filter(([key]) => key !== "tierRates"),
+      );
+    const older: JsonObject = {
+      ...document,
+      status: {
+        ...Object.fromEntries(
+          Object.entries(status).filter(([key]) => key !== "highestTier"),
+        ),
+        sizeRates: (status["sizeRates"] as JsonObject[]).map(withoutTierRates),
+      },
+    };
+    const read = decodeAccountBilling(older);
+    expect(read.status.highestTier).toBeUndefined();
+    expect(
+      read.status.sizeRates.every((rate) => rate.tierRates === undefined),
+    ).toBe(true);
+    expect(() => {
+      validateAccountBilling(read);
+    }).not.toThrow();
+    const written = encodeAccountBilling(read)["status"] as JsonObject;
+    expect(written).not.toHaveProperty("highestTier");
+    expect(JSON.stringify(written)).not.toContain("tierRates");
+
+    const responses = [
+      served("billing.get-response.json"),
+      json({ billing: older }),
+    ];
+    const { idyl } = network(() => responses.shift());
+    const current = await idyl.billing.get();
+    expect(current.status.highestTier).toBe("standard");
+    expect(
+      current.status.sizeRates.find((rate) => rate.size === "medium")
+        ?.tierRates,
+    ).toEqual([
+      { tier: "economy", perHourMicros: 50_000 },
+      { tier: "standard", perHourMicros: 100_000 },
+      { tier: "performance", perHourMicros: 200_000 },
+    ]);
+    const previous = await idyl.billing.get();
+    expect(previous.status).not.toHaveProperty("highestTier");
+    expect(previous.status.sizeRates.some((rate) => "tierRates" in rate)).toBe(
+      false,
+    );
+  });
+
+  // Contract: when the client's place charges its own rates, the rates
+  // returned are that place's, each size with that place's tier rates.
+  it("returns the tier rates of the place that charges its own", async () => {
+    const own = golden("billing.update-response.json");
+    const record = own["billing"] as JsonObject;
+    const status = record["status"] as JsonObject;
+    const charged = [
+      {
+        size: "xs",
+        perHourMicros: 35_000,
+        tierRates: [
+          { tier: "economy", perHourMicros: 17_500 },
+          { tier: "standard", perHourMicros: 35_000 },
+          { tier: "performance", perHourMicros: 70_000 },
+        ],
+      },
+    ];
+    const { idyl } = network(() =>
+      json({
+        billing: {
+          ...record,
+          status: {
+            ...status,
+            subnetSizeRates: [{ subnet: subnetSlug, sizeRates: charged }],
+          },
+        },
+      }),
+    );
+
+    const billing = await idyl.billing.get();
+    expect(billing.status.sizeRates).toEqual(charged);
+    expect(Object.isFrozen(billing.status.sizeRates[0]?.tierRates)).toBe(true);
   });
 
   // Contract: a status whose period's allowance was withheld says why, and
@@ -639,6 +728,67 @@ describe("billing contract", () => {
         validateAccountBilling(read);
       }),
     ).toBe('status: standing: unknown billing standing "frozen"');
+  });
+
+  // Contract: a size's tier rates name economy, standard and performance
+  // once each, lowest first, with rates that are not negative and the
+  // standard rate equal to the size's own; a highest tier is one this
+  // package names. Validation refuses anything else, under the field.
+  it("refuses tier rates and a highest tier the reference contract refuses", () => {
+    const billing = decodeAccountBilling(golden("billing.trial.json"));
+    const [first] = billing.status.sizeRates;
+    if (first === undefined) throw new Error("the golden states no rate");
+    const judged = (
+      tierRates: readonly { tier: string; perHourMicros: number }[],
+    ): string =>
+      refusal(() => {
+        validateAccountBilling({
+          ...billing,
+          status: {
+            ...billing.status,
+            sizeRates: [{ ...first, perHourMicros: 25_000, tierRates }],
+          },
+        });
+      });
+    const economy = { tier: "economy", perHourMicros: 12_500 };
+    const standard = { tier: "standard", perHourMicros: 25_000 };
+    const performance = { tier: "performance", perHourMicros: 50_000 };
+    const order =
+      "status: sizeRates[0]: tierRates must list economy, standard and performance once each, lowest first";
+
+    expect(judged([economy, standard, performance])).toBe("");
+    expect(judged([standard, economy, performance])).toBe(order);
+    expect(judged([economy, standard])).toBe(order);
+    expect(judged([economy, standard, performance, performance])).toBe(order);
+    expect(
+      judged([
+        economy,
+        { tier: "standard", perHourMicros: 25_001 },
+        performance,
+      ]),
+    ).toBe(
+      "status: sizeRates[0]: tierRates[1]: the standard rate must equal perHourMicros",
+    );
+    expect(
+      judged([{ tier: "economy", perHourMicros: -1 }, standard, performance]),
+    ).toBe(
+      "status: sizeRates[0]: tierRates[0]: perHourMicros must not be negative",
+    );
+    expect(
+      judged([economy, standard, { tier: "turbo", perHourMicros: 50_000 }]),
+    ).toBe(
+      "status: sizeRates[0]: tierRates[2]: tier: tier must be economy, standard or performance",
+    );
+    expect(
+      refusal(() => {
+        validateAccountBilling({
+          ...billing,
+          status: { ...billing.status, highestTier: "turbo" },
+        });
+      }),
+    ).toBe(
+      "status: highestTier: tier must be economy, standard or performance",
+    );
   });
 
   // Contract: an amount past the safe-integer range reads exactly, as a

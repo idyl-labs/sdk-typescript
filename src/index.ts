@@ -213,6 +213,7 @@ export {
   type BillingSizePlan,
   type BillingSizeRate,
   type BillingStanding,
+  type BillingTierRate,
   type ComputerSize,
   type CreatePlanChangeOptions,
   type CreatePurchaseOptions,
