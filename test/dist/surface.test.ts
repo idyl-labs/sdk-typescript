@@ -65,6 +65,7 @@ const PUBLIC_SURFACE = [
   "BillingSizePlan",
   "BillingSizeRate",
   "BillingStanding",
+  "BillingTierRate",
   "BoundedCount",
   "BrowserAuthorization",
   "BrowserAuthorizationRequest",
