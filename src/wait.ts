@@ -80,12 +80,14 @@ export type PauseSchedule = (streaming: boolean, elapsedMs: number) => number;
 
 /**
  * The pauses of a wait for a session the platform has not yet placed: 100
- * ms doubling to 1 000 with no event stream, and to 5 000 with one, where
- * each read guards against a lost event.
+ * ms doubling to 1 000, whether or not an event stream is open. The session
+ * is placed once its Computer's wake is far enough along, so it is read at
+ * least once a second until then; an event for the session still makes the
+ * wait read at once.
  */
 export function sessionPlacementPauses(): PauseSchedule {
   let count = 0;
-  return (streaming) => Math.min(100 * 2 ** count++, streaming ? 5_000 : 1_000);
+  return () => Math.min(100 * 2 ** count++, 1_000);
 }
 
 /**

@@ -592,7 +592,8 @@ next read is made at once. With no event stream a wake, sleep, save,
 restore, fork, upload or deletion pauses 500 ms for the first 10 s, then
 1 s, 2 s and 4 s, then 5 s; with one, 500 ms doubling to 5 s, each read a
 guard against a lost event. A session not yet placed pauses 100 ms doubling
-to 1 s with no stream and to 5 s with one; a command's save result pauses
+to 1 s whether or not a stream is open, as its wake can end at any moment
+and the command waits on it; a command's save result pauses
 250 ms with no stream, and 250 ms doubling to 5 s with one. Deletion waits,
 `waitForDeletion`, read the object at once and end when the evaluator
 reports `deleted` met or a read answers 404, which is the caller's

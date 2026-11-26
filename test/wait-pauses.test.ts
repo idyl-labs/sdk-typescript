@@ -44,15 +44,13 @@ class HandEvents implements WaitEvents {
 
 describe("wait pauses", () => {
   // Contract: a session not yet placed is read 100 ms after the last read,
-  // doubling to 1 s with no event stream and to 5 s with one.
+  // doubling to 1 s, with an event stream open as without one: an event
+  // the stream does not carry never leaves the session unread for longer.
   it("paces a session not yet placed", () => {
     const zeros = Array<number>(8).fill(0);
-    expect(pauses(sessionPlacementPauses(), false, zeros)).toEqual([
-      100, 200, 400, 800, 1_000, 1_000, 1_000, 1_000,
-    ]);
-    expect(pauses(sessionPlacementPauses(), true, zeros)).toEqual([
-      100, 200, 400, 800, 1_600, 3_200, 5_000, 5_000,
-    ]);
+    const paced = [100, 200, 400, 800, 1_000, 1_000, 1_000, 1_000];
+    expect(pauses(sessionPlacementPauses(), false, zeros)).toEqual(paced);
+    expect(pauses(sessionPlacementPauses(), true, zeros)).toEqual(paced);
   });
 
   // Contract: with no event stream an operation is read every 500 ms for
