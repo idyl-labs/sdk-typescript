@@ -25,6 +25,7 @@
         "lifecycle": "paused",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "hasInvoices": false,
         "sizePlans": [
@@ -104,7 +105,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -113,7 +128,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -121,7 +150,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -129,7 +172,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -137,7 +194,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -172,6 +243,7 @@
         "lifecycle": "",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "hasInvoices": false,
         "sizePlans": [
@@ -251,7 +323,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -260,7 +346,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -268,7 +368,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -276,7 +390,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -284,7 +412,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -385,6 +527,7 @@
         "lifecycle": "trial",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "hasInvoices": false,
         "sizePlans": [
@@ -464,7 +607,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -473,7 +630,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -481,7 +652,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -489,7 +674,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -497,7 +696,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -533,6 +746,7 @@
         "lifecycle": "full",
         "renewal": "failed",
         "largestSize": "large",
+        "highestTier": "standard",
         "storedData": "400Gi",
         "fileRetention": "2160h",
         "deletionWarnings": [
@@ -617,7 +831,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -626,7 +854,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -634,7 +876,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -642,7 +898,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -650,7 +920,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -663,7 +947,21 @@
             "sizeRates": [
               {
                 "size": "xs",
-                "perHourMicros": 100000,
+                "perHourMicros": 50000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 25000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 100000
+                  }
+                ],
                 "label": "XS",
                 "cpu": "1",
                 "memory": "2Gi",
@@ -672,7 +970,21 @@
               },
               {
                 "size": "small",
-                "perHourMicros": 200000,
+                "perHourMicros": 100000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 200000
+                  }
+                ],
                 "label": "Small",
                 "cpu": "2",
                 "memory": "4Gi",
@@ -680,7 +992,21 @@
               },
               {
                 "size": "medium",
-                "perHourMicros": 400000,
+                "perHourMicros": 200000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 400000
+                  }
+                ],
                 "label": "Medium",
                 "cpu": "4",
                 "memory": "8Gi",
@@ -688,7 +1014,21 @@
               },
               {
                 "size": "large",
-                "perHourMicros": 800000,
+                "perHourMicros": 400000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 800000
+                  }
+                ],
                 "label": "Large",
                 "cpu": "8",
                 "memory": "16Gi",
@@ -696,7 +1036,21 @@
               },
               {
                 "size": "xl",
-                "perHourMicros": 1600000,
+                "perHourMicros": 800000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 800000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 1600000
+                  }
+                ],
                 "label": "XL",
                 "cpu": "16",
                 "memory": "32Gi",
@@ -732,6 +1086,7 @@
         "lifecycle": "trial",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "hasInvoices": false,
         "sizePlans": [
@@ -811,7 +1166,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -820,7 +1189,21 @@
           },
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -829,7 +1212,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -837,7 +1234,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -845,7 +1256,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -880,6 +1305,7 @@
         "lifecycle": "trial",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "hasInvoices": false,
         "sizePlans": [
@@ -959,7 +1385,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -968,7 +1408,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -976,7 +1430,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -984,7 +1452,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -992,7 +1474,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -1027,6 +1523,7 @@
         "lifecycle": "trial",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "hasInvoices": false,
         "sizePlans": [
@@ -1106,7 +1603,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -1115,7 +1626,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -1123,7 +1648,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -1131,7 +1670,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -1139,7 +1692,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -1174,6 +1741,7 @@
         "lifecycle": "trial",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "hasInvoices": false,
         "sizePlans": [
@@ -1253,7 +1821,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": -50000,
+            "perHourMicros": -25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": -12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": -25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": -50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -1262,7 +1844,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": -100000,
+            "perHourMicros": -50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": -25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": -50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": -100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -1270,7 +1866,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": -200000,
+            "perHourMicros": -100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": -50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": -100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": -200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -1278,7 +1888,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": -400000,
+            "perHourMicros": -200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": -100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": -200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": -400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -1286,7 +1910,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": -800000,
+            "perHourMicros": -400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": -200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": -400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": -800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -1299,6 +1937,1092 @@
       }
     },
     "refusal": "status: sizeRates[0]: perHourMicros must not be negative"
+  },
+  {
+    "case": "tier rates out of order",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "highestTier": "standard",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "awakeVCPU": 8,
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "awakeVCPU": 8,
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "awakeVCPU": 100,
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "awakeVCPU": 500,
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "awakeVCPU": 2500,
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: sizeRates[0]: tierRates must list economy, standard and performance once each, lowest first"
+  },
+  {
+    "case": "tier rates missing a tier",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "highestTier": "standard",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "awakeVCPU": 8,
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "awakeVCPU": 8,
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "awakeVCPU": 100,
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "awakeVCPU": 500,
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "awakeVCPU": 2500,
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              }
+            ],
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: sizeRates[2]: tierRates must list economy, standard and performance once each, lowest first"
+  },
+  {
+    "case": "standard tier rate not the size's rate",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "highestTier": "standard",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "awakeVCPU": 8,
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "awakeVCPU": 8,
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "awakeVCPU": 100,
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "awakeVCPU": 500,
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "awakeVCPU": 2500,
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50001
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: sizeRates[1]: tierRates[1]: the standard rate must equal perHourMicros"
+  },
+  {
+    "case": "tier rate for a tier not named",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "highestTier": "standard",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "awakeVCPU": 8,
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "awakeVCPU": 8,
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "awakeVCPU": 100,
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "awakeVCPU": 500,
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "awakeVCPU": 2500,
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "turbo",
+                "perHourMicros": 50000
+              }
+            ],
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: sizeRates[0]: tierRates[2]: tier: tier must be economy, standard or performance"
+  },
+  {
+    "case": "highest tier not named",
+    "value": {
+      "spec": {
+        "autoRefill": {
+          "enabled": false,
+          "amountMicros": 20000000
+        }
+      },
+      "status": {
+        "plan": "trial",
+        "periodStart": "2026-10-12T00:00:00Z",
+        "periodEnd": "2026-11-12T00:00:00Z",
+        "allowanceMicros": 1000000,
+        "usedMicros": 0,
+        "extraBalanceMicros": 0,
+        "extraBoughtMicros": 0,
+        "standing": "ok",
+        "lifecycle": "trial",
+        "renewal": "ok",
+        "largestSize": "medium",
+        "highestTier": "turbo",
+        "storedData": "10Gi",
+        "hasInvoices": false,
+        "sizePlans": [
+          {
+            "size": "xs",
+            "plan": "trial"
+          },
+          {
+            "size": "small",
+            "plan": "trial"
+          },
+          {
+            "size": "medium",
+            "plan": "trial"
+          },
+          {
+            "size": "large",
+            "plan": "pro"
+          },
+          {
+            "size": "xl",
+            "plan": "max"
+          }
+        ],
+        "plans": [
+          {
+            "plan": "trial",
+            "name": "Trial",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "awakeVCPU": 8,
+            "extraUsage": false
+          },
+          {
+            "plan": "none",
+            "name": "No plan",
+            "priceMicros": 0,
+            "allowanceMicros": 1000000,
+            "largestSize": "medium",
+            "storedData": "10Gi",
+            "awakeVCPU": 8,
+            "extraUsage": false
+          },
+          {
+            "plan": "pro",
+            "name": "Pro",
+            "priceMicros": 20000000,
+            "allowanceMicros": 20000000,
+            "largestSize": "large",
+            "storedData": "400Gi",
+            "awakeVCPU": 100,
+            "extraUsage": true
+          },
+          {
+            "plan": "max",
+            "name": "Max",
+            "priceMicros": 100000000,
+            "allowanceMicros": 100000000,
+            "largestSize": "xl",
+            "storedData": "2Ti",
+            "awakeVCPU": 500,
+            "extraUsage": true
+          },
+          {
+            "plan": "ultra",
+            "name": "Ultra",
+            "priceMicros": 500000000,
+            "allowanceMicros": 500000000,
+            "largestSize": "xl",
+            "storedData": "10Ti",
+            "awakeVCPU": 2500,
+            "extraUsage": true
+          }
+        ],
+        "sizeRates": [
+          {
+            "size": "xs",
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
+            "label": "XS",
+            "cpu": "1",
+            "memory": "2Gi",
+            "disk": "10Gi",
+            "default": true
+          },
+          {
+            "size": "small",
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
+            "label": "Small",
+            "cpu": "2",
+            "memory": "4Gi",
+            "disk": "20Gi"
+          },
+          {
+            "size": "medium",
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
+            "label": "Medium",
+            "cpu": "4",
+            "memory": "8Gi",
+            "disk": "40Gi"
+          },
+          {
+            "size": "large",
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
+            "label": "Large",
+            "cpu": "8",
+            "memory": "16Gi",
+            "disk": "80Gi"
+          },
+          {
+            "size": "xl",
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
+            "label": "XL",
+            "cpu": "16",
+            "memory": "32Gi",
+            "disk": "160Gi"
+          }
+        ],
+        "subnetSizeRates": [],
+        "storageMicrosPerGiBMonth": 50000,
+        "downloadMicrosPerGiB": 0
+      }
+    },
+    "refusal": "status: highestTier: tier must be economy, standard or performance"
   },
   {
     "case": "Subnet rates not named by slug",
@@ -1322,6 +3046,7 @@
         "lifecycle": "full",
         "renewal": "failed",
         "largestSize": "large",
+        "highestTier": "standard",
         "storedData": "400Gi",
         "fileRetention": "2160h",
         "deletionWarnings": [
@@ -1416,7 +3141,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -1425,7 +3164,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -1433,7 +3186,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -1441,7 +3208,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -1449,7 +3230,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -1462,7 +3257,21 @@
             "sizeRates": [
               {
                 "size": "xs",
-                "perHourMicros": 100000,
+                "perHourMicros": 50000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 25000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 100000
+                  }
+                ],
                 "label": "XS",
                 "cpu": "1",
                 "memory": "2Gi",
@@ -1471,7 +3280,21 @@
               },
               {
                 "size": "small",
-                "perHourMicros": 200000,
+                "perHourMicros": 100000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 200000
+                  }
+                ],
                 "label": "Small",
                 "cpu": "2",
                 "memory": "4Gi",
@@ -1479,7 +3302,21 @@
               },
               {
                 "size": "medium",
-                "perHourMicros": 400000,
+                "perHourMicros": 200000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 400000
+                  }
+                ],
                 "label": "Medium",
                 "cpu": "4",
                 "memory": "8Gi",
@@ -1487,7 +3324,21 @@
               },
               {
                 "size": "large",
-                "perHourMicros": 800000,
+                "perHourMicros": 400000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 800000
+                  }
+                ],
                 "label": "Large",
                 "cpu": "8",
                 "memory": "16Gi",
@@ -1495,7 +3346,21 @@
               },
               {
                 "size": "xl",
-                "perHourMicros": 1600000,
+                "perHourMicros": 800000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 800000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 1600000
+                  }
+                ],
                 "label": "XL",
                 "cpu": "16",
                 "memory": "32Gi",
@@ -1532,6 +3397,7 @@
         "lifecycle": "full",
         "renewal": "failed",
         "largestSize": "large",
+        "highestTier": "standard",
         "storedData": "400Gi",
         "fileRetention": "2160h",
         "deletionWarnings": [
@@ -1626,7 +3492,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -1635,7 +3515,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -1643,7 +3537,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -1651,7 +3559,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -1659,7 +3581,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -1672,7 +3608,21 @@
             "sizeRates": [
               {
                 "size": "xs",
-                "perHourMicros": 100000,
+                "perHourMicros": 50000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 25000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 100000
+                  }
+                ],
                 "label": "XS",
                 "cpu": "1",
                 "memory": "2Gi",
@@ -1681,7 +3631,21 @@
               },
               {
                 "size": "small",
-                "perHourMicros": 200000,
+                "perHourMicros": 100000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 200000
+                  }
+                ],
                 "label": "Small",
                 "cpu": "2",
                 "memory": "4Gi",
@@ -1689,7 +3653,21 @@
               },
               {
                 "size": "medium",
-                "perHourMicros": 400000,
+                "perHourMicros": 200000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 400000
+                  }
+                ],
                 "label": "Medium",
                 "cpu": "4",
                 "memory": "8Gi",
@@ -1697,7 +3675,21 @@
               },
               {
                 "size": "large",
-                "perHourMicros": 800000,
+                "perHourMicros": 400000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 800000
+                  }
+                ],
                 "label": "Large",
                 "cpu": "8",
                 "memory": "16Gi",
@@ -1705,7 +3697,21 @@
               },
               {
                 "size": "xl",
-                "perHourMicros": 1600000,
+                "perHourMicros": 800000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 800000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 1600000
+                  }
+                ],
                 "label": "XL",
                 "cpu": "16",
                 "memory": "32Gi",
@@ -1718,7 +3724,21 @@
             "sizeRates": [
               {
                 "size": "xs",
-                "perHourMicros": 100000,
+                "perHourMicros": 50000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 25000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 100000
+                  }
+                ],
                 "label": "XS",
                 "cpu": "1",
                 "memory": "2Gi",
@@ -1727,7 +3747,21 @@
               },
               {
                 "size": "small",
-                "perHourMicros": 200000,
+                "perHourMicros": 100000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 200000
+                  }
+                ],
                 "label": "Small",
                 "cpu": "2",
                 "memory": "4Gi",
@@ -1735,7 +3769,21 @@
               },
               {
                 "size": "medium",
-                "perHourMicros": 400000,
+                "perHourMicros": 200000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 400000
+                  }
+                ],
                 "label": "Medium",
                 "cpu": "4",
                 "memory": "8Gi",
@@ -1743,7 +3791,21 @@
               },
               {
                 "size": "large",
-                "perHourMicros": 800000,
+                "perHourMicros": 400000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 800000
+                  }
+                ],
                 "label": "Large",
                 "cpu": "8",
                 "memory": "16Gi",
@@ -1751,7 +3813,21 @@
               },
               {
                 "size": "xl",
-                "perHourMicros": 1600000,
+                "perHourMicros": 800000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 800000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 1600000
+                  }
+                ],
                 "label": "XL",
                 "cpu": "16",
                 "memory": "32Gi",
@@ -1788,6 +3864,7 @@
         "lifecycle": "full",
         "renewal": "failed",
         "largestSize": "large",
+        "highestTier": "standard",
         "storedData": "400Gi",
         "fileRetention": "2160h",
         "deletionWarnings": [
@@ -1882,7 +3959,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -1891,7 +3982,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -1899,7 +4004,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -1907,7 +4026,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -1915,7 +4048,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -1928,7 +4075,21 @@
             "sizeRates": [
               {
                 "size": "xs",
-                "perHourMicros": 100000,
+                "perHourMicros": 50000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 25000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 100000
+                  }
+                ],
                 "label": "XS",
                 "cpu": "1",
                 "memory": "2Gi",
@@ -1937,7 +4098,21 @@
               },
               {
                 "size": "small",
-                "perHourMicros": 200000,
+                "perHourMicros": 100000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 200000
+                  }
+                ],
                 "label": "Small",
                 "cpu": "2",
                 "memory": "4Gi",
@@ -1945,7 +4120,21 @@
               },
               {
                 "size": "medium",
-                "perHourMicros": 400000,
+                "perHourMicros": 200000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 400000
+                  }
+                ],
                 "label": "Medium",
                 "cpu": "4",
                 "memory": "8Gi",
@@ -1953,7 +4142,21 @@
               },
               {
                 "size": "large",
-                "perHourMicros": 800000,
+                "perHourMicros": 400000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 800000
+                  }
+                ],
                 "label": "Large",
                 "cpu": "8",
                 "memory": "16Gi",
@@ -1961,7 +4164,21 @@
               },
               {
                 "size": "xl",
-                "perHourMicros": 1600000,
+                "perHourMicros": 800000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 800000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 1600000
+                  }
+                ],
                 "label": "XL",
                 "cpu": "16",
                 "memory": "32Gi",
@@ -1998,6 +4215,7 @@
         "lifecycle": "full",
         "renewal": "failed",
         "largestSize": "large",
+        "highestTier": "standard",
         "storedData": "400Gi",
         "fileRetention": "2160h",
         "deletionWarnings": [
@@ -2091,7 +4309,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -2100,7 +4332,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -2108,7 +4354,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -2116,7 +4376,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -2124,7 +4398,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -2137,7 +4425,21 @@
             "sizeRates": [
               {
                 "size": "xs",
-                "perHourMicros": 100000,
+                "perHourMicros": 50000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 25000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 100000
+                  }
+                ],
                 "label": "XS",
                 "cpu": "1",
                 "memory": "2Gi",
@@ -2146,7 +4448,21 @@
               },
               {
                 "size": "small",
-                "perHourMicros": 200000,
+                "perHourMicros": 100000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 50000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 200000
+                  }
+                ],
                 "label": "Small",
                 "cpu": "2",
                 "memory": "4Gi",
@@ -2154,7 +4470,21 @@
               },
               {
                 "size": "medium",
-                "perHourMicros": 400000,
+                "perHourMicros": 200000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 100000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 400000
+                  }
+                ],
                 "label": "Medium",
                 "cpu": "4",
                 "memory": "8Gi",
@@ -2162,7 +4492,21 @@
               },
               {
                 "size": "large",
-                "perHourMicros": 800000,
+                "perHourMicros": 400000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 200000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 800000
+                  }
+                ],
                 "label": "Large",
                 "cpu": "8",
                 "memory": "16Gi",
@@ -2170,7 +4514,21 @@
               },
               {
                 "size": "xl",
-                "perHourMicros": 1600000,
+                "perHourMicros": 800000,
+                "tierRates": [
+                  {
+                    "tier": "economy",
+                    "perHourMicros": 400000
+                  },
+                  {
+                    "tier": "standard",
+                    "perHourMicros": 800000
+                  },
+                  {
+                    "tier": "performance",
+                    "perHourMicros": 1600000
+                  }
+                ],
                 "label": "XL",
                 "cpu": "16",
                 "memory": "32Gi",
@@ -2206,6 +4564,7 @@
         "lifecycle": "trial",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "deletionWarnings": [
           "720h",
@@ -2290,7 +4649,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -2299,7 +4672,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -2307,7 +4694,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -2315,7 +4716,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -2323,7 +4738,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -2358,6 +4787,7 @@
         "lifecycle": "trial",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "hasInvoices": false,
         "sizePlans": [
@@ -2437,7 +4867,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -2446,7 +4890,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -2454,7 +4912,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -2462,7 +4934,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -2470,7 +4956,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -2506,6 +5006,7 @@
         "lifecycle": "ended",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "hasInvoices": false,
         "sizePlans": [
@@ -2585,7 +5086,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -2594,7 +5109,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -2602,7 +5131,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -2610,7 +5153,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -2618,7 +5175,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",
@@ -2654,6 +5225,7 @@
         "lifecycle": "ended",
         "renewal": "ok",
         "largestSize": "medium",
+        "highestTier": "standard",
         "storedData": "10Gi",
         "hasInvoices": false,
         "sizePlans": [
@@ -2733,7 +5305,21 @@
         "sizeRates": [
           {
             "size": "xs",
-            "perHourMicros": 50000,
+            "perHourMicros": 25000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 12500
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 50000
+              }
+            ],
             "label": "XS",
             "cpu": "1",
             "memory": "2Gi",
@@ -2742,7 +5328,21 @@
           },
           {
             "size": "small",
-            "perHourMicros": 100000,
+            "perHourMicros": 50000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 25000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 100000
+              }
+            ],
             "label": "Small",
             "cpu": "2",
             "memory": "4Gi",
@@ -2750,7 +5350,21 @@
           },
           {
             "size": "medium",
-            "perHourMicros": 200000,
+            "perHourMicros": 100000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 50000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 200000
+              }
+            ],
             "label": "Medium",
             "cpu": "4",
             "memory": "8Gi",
@@ -2758,7 +5372,21 @@
           },
           {
             "size": "large",
-            "perHourMicros": 400000,
+            "perHourMicros": 200000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 100000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 400000
+              }
+            ],
             "label": "Large",
             "cpu": "8",
             "memory": "16Gi",
@@ -2766,7 +5394,21 @@
           },
           {
             "size": "xl",
-            "perHourMicros": 800000,
+            "perHourMicros": 400000,
+            "tierRates": [
+              {
+                "tier": "economy",
+                "perHourMicros": 200000
+              },
+              {
+                "tier": "standard",
+                "perHourMicros": 400000
+              },
+              {
+                "tier": "performance",
+                "perHourMicros": 800000
+              }
+            ],
             "label": "XL",
             "cpu": "16",
             "memory": "32Gi",

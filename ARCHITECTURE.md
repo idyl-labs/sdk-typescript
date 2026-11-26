@@ -634,12 +634,17 @@ is not a whole number within `Number.MAX_SAFE_INTEGER` makes the response
 unreadable, an `invalid_response` `TransportError`, rather than reading as
 another amount.
 
-The billing read names the default hourly rate of each size and, apart,
-the rates of each place the Account may use whose rate card differs. The
-public view carries one list, the rates the Account's Computers are
-charged: only when the read names any such place is the client's one place
-resolved, through the same seam and kept resolution every Computer
-operation uses, to choose among them, so no place reaches a caller.
+The billing read names the default hourly rate of each size on each
+machine tier and, apart, the rates of each place the Account may use whose rate
+card differs. The public view carries one list, the rates the Account's
+Computers are charged, each size with its rate on every tier: only when
+the read names any such place is the client's one place resolved, through
+the same seam and kept resolution every Computer operation uses, to choose
+among them, so no place reaches a caller. A Computer that names a tier is
+charged that tier's rate; a `best-available` Computer is charged the rate
+of the tier it runs on, never more than the rate of the status's
+`highestTier`. The package reads these rates as served and never derives
+one tier's rate from another's.
 
 Billing is never read before a wake, a session or a command: each of those
 answers a billing refusal itself, and `isOutOfUsage`, `sizeNotInPlan`,

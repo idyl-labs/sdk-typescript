@@ -17,6 +17,7 @@
     "lifecycle": "trial",
     "renewal": "ok",
     "largestSize": "medium",
+    "highestTier": "standard",
     "storedData": "10Gi",
     "hasInvoices": false,
     "sizePlans": [
@@ -96,7 +97,21 @@
     "sizeRates": [
       {
         "size": "xs",
-        "perHourMicros": 50000,
+        "perHourMicros": 25000,
+        "tierRates": [
+          {
+            "tier": "economy",
+            "perHourMicros": 12500
+          },
+          {
+            "tier": "standard",
+            "perHourMicros": 25000
+          },
+          {
+            "tier": "performance",
+            "perHourMicros": 50000
+          }
+        ],
         "label": "XS",
         "cpu": "1",
         "memory": "2Gi",
@@ -105,7 +120,21 @@
       },
       {
         "size": "small",
-        "perHourMicros": 100000,
+        "perHourMicros": 50000,
+        "tierRates": [
+          {
+            "tier": "economy",
+            "perHourMicros": 25000
+          },
+          {
+            "tier": "standard",
+            "perHourMicros": 50000
+          },
+          {
+            "tier": "performance",
+            "perHourMicros": 100000
+          }
+        ],
         "label": "Small",
         "cpu": "2",
         "memory": "4Gi",
@@ -113,7 +142,21 @@
       },
       {
         "size": "medium",
-        "perHourMicros": 200000,
+        "perHourMicros": 100000,
+        "tierRates": [
+          {
+            "tier": "economy",
+            "perHourMicros": 50000
+          },
+          {
+            "tier": "standard",
+            "perHourMicros": 100000
+          },
+          {
+            "tier": "performance",
+            "perHourMicros": 200000
+          }
+        ],
         "label": "Medium",
         "cpu": "4",
         "memory": "8Gi",
@@ -121,7 +164,21 @@
       },
       {
         "size": "large",
-        "perHourMicros": 400000,
+        "perHourMicros": 200000,
+        "tierRates": [
+          {
+            "tier": "economy",
+            "perHourMicros": 100000
+          },
+          {
+            "tier": "standard",
+            "perHourMicros": 200000
+          },
+          {
+            "tier": "performance",
+            "perHourMicros": 400000
+          }
+        ],
         "label": "Large",
         "cpu": "8",
         "memory": "16Gi",
@@ -129,7 +186,21 @@
       },
       {
         "size": "xl",
-        "perHourMicros": 800000,
+        "perHourMicros": 400000,
+        "tierRates": [
+          {
+            "tier": "economy",
+            "perHourMicros": 200000
+          },
+          {
+            "tier": "standard",
+            "perHourMicros": 400000
+          },
+          {
+            "tier": "performance",
+            "perHourMicros": 800000
+          }
+        ],
         "label": "XL",
         "cpu": "16",
         "memory": "32Gi",
