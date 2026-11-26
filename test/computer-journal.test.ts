@@ -409,12 +409,12 @@ describe("Computer journal", () => {
       ...full,
       executionSettings: {
         ...change,
-        settings: { ...settings, cpuAllocationPolicy: "dedicated" },
+        settings: { ...settings, cpuAllocationPolicy: "no-such-policy" },
         changed: ["cpuAllocationPolicy"],
       },
     });
     expect(unknown.executionSettings?.settings.cpuAllocationPolicy).toBe(
-      "dedicated",
+      "no-such-policy",
     );
     expect(() => {
       validateJournalEntry(unknown);

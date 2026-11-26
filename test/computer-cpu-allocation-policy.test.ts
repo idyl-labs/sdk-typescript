@@ -45,7 +45,7 @@ describe("CPU allocation policies", () => {
     }
     expect(
       refusal(() => {
-        validateComputerCpuAllocationPolicy("dedicated");
+        validateComputerCpuAllocationPolicy("no-such-policy");
       }).message,
     ).toBe("cpuAllocationPolicy must be full-cores or spread-cores");
     expect(
@@ -81,7 +81,9 @@ describe("CPU allocation policies", () => {
       ),
     ).toBe('{"size":"small"}');
     const error = refusal(() => {
-      validateComputerExecutionSettings({ cpuAllocationPolicy: "dedicated" });
+      validateComputerExecutionSettings({
+        cpuAllocationPolicy: "no-such-policy",
+      });
     });
     expect(error).toBeInstanceOf(ComputerExecutionSettingsError);
     expect((error as ComputerExecutionSettingsError).field).toBe(
@@ -114,7 +116,7 @@ describe("CPU allocation policies", () => {
       }).message,
     ).toBe("computer update states no field");
     const error = refusal(() => {
-      validateUpdateComputerRequest({ cpuAllocationPolicy: "dedicated" });
+      validateUpdateComputerRequest({ cpuAllocationPolicy: "no-such-policy" });
     });
     expect(error.message).toBe(
       "computer update: cpuAllocationPolicy: must be full-cores or spread-cores",
@@ -176,11 +178,11 @@ describe("CPU allocation policies", () => {
       executionSettings: {
         revision: 1,
         pending: false,
-        effective: { cpuAllocationPolicy: "dedicated" },
+        effective: { cpuAllocationPolicy: "no-such-policy" },
       },
     });
     expect(newer.executionSettings?.effective.cpuAllocationPolicy).toBe(
-      "dedicated",
+      "no-such-policy",
     );
   });
 });
@@ -214,7 +216,7 @@ describe("Computer CPU allocation policies", () => {
       },
       { name: "api-dev", subnet: "550000000002", client: "sdk" },
     ]);
-    const unknown = "dedicated" as "full-cores";
+    const unknown = "no-such-policy" as "full-cores";
     await expect(
       computers.create({ name: "api-dev", cpuAllocationPolicy: unknown }),
     ).rejects.toThrow(
@@ -241,7 +243,7 @@ describe("Computer CPU allocation policies", () => {
     const computer = await network.client().computers.get("api-dev");
     await computer.update({ cpuAllocationPolicy: "spread-cores" });
     await computer.update({ cpuAllocationPolicy: "full-cores", size: "small" });
-    const unknown = "dedicated" as "full-cores";
+    const unknown = "no-such-policy" as "full-cores";
     await expect(
       computer.update({ cpuAllocationPolicy: unknown }),
     ).rejects.toThrow(
