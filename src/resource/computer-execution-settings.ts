@@ -149,12 +149,16 @@ export interface ComputerExecutionSettings {
    */
   readonly tier?: ComputerTier;
   /**
-   * How the computer's vCPUs are arranged on the machine's physical cores:
-   * `full-cores`, whole cores no other computer uses, or `spread-cores`,
-   * each vCPU on a different core where the machine has room, with threads that
-   * stay the computer's own while other `spread-cores` computers may use the
-   * threads beside them. `undefined` runs the computer under `full-cores`.
-   * A change applies at the computer's next start. See
+   * How the computer's vCPUs are arranged on the machine's physical cores.
+   * `full-cores` runs the computer on whole physical cores that no other
+   * Computer uses, which gives the steadiest speed. `spread-cores` places
+   * each vCPU on a different physical core where the machine has room,
+   * which suits work that runs many threads at once; other `spread-cores`
+   * Computers may use the other threads of those cores, and the machine may
+   * move the computer's threads to other cores while the computer runs. One
+   * vCPU is one hardware thread under either policy, and no two Computers
+   * share a thread. `undefined` runs the computer under `full-cores`. A
+   * change applies at the computer's next start. See
    * {@link ComputerCpuAllocationPolicy}.
    */
   readonly cpuAllocationPolicy?: ComputerCpuAllocationPolicy;

@@ -246,10 +246,10 @@ Computer runs on.
 
 ### CPU allocation policies
 
-A Computer's size states how many vCPUs the Computer has. Its CPU allocation
-policy states how those vCPUs are arranged on the machine's physical cores.
-One vCPU is one hardware thread under either policy, and no two Computers
-share a thread.
+A Computer's size states how many vCPUs the Computer has. The Computer's CPU
+allocation policy states how those vCPUs are arranged on the machine's
+physical cores. One vCPU is one hardware thread under either policy, and no
+two Computers share a thread.
 
 - `full-cores`, the default, runs the Computer on whole physical cores that
   no other Computer uses, which gives the steadiest speed.

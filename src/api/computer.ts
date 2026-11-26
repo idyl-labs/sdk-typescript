@@ -204,7 +204,8 @@ export interface ComputerEffectiveExecutionSettings {
    * The CPU allocation policy the computer's next start uses: the one the
    * settings state, or `full-cores` when they state none. Absent while the
    * platform reports none. A policy newer than this SDK is carried, and
-   * `validateComputerCpuAllocationPolicy` judges it.
+   * `validateComputerCpuAllocationPolicy` judges whether this SDK names the
+   * policy.
    */
   readonly cpuAllocationPolicy?: ComputerCpuAllocationPolicy;
   /**
@@ -697,10 +698,9 @@ export interface UpdateComputerRequest {
   readonly tier?: ComputerTier;
   /**
    * Replaces the policy by which the computer's vCPUs are arranged on the
-   * cores of the machine it runs on, as
-   * `ComputerExecutionSettings.cpuAllocationPolicy` states it: `full-cores`
-   * or `spread-cores`. `undefined` or empty leaves the policy as it is, and
-   * none is written; it is never `null`.
+   * machine's cores, which `ComputerExecutionSettings.cpuAllocationPolicy`
+   * describes: `full-cores` or `spread-cores`. `undefined` or empty leaves
+   * the policy unchanged, and none is written; the policy is never `null`.
    */
   readonly cpuAllocationPolicy?: ComputerCpuAllocationPolicy;
   /**
