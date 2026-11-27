@@ -58,7 +58,7 @@ const idyl = new Idyl({ accessKey: process.env.IDYL_ACCESS_KEY });
 
 const computer = await idyl.computers.create({
   name: "eval",
-  image: "python-3.14-ubuntu-26.04",
+  image: "dev-ubuntu-26.04",
 });
 
 await computer.files.upload("eval.py", await readFile("eval.py"));

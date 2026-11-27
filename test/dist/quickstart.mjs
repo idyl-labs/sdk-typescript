@@ -17,7 +17,7 @@ const idyl = new Idyl({
 
 const computer = await idyl.computers.create({
   name: process.env.QUICKSTART_COMPUTER ?? "",
-  image: "python-3.12-ubuntu-24.04",
+  image: "dev-ubuntu-26.04",
 });
 try {
   await computer.files.upload("eval.py", 'print("passed", 6 * 7)\n');
