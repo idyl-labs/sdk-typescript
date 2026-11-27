@@ -324,7 +324,7 @@ to log. The platform's own explanation, for a person to read, is in
 import { ApiError } from "@idyl-sh/sdk";
 
 try {
-  await idyl.computers.create({ name: "ci" });
+  await idyl.computers.create({ name: "ci-runner" });
 } catch (error) {
   if (!(error instanceof ApiError)) throw error;
   console.error(error.status, error.code, error.detail);

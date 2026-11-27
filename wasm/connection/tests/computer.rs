@@ -17,7 +17,8 @@ use std::task::{Context, Poll};
 use futures::io::{AsyncRead, AsyncWrite};
 use futures::task::noop_waker;
 use idyl_computer_connection::computer::{
-    ComputerConfig, ComputerEnded, ComputerEvent, ComputerLink, StreamRead,
+    ComputerConfig, ComputerEnded, ComputerEvent, ComputerLink, MAX_STREAMS, StreamError,
+    StreamRead,
 };
 use idyl_computer_connection::identity::{ClientKey, ServerIdentity};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
@@ -110,11 +111,14 @@ impl AsyncWrite for ServerPlaintext {
 }
 
 /// The endpoint: TLS, then yamux, echoing each stream and finishing it once
-/// the client has finished its side.
+/// the client has finished its side. With `ends_first`, it finishes each
+/// stream as soon as it has echoed what arrived, as an endpoint ends a
+/// session's stream after the session's last frame, and lets the stream go.
 struct Endpoint {
     tls: Rc<RefCell<ServerTls>>,
     yamux: yamux::Connection<ServerPlaintext>,
-    streams: Vec<(yamux::Stream, Vec<u8>, bool, bool)>,
+    streams: Vec<(yamux::Stream, Vec<u8>, bool, bool, bool)>,
+    ends_first: bool,
 }
 
 impl Endpoint {
@@ -137,13 +141,14 @@ impl Endpoint {
             let mut progress = false;
             match self.yamux.poll_next_inbound(&mut cx) {
                 Poll::Ready(Some(Ok(s))) => {
-                    self.streams.push((s, Vec::new(), false, false));
+                    self.streams.push((s, Vec::new(), false, false, false));
                     progress = true;
                 }
                 Poll::Ready(Some(Err(e))) => panic!("endpoint yamux: {e}"),
                 Poll::Ready(None) | Poll::Pending => {}
             }
-            for (s, pending, eof, closed) in &mut self.streams {
+            let ends_first = self.ends_first;
+            for (s, pending, eof, closed, echoed) in &mut self.streams {
                 let mut buf = [0u8; 8192];
                 while !*eof {
                     match Pin::new(&mut *s).poll_read(&mut cx, &mut buf) {
@@ -157,12 +162,13 @@ impl Endpoint {
                     match Pin::new(&mut *s).poll_write(&mut cx, pending) {
                         Poll::Ready(Ok(n)) if n > 0 => {
                             pending.drain(..n);
+                            *echoed = true;
                             progress = true;
                         }
                         _ => break,
                     }
                 }
-                if *eof
+                if (*eof || ends_first && *echoed)
                     && pending.is_empty()
                     && !*closed
                     && let Poll::Ready(Ok(())) = Pin::new(&mut *s).poll_close(&mut cx)
@@ -170,6 +176,9 @@ impl Endpoint {
                     *closed = true;
                     progress = true;
                 }
+            }
+            if ends_first {
+                self.streams.retain(|(_, _, _, closed, _)| !*closed);
             }
             if !progress {
                 break;
@@ -246,6 +255,7 @@ fn fixture(endpoint_epoch: u64, min_epoch: u64) -> Fixture {
         ),
         tls,
         streams: Vec::new(),
+        ends_first: false,
     };
     let link = ComputerLink::new(
         ComputerConfig {
@@ -353,4 +363,78 @@ fn an_endpoint_of_an_earlier_activation_is_refused() {
         "no stream reached the endpoint"
     );
     assert_eq!(f.link.read(id), StreamRead::Broken);
+}
+
+// A session's stream that the endpoint ends first, before the client has
+// finished its side, gives its place back once the client has read the
+// end: sessions opened and ended one after another on one connection, many
+// more than MAX_STREAMS, are never refused, and the connection holds no
+// stream between them.
+#[test]
+fn streams_the_endpoint_ends_first_give_their_place_back() {
+    const SESSIONS: usize = 7 * MAX_STREAMS + 40;
+    let mut f = fixture(9, 9);
+    f.endpoint.ends_first = true;
+    pump(&mut f);
+    for n in 0..SESSIONS {
+        let id = f
+            .link
+            .open()
+            .unwrap_or_else(|e| panic!("session {n} was refused: {e:?}"));
+        f.link.write(id, b"open").unwrap();
+        assert_eq!(read_to_end(&mut f, id, n), b"open");
+        // The client finishes its side, or sends more, only after reading
+        // the session's last bytes; by then the stream is gone, so both are
+        // refused.
+        assert_eq!(f.link.write(id, b"late"), Err(StreamError::Unknown));
+        assert_eq!(f.link.finish(id), Err(StreamError::Unknown));
+        pump(&mut f);
+        assert_eq!(f.link.open_streams(), 0, "after session {n}");
+    }
+}
+
+/// Reads `id` until its end, and returns the bytes it carried.
+fn read_to_end(f: &mut Fixture, id: u32, n: usize) -> Vec<u8> {
+    let mut got = Vec::new();
+    for _ in 0..64 {
+        pump(f);
+        loop {
+            match f.link.read(id) {
+                StreamRead::Data(d) => got.extend(d),
+                StreamRead::End => return got,
+                StreamRead::Empty => break,
+                StreamRead::Broken => panic!("session {n}'s stream broke"),
+            }
+        }
+    }
+    panic!("session {n}'s stream did not end");
+}
+
+// A stream the client finishes first, as when the client closes a session,
+// gives its place back once, when the client reads the endpoint's end: a
+// later read finds no stream, a later write or finish is refused, and a
+// stream still open beside it keeps its place and its bytes.
+#[test]
+fn a_stream_the_client_finishes_first_gives_its_place_back_once() {
+    let mut f = fixture(9, 9);
+    pump(&mut f);
+    let held = f.link.open().unwrap();
+    f.link.write(held, b"held").unwrap();
+    for n in 0..2 * MAX_STREAMS {
+        let id = f
+            .link
+            .open()
+            .unwrap_or_else(|e| panic!("session {n} was refused: {e:?}"));
+        f.link.write(id, b"close").unwrap();
+        f.link.finish(id).unwrap();
+        assert_eq!(read_to_end(&mut f, id, n), b"close");
+        assert_eq!(f.link.open_streams(), 1, "after session {n}");
+        assert_eq!(f.link.read(id), StreamRead::Broken);
+        assert_eq!(f.link.write(id, b"late"), Err(StreamError::Unknown));
+        assert_eq!(f.link.finish(id), Err(StreamError::Unknown));
+        pump(&mut f);
+        assert_eq!(f.link.open_streams(), 1, "after session {n}");
+    }
+    assert_eq!(f.link.read(held), StreamRead::Data(b"held".to_vec()));
+    assert_eq!(f.link.read(held), StreamRead::Empty);
 }

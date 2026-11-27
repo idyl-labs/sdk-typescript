@@ -328,7 +328,13 @@ impl ComputerLink {
         self.streams.remove(&id);
     }
 
-    /// Takes what the endpoint sent on a stream.
+    /// Takes what the endpoint sent on a stream. Once it reports the end
+    /// or a broken stream, the stream is gone, whichever side ended first:
+    /// it no longer counts toward [`MAX_STREAMS`], yamux finishes the
+    /// client's side if the client has not, and a later write or finish is
+    /// refused as [`StreamError::Unknown`]. The endpoint ends a session's
+    /// stream only once the session is over, so nothing the client still
+    /// meant to send is wanted.
     pub fn read(&mut self, id: u32) -> StreamRead {
         let Some(entry) = self.streams.get_mut(&id) else {
             return StreamRead::Broken;
@@ -341,12 +347,16 @@ impl ComputerLink {
             return StreamRead::Broken;
         }
         if entry.end {
-            if entry.finished {
-                self.streams.remove(&id);
-            }
+            self.streams.remove(&id);
             return StreamRead::End;
         }
         StreamRead::Empty
+    }
+
+    /// The streams the connection holds, each counted toward
+    /// [`MAX_STREAMS`] until it is aborted or read to its end.
+    pub fn open_streams(&self) -> usize {
+        self.streams.len()
     }
 
     /// Bytes queued on a stream and not yet taken by yamux.
