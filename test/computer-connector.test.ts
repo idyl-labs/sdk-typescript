@@ -131,6 +131,14 @@ class FakeWorker implements WorkerPort {
   /** Whether the endpoint answers stdin with the same bytes as stdout. */
   echo = true;
   /**
+   * Whether a write or finish on a stream the endpoint has ended is refused,
+   * as the Worker refuses one on a stream it no longer holds; `refused`
+   * counts the refusals.
+   */
+  refuseEnded = false;
+  refused = 0;
+  readonly #endedStreams = new Set<number>();
+  /**
    * Whether the next stream's open finds its connection closed: the
    * connection ends and the open is refused.
    */
@@ -163,6 +171,7 @@ class FakeWorker implements WorkerPort {
    */
   endStream(broken = false): void {
     if (this.#last === undefined) throw new Error("no stream is open");
+    this.#endedStreams.add(this.#last.stream);
     this.#emit({ type: "stream-ended", ...this.#last, broken });
   }
 
@@ -293,7 +302,21 @@ class FakeWorker implements WorkerPort {
         reply(stream);
         return;
       }
-      case "write": {
+      case "write":
+      case "finish": {
+        if (this.refuseEnded && this.#endedStreams.has(m.stream)) {
+          this.refused++;
+          this.#emit({
+            type: "reply",
+            ref: m.ref,
+            error: `${m.type}: Unknown`,
+          });
+          return;
+        }
+        if (m.type === "finish") {
+          reply();
+          return;
+        }
         reply();
         const text = new TextDecoder().decode(m.bytes.subarray(4));
         const sent = JSON.parse(text) as { type: string; data?: string };
@@ -609,6 +632,35 @@ describe("computer connector", () => {
       h.connector.close();
     },
   );
+
+  // Contract: once the Computer has ended a session's stream, the Worker
+  // holds the stream no more and refuses what is sent on it; input, a
+  // resize, the end of input and a close sent after that end throw nothing
+  // and reject nothing.
+  it("lets nothing sent after the Computer ended a stream fail the caller", async () => {
+    const { connector, worker } = await harness();
+    worker.refuseEnded = true;
+    const session = await connector.open(COMPUTER, {
+      mode: "shell",
+      tty: true,
+      size: { cols: 80, rows: 24 },
+      term: "xterm",
+    });
+    const reader = session.output.getReader();
+    expect((await reader.read()).value).toMatchObject({ type: "opened" });
+    worker.endStream();
+    expect(await reader.read()).toEqual({ done: true, value: undefined });
+    expect(() => {
+      session.write(enc.encode("late"));
+      session.resize({ cols: 100, rows: 30 });
+      session.closeInput();
+      session.close();
+    }).not.toThrow();
+    await vi.waitFor(() => {
+      expect(worker.refused).toBe(3);
+    });
+    connector.close();
+  });
 
   // Contract: a reader that cancels the output ends it: a later end of the
   // stream reaches nothing and throws nothing.
