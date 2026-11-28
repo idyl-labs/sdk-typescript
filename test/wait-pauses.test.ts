@@ -55,24 +55,35 @@ describe("wait pauses", () => {
     ]);
   });
 
-  // Contract: with no event stream an operation is read every 500 ms for
-  // the first 10 s of its wait, then after 1, 2 and 4 s, then every 5 s.
+  // Contract: an operation's pauses in the first second of its wait are a
+  // session's, 100 ms doubling; with no event stream they are then 500 ms
+  // until 10 s into the wait, then 1, 2 and 4 s, then 5 s each time.
   it("paces an operation with no event stream", () => {
     expect(
       pauses(
         operationPauses(),
         false,
-        [0, 500, 9_999, 10_000, 11_000, 13_000, 17_000, 22_000, 27_000],
+        [
+          0, 100, 300, 700, 1_500, 9_999, 10_000, 11_000, 13_000, 17_000,
+          22_000,
+        ],
       ),
-    ).toEqual([500, 500, 500, 1_000, 2_000, 4_000, 5_000, 5_000, 5_000]);
+    ).toEqual([
+      100, 200, 400, 800, 500, 500, 1_000, 2_000, 4_000, 5_000, 5_000,
+    ]);
   });
 
-  // Contract: with an event stream an operation is read 500 ms after the
-  // last read, doubling to 5 s, each read a guard against a lost event.
+  // Contract: with an event stream an operation's pauses in the first
+  // second of its wait are a session's, and then 500 ms doubling to 5 s,
+  // each read a guard against a lost event.
   it("paces an operation with an event stream", () => {
-    expect(pauses(operationPauses(), true, Array<number>(6).fill(0))).toEqual([
-      500, 1_000, 2_000, 4_000, 5_000, 5_000,
-    ]);
+    expect(
+      pauses(
+        operationPauses(),
+        true,
+        [0, 100, 300, 700, 1_500, 2_000, 3_000, 5_000, 9_000, 14_000],
+      ),
+    ).toEqual([100, 200, 400, 800, 500, 1_000, 2_000, 4_000, 5_000, 5_000]);
   });
 
   // Contract: a command's save result is read every 250 ms with no event
@@ -91,6 +102,98 @@ describe("wait pauses", () => {
 describe("the wait loop", () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  /**
+   * The times, from the start of the wait, at which a wait with no event
+   * stream reads an operation the platform finishes `doneAfterMs` into it,
+   * on fake timers so no time passes.
+   */
+  async function operationReadTimes(doneAfterMs: number): Promise<number[]> {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const started = Date.now();
+    const reads: number[] = [];
+    const waiting = pollUntil<string>(
+      {},
+      {
+        initial: "pending",
+        pauses: operationPauses(),
+        read: () => {
+          const at = Date.now() - started;
+          reads.push(at);
+          return Promise.resolve(at >= doneAfterMs ? "done" : "pending");
+        },
+        met: (state) => state === "done",
+        timeoutMessage: () => "wait exceeded",
+      },
+    );
+    await vi.advanceTimersByTimeAsync(doneAfterMs + 6_000);
+    expect(await waiting).toBe("done");
+    return reads;
+  }
+
+  // Contract: an operation answered pending is read 0.1, 0.3, 0.7 and 1.5 s
+  // into its wait and then every 0.5 s to 10 s, then after 1, 2 and 4 s,
+  // then every 5 s: the reads for operations that finish 0.6, 1.3, 2.1, 4.9
+  // and 30 s into the wait.
+  it("reads an operation at the times its schedule states", async () => {
+    const halfSeconds = (from: number, to: number): number[] =>
+      Array.from({ length: (to - from) / 500 + 1 }, (_, i) => from + i * 500);
+    expect(await operationReadTimes(600)).toEqual([100, 300, 700]);
+    expect(await operationReadTimes(1_300)).toEqual([100, 300, 700, 1_500]);
+    expect(await operationReadTimes(2_100)).toEqual([
+      100, 300, 700, 1_500, 2_000, 2_500,
+    ]);
+    expect(await operationReadTimes(4_900)).toEqual([
+      100,
+      300,
+      700,
+      ...halfSeconds(1_500, 5_000),
+    ]);
+    expect(await operationReadTimes(30_000)).toEqual([
+      100,
+      300,
+      700,
+      ...halfSeconds(1_500, 10_000),
+      11_000,
+      13_000,
+      17_000,
+      22_000,
+      27_000,
+      32_000,
+    ]);
+  });
+
+  // Contract: a wait cancelled while it pauses between reads rejects at
+  // once with the signal's reason and reads nothing more.
+  it("ends at once when cancelled between reads", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    const controller = new AbortController();
+    const reason = new Error("stopped by the caller");
+    let reads = 0;
+    const waiting = pollUntil<string>(
+      { signal: controller.signal },
+      {
+        initial: "pending",
+        pauses: operationPauses(),
+        read: () => {
+          reads += 1;
+          return Promise.resolve("pending");
+        },
+        met: (state) => state === "done",
+        timeoutMessage: () => "wait exceeded",
+      },
+    );
+    const outcome = waiting.then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    await vi.advanceTimersByTimeAsync(150);
+    expect(reads).toBe(1);
+    controller.abort(reason);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await outcome).toBe(reason);
+    expect(reads).toBe(1);
   });
 
   // Contract: an event for what the wait waits for ends the pause under
